@@ -2,7 +2,7 @@ from multiprocessing import Process
 
 from dotenv import load_dotenv
 
-from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings
+from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 
 load_dotenv()
 from backend.api.master import guides, profile, schedule, welcome, profile_endpoints
@@ -16,6 +16,7 @@ app.include_router(profile_endpoints.prices.router)
 app.include_router(profile_endpoints.schedule.router)
 app.include_router(profile_endpoints.notifications.router)
 app.include_router(profile_endpoints.earnings.router)
+app.include_router(profile_endpoints.works.router)
 app.include_router(guides.router)
 app.include_router(schedule.router)
 

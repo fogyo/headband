@@ -139,7 +139,7 @@ async def get_step_images(
 ):
     """Получить список путей ко всем изображениям шага"""
     images = await GuideTextStepImageModel.get_by_step_id(session=session, step_id=step_id)
-    return [img.filepath for img in images]
+    return [img.id for img in images]
 
 @router.get("/images/{image_id}")
 async def serve_image(

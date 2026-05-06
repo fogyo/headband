@@ -12,3 +12,4 @@ from backend.database.operations.schedule import *
 from backend.database.operations.subscription import *
 from backend.database.operations.users import *
 from backend.database.operations.utils import *
+from backend.database.operations.works import *

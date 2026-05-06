@@ -291,6 +291,12 @@ class MasterModel(Base):
         cascade="all, delete-orphan",
         passive_deletes=True
     )
+    work_files: Mapped[List["WorkFilesModel"]] = relationship(
+        "WorkFilesModel",
+        back_populates="master",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
@@ -1387,3 +1393,53 @@ class CardModel(Base):
             await session.delete(obj)
             return "success"
         return "no such card"
+
+class WorkFilesModel(Base):
+    __tablename__ = "work_files"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    master_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("masters.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String)
+    filepath: Mapped[str] = mapped_column(String)
+
+    # Relationships
+    master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="work_files")
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict):
+        file_obj = cls(**data)
+        session.add(file_obj)
+        await session.flush()
+        return file_obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, file_id: uuid.UUID):
+        query = select(cls).where(cls.id == file_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):
+        query = select(cls).where(cls.master_id == master_id)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_by_master_name(cls, session: AsyncSession, master_id: uuid.UUID, name: str):
+        query = select(cls).where(and_(cls.master_id == master_id, cls.name == name))
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, file_id: uuid.UUID):
+        obj = await session.get(cls, file_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such file"
+
+    @classmethod
+    async def update(cls, session: AsyncSession, file_id: uuid.UUID, update_data: dict) -> str:
+        query = update(cls).where(cls.id == file_id).values(**update_data)
+        await session.execute(query)
+        return "success"
