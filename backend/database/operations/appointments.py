@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, timedelta
+from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -178,38 +179,32 @@ async def get_on_confirm(
 ):
     return await AppointmentModel.get_by_master_confirmation(master_id=master_id, session=session)
 
-#TODO при настройке пользователя
-'''async def get_appointments_by_user(
-        id: uuid.UUID,
+
+async def get_appointments_by_user(
+        user_id: uuid.UUID,
         session: AsyncSession
 ) -> List[dict]:
     """Получение записей пользователя"""
-    user = await UserModel.get_by_chat_id(session=session, chat_id=id)
-    if not user:
-        return []
 
     appointments = await AppointmentModel.get_by_user_id(
         session=session,
-        user_id=user.id
+        user_id=user_id
     )
 
     response_list = []
     for a in appointments:
-        aresponse = AppointmentResponse.model_validate(a).model_dump()
-
-        price = await PriceModel.get_by_id(session=session, price_id=a.price_id)
-        if price:
-            aresponse["service_name"] = price.name
-            aresponse["final_price"] = a.final_price
-
-        # Получаем адрес из working_day
         working_day = await WorkingDayModel.get_by_id(session=session, id=a.working_day_id)
-        if working_day:
-            aresponse["address"] = working_day.address
-
+        price = await PriceModel.get_by_id(session=session, price_id=a.price_id)
+        aresponse = {"service_name": price.name,
+                     "address": working_day.address,
+                     "day": a.date,
+                     "start_time": a.start_time,
+                     "end_time": a.end_time,
+                     "price": a.final_price}
         response_list.append(aresponse)
 
-    return response_list'''
+    return response_list
+
 '''async def create_appointment(
         appointment_request: AppointmentCreateRequest,
         session: AsyncSession
@@ -256,9 +251,10 @@ async def get_on_confirm(
 
         status = await AppointmentModel.create(session=session, data=appointment_dict)
         return status
-    return "unpredictable error"'''
+    return "unpredictable error"
+
 '''
 async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession) -> str:
     """Отмена записи"""
-    return await AppointmentModel.delete(session=session, appointment_id=appointment_id)'''
+    return await AppointmentModel.delete(session=session, appointment_id=appointment_id)
 

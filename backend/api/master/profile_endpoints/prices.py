@@ -16,7 +16,7 @@ from backend.model import pricelist
 
 #Requests
 class PriceCreateRequest(BaseModel):
-    category: int
+    category: str
     name: str
     approximate_time: int
     price: int

@@ -3,7 +3,7 @@ from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import PriceModel, CategoryModel
+from backend.database import PriceModel, CategoryModel, MasterCategoryModel
 
 
 async def get_price_by_id(
@@ -17,6 +17,8 @@ async def create_price_position(
     session: AsyncSession
 ):
     """Создание позиции прайса"""
+    cat_id = await CategoryModel.get_by_name(name=price["category"], session=session)
+    await MasterCategoryModel.add_category_to_master(master_id=price["master_id"], category_id=cat_id)
     return await PriceModel.create(session=session, data=price)
 
 
@@ -27,6 +29,10 @@ async def update_price(
     """Обновление позиции прайса"""
     id = update_data["id"]
     del update_data["id"]
+    price = await PriceModel.get_by_id(price_id=id, session=session)
+    prices = await get_prices_by_category(category_id=price.category_id, master_id=price.master_id, session=session)
+    if (len(prices) == 1 and update_data["category_id"]!=price.category_id):
+        await MasterCategoryModel.remove_category_from_master(master_id=price.master_id, category_id=price.category_id)
     return await PriceModel.update(
         session=session,
         price_id=id,
@@ -39,6 +45,10 @@ async def delete_price(
     session: AsyncSession
 ):
     """Удаление позиции прайса"""
+    price = await PriceModel.get_by_id(price_id=price_id, session=session)
+    prices = await get_prices_by_category(category_id=price.category_id, master_id=price.master_id, session=session)
+    if len(prices)==1:
+        await MasterCategoryModel.remove_category_from_master(master_id=price.master_id, category_id=price.category_id)
     return await PriceModel.delete(session=session, price_id=price_id)
 
 

@@ -261,33 +261,59 @@ export default function GuideDetailPage() {
 
           {/* Описание (с переносами строк) */}
           {guide.description && (
-            <div className="text-sm font-['Sofia_Sans'] text-black leading-normal whitespace-pre-line">
+            <div className="text-[12px] font-['Sofia_Sans'] text-black leading-normal whitespace-pre-line">
               {guide.description}
             </div>
           )}
 
           {/* Кнопка "Вернуться к гайдам" */}
           {reviewMode ? (
-          <div className="flex justify-between mt-4">
-            <button onClick={() => { toast("Гайд отклонён"); navigate(returnPath); }} className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] shadow flex items-center justify-center gap-1 disabled:opacity-50" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+          <div className="w-full flex justify-end gap-4 mt-8">
+            <button
+              onClick={() => {
+                toast("Гайд отклонён");
+                navigate(returnPath);
+              }}
+              className="relative bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 shadow text-[12px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
               <XIcon className="w-4 h-4" />
-              <span className="text-[14px] font-['Sofia_Sans'] text-black">Отклонить</span>
+              <span>Отклонить</span>
             </button>
-            <button onClick={() => { toast.success("Гайд одобрен"); navigate(returnPath); }} className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] shadow flex items-center justify-center gap-1 disabled:opacity-50" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+            <button
+              onClick={() => {
+                toast.success("Гайд одобрен");
+                navigate(returnPath);
+              }}
+              className="relative bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 shadow text-[12px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
               <Check className="w-4 h-4" />
-              <span className="text-[14px] font-['Sofia_Sans'] text-black">Согласовать</span>
+              <span>Согласовать</span>
             </button>
-          </div> ) : (
-          <Link
-            to="/guides"
-            className="relative bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 shadow text-[12px] font-['Sofia_Sans'] text-black"
-            style={{
-                    border: "0.5px solid rgba(0,0,0,0.00)",
-                    boxShadow:
-                      "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                  }} >
-            Вернуться к гайдам
-          </Link>
+          </div>
+        ) : (
+          <div className="w-full flex justify-end mt-4">
+            <Link
+              to={returnPath}
+              className="relative bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 shadow text-[12px] font-['Sofia_Sans'] text-black"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
+              Вернуться к гайдам
+            </Link>
+          </div>
         )}
         </div>
       </div>

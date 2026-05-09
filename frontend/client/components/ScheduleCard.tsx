@@ -16,7 +16,7 @@ export default function ScheduleCard({ className = "" }: ScheduleCardProps) {
           36px 38px 21px 0 rgba(0,0,0,0.01),
           57px 60px 23px 0 rgba(0,0,0,0.00)
         `,
-        border: "0.5px solid rgba(0,0,0,0.05)",
+        border: "0.5px solid rgba(0,0,0,0.00)",
       }}
     >
 

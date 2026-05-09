@@ -6,7 +6,7 @@ from typing import List, Optional, AsyncGenerator
 
 from dotenv import load_dotenv
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func
+from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func, UniqueConstraint
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
 from datetime import time, date
@@ -118,6 +118,18 @@ class UserModel(Base):
         cascade="all, delete-orphan",
         passive_deletes=True
     )
+    ratings: Mapped[List["RatingModel"]] = relationship(
+        "RatingModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+    constant_masters: Mapped[List["MasterConstantUsersModel"]] = relationship(
+        "MasterConstantUsersModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
@@ -167,7 +179,7 @@ class CategoryModel(Base):
 
     @classmethod
     async def get_by_id(cls, session: AsyncSession, category_id: uuid.UUID):
-        query = select(cls).where(cls.id == category_id)
+        query = select(cls.name).where(cls.id == category_id)
         result = await session.execute(query)
         return result.scalars().first()
 
@@ -201,7 +213,7 @@ class MasterModel(Base):
     referrer_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)  # Кто пригласил
     referral_counted: Mapped[bool] = mapped_column(default=False)  # Засчитан ли реферал
     ambassador: Mapped[bool] = mapped_column(default=False)
-
+    avatar: Mapped[str]
 
     # Relationships
     appointments: Mapped[List["AppointmentModel"]] = relationship(
@@ -297,6 +309,18 @@ class MasterModel(Base):
         cascade="all, delete-orphan",
         passive_deletes=True
     )
+    ratings: Mapped[List["RatingModel"]] = relationship(
+        "RatingModel",
+        back_populates="master",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+    constant_users: Mapped[List["MasterConstantUsersModel"]] = relationship(
+        "MasterConstantUsersModel",
+        back_populates="master",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
@@ -310,6 +334,12 @@ class MasterModel(Base):
         query = select(cls).where(cls.id == master_id)
         result = await session.execute(query)
         return result.scalars().first()
+
+    @classmethod
+    async def get_ambassadors(cls, session: AsyncSession):
+        query = select(cls).where(cls.ambassador == True)
+        result = await session.execute(query)
+        return result.scalars().all()
 
     @classmethod
     async def get_by_chat_id_tg(cls, session: AsyncSession, chat_id: int):
@@ -359,6 +389,32 @@ class MasterCategoryModel(Base):
         categories = result.scalars().all()
         category_ids = [cat.id for cat in categories]
         return category_ids
+
+    @classmethod
+    async def add_category_to_master(cls, master_id: uuid.UUID, category_id: uuid.UUID,
+                                     session: AsyncSession):
+        """Создаёт связь между мастером и категорией."""
+        # Проверяем, не существует ли уже такая связь
+        stmt = select(cls).where(cls.master_id == master_id, cls.category_id == category_id)
+        existing = await session.execute(stmt)
+        if existing.scalar_one_or_none():
+            return "Relation already exists"
+
+        new_relation = cls(master_id=master_id, category_id=category_id)
+        session.add(new_relation)
+        await session.flush()  # чтобы получить объект с возможными авто-значениями, но не коммитить
+        return "success"
+
+    @classmethod
+    async def remove_category_from_master(cls, master_id: uuid.UUID, category_id: uuid.UUID,
+                                          session: AsyncSession) -> None:
+        """Удаляет связь между мастером и категорией."""
+        stmt = delete(cls).where(cls.master_id == master_id, cls.category_id == category_id)
+        result = await session.execute(stmt)
+        if result.rowcount == 0:
+            raise ValueError("Relation not found")
+
+
 
 
 
@@ -1290,8 +1346,6 @@ class MasterReferralModel(Base):
     master_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("masters.id", ondelete="CASCADE"),
                                                  unique=True)
     invited_masters_count: Mapped[int] = mapped_column(BigInteger, default=0)
-    invited_users_count: Mapped[int] = mapped_column(BigInteger, default=0)
-    invited_active_users_count: Mapped[int] = mapped_column(BigInteger, default=0)
 
     # Relationships
     master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="referral_stats", uselist=False)
@@ -1320,23 +1374,6 @@ class MasterReferralModel(Base):
         await session.execute(query)
         return "success"
 
-    @classmethod
-    async def increment_users(cls, session: AsyncSession, master_id: uuid.UUID) -> str:
-        """Увеличить счетчик приглашенных пользователей"""
-        query = update(cls).where(cls.master_id == master_id).values(
-            invited_users_count=cls.invited_users_count + 1
-        )
-        await session.execute(query)
-        return "success"
-
-    @classmethod
-    async def increment_active_users(cls, session: AsyncSession, master_id: uuid.UUID) -> str:
-        """Увеличить счетчик приглашенных пользователей"""
-        query = update(cls).where(cls.master_id == master_id).values(
-            invited_active_users_count=cls.invited_active_users_count + 1
-        )
-        await session.execute(query)
-        return "success"
 
     @classmethod
     async def get_stats(cls, session: AsyncSession, master_id: uuid.UUID) -> Optional[dict]:
@@ -1345,9 +1382,7 @@ class MasterReferralModel(Base):
         if not referral:
             return None
         return {
-            "invited_masters": referral.invited_masters_count,
-            "invited_users": referral.invited_users_count,
-            "invited_active_users": referral.invited_active_users_count
+            "invited_masters": referral.invited_masters_count
         }
 
 class CardModel(Base):
@@ -1443,3 +1478,105 @@ class WorkFilesModel(Base):
         query = update(cls).where(cls.id == file_id).values(**update_data)
         await session.execute(query)
         return "success"
+
+class RatingModel(Base):
+    __tablename__ = "ratings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    master_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("masters.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    rating: Mapped[float] = mapped_column(default=0.0)  # например, от 0 до 5
+
+    # Уникальность: один пользователь – одна оценка мастеру
+    __table_args__ = (
+        UniqueConstraint("master_id", "user_id", name="uq_rating_master_user"),
+    )
+
+    # Relationships (будут добавлены в MasterModel и UserModel)
+    master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="ratings")
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="ratings")
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Создаёт новую оценку"""
+        rating = cls(**data)
+        session.add(rating)
+        await session.flush()
+        return rating.id
+
+    @classmethod
+    async def get_by_master_user(cls, session: AsyncSession, master_id: uuid.UUID, user_id: uuid.UUID):
+        """Получить оценку конкретного пользователя для мастера"""
+        query = select(cls).where(cls.master_id == master_id, cls.user_id == user_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_avg_rating_for_master(cls, session: AsyncSession, master_id: uuid.UUID) -> float:
+        """Средний рейтинг мастера"""
+        result = await session.execute(
+            select(func.avg(cls.rating)).where(cls.master_id == master_id)
+        )
+        avg = result.scalar()
+        return float(avg) if avg is not None else 0.0
+
+    @classmethod
+    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):
+        """Все оценки мастера"""
+        query = select(cls).where(cls.master_id == master_id)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+class MasterConstantUsersModel(Base):
+    __tablename__ = "master_constant_users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    master_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("masters.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+
+    # Уникальность пары (мастер + пользователь)
+    __table_args__ = (
+        UniqueConstraint("master_id", "user_id", name="uq_const_user_master"),
+    )
+
+    # Relationships
+    master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="constant_users")
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="constant_masters")
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Добавляет пользователя в постоянные клиенты мастера"""
+        entry = cls(**data)
+        session.add(entry)
+        await session.flush()
+        return entry.id
+
+    @classmethod
+    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):
+        """Список всех постоянных клиентов мастера"""
+        query = select(cls).where(cls.master_id == master_id)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_by_user_id(cls, session: AsyncSession, user_id: uuid.UUID):
+        """Список мастеров, у которых данный пользователь является постоянным клиентом"""
+        query = select(cls).where(cls.user_id == user_id)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def is_constant(cls, session: AsyncSession, master_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        """Проверяет, является ли пользователь постоянным клиентом мастера"""
+        query = select(cls).where(cls.master_id == master_id, cls.user_id == user_id)
+        result = await session.execute(query)
+        return result.scalars().first() is not None
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, entry_id: uuid.UUID) -> str:
+        """Удаляет связь постоянного клиента"""
+        obj = await session.get(cls, entry_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such relation"

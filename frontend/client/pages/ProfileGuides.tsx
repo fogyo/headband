@@ -238,7 +238,7 @@ function GuideCardPlain({ item }: { item: MyGuide }) {
 
 export default function ProfileGuidesPage() {
   // ⚠️ Замените false на true для просмотра версии амбассадора
-  const [isAmbassador] = useState(false);
+  const [isAmbassador] = useState(true);
   
   const handleEdit = (id: number) => {
   // Перенаправляем на GuideManage с флагом edit и id гайда
@@ -355,21 +355,20 @@ export default function ProfileGuidesPage() {
           </div>
 
           {/* Кнопка "Добавить гайд" — только для обычных мастеров */}
-          {!isAmbassador && (
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowTypeModal(true)}
-                className="bg-[#FFE9EF] rounded-[10px] py-2.5 px-8 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black"
-                style={{
-                  border: "0.5px solid rgba(0,0,0,0.00)",
-                  boxShadow:
-                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                }}
-              >
-                Добавить гайд
-              </button>
-            </div>
-          )}
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={() => setShowTypeModal(true)}
+              className="bg-[#FFE9EF] rounded-[10px] py-2.5 px-8 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
+              Добавить гайд
+            </button>
+          </div>
+
         </section>
 
         {/* Гайды на одобрение (только для амбассадоров) */}

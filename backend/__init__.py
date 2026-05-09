@@ -6,9 +6,12 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 
-#from backend.telegram_bot import bot_main
+logging.basicConfig(level=logging.INFO)
 
 import database as db
+from backend.telegram_bot.bot_main import stop_bot, start_bot
+
+
 
 app = FastAPI(
     title="Headband API",
@@ -34,6 +37,10 @@ app = FastAPI(
     ]
 )
 
+
+
+
+
 UPLOAD_DIR = Path("/var/uploads/guides")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 TEMPS_DIR = Path("/var/uploads/temps")
@@ -42,21 +49,6 @@ TEMPS_DIR.mkdir(parents=True, exist_ok=True)
 MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 ALLOWED_VID_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv"}
 ALLOWED_IMG_EXT = {".jpg", ".jpeg", ".png"}
-logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',)
 
 
-def run_bot_process():
-    """Импортируем функцию запуска бота"""
-    from backend.telegram_bot.bot_main import run_bot_process as bot_runner
-    bot_runner()
 
-
-def run_server_process():
-    """Запуск сервера в отдельном процессе"""
-    async def start_server():
-        if await db.setup_database():
-            logging.info("База данных инициализирована")
-        config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
-        server = uvicorn.Server(config)
-        await server.serve()
-    asyncio.run(start_server())

@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import MasterModel, MasterReferralModel, MasterNotificationModel
+from backend.database import MasterModel, MasterReferralModel, MasterNotificationModel, MasterConstantUsersModel
 from backend.database.requests import MasterCreateRequestTG
 
 
@@ -62,3 +62,9 @@ async def get_master_categories(master_id: uuid.UUID, session: AsyncSession):
 
 async def get_master(master_id: uuid.UUID, session: AsyncSession) -> MasterModel:
     return await MasterModel.get_by_id(master_id=master_id, session=session)
+
+async def get_constant_masters(user_id: uuid.UUID, session: AsyncSession):
+    return await MasterConstantUsersModel.get_by_user_id(user_id=user_id, session=session)
+
+async def get_ambassadors(session: AsyncSession):
+    return await MasterModel.get_ambassadors(session=session)

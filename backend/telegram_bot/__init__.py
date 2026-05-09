@@ -11,10 +11,6 @@ BOT_URL = os.getenv('BOT_URL')
 
 
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
-
-
 '''async def handle_deeplink(message: types.Message, args: str, session: AsyncSession):
     user = message.from_user
     chat = message.chat
