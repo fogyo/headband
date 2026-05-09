@@ -8,8 +8,7 @@ from backend.api.master.schedule import AppointmentResponse
 from backend.database import MasterModel, SubscriptionModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
     AppointmentModel, MasterAbsenceModel, AddressModel
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
-    _get_week_dates
-
+    _get_week_dates, _get_weekday_caps
 
 
 async def get_possible_start_time(
@@ -67,6 +66,8 @@ async def get_possible_start_time(
         working_day_id = await WorkingDayModel.create(session=session, data=working_day_data)
         working_day = await WorkingDayModel.get_by_id(session=session, id=working_day_id)
 
+    address = await AddressModel.get_by_id(address_id=working_day.address_id, session=session)
+    address_name = address.address
     # Получаем записи мастера на эту дату
     appointments = await AppointmentModel.get_by_master_and_date(
         session=session,
@@ -107,9 +108,9 @@ async def get_possible_start_time(
                 possible_starts.append(_timedelta_to_time(timedelta(minutes=slot_minutes)))
 
     if not possible_starts:
-        return None, "no time for app"
+        return None, "no time for app", ""
 
-    return possible_starts, "success"
+    return possible_starts, "success", address_name
 
 
 async def get_appointments_by_date(
@@ -177,7 +178,8 @@ async def get_on_confirm(
         master_id: uuid.UUID,
         session: AsyncSession
 ):
-    return await AppointmentModel.get_by_master_confirmation(master_id=master_id, session=session)
+    day = date.today()
+    return await AppointmentModel.get_by_master_confirmation(master_id=master_id, day=day, session=session)
 
 
 async def get_appointments_by_user(
@@ -205,55 +207,20 @@ async def get_appointments_by_user(
 
     return response_list
 
-'''async def create_appointment(
-        appointment_request: AppointmentCreateRequest,
+async def create_appointment(
+        appointment_dict: dict ,
         session: AsyncSession
 ) -> str:
     """Создание записи"""
-    price = await PriceModel.get_by_id(session=session, price_id=appointment_request.price_id)
-    if not price:
-        return "price not found"
 
-    appointment_dict = appointment_request.model_dump()
 
-    possible_times = await get_possible_start_time(appointment_dict["master_id"], appointment_dict["date"],appointment_dict["price_id"], session=session)
+    possible_times = await get_possible_start_time(appointment_dict["master_id"], appointment_dict["date"], appointment_dict["price_id"], session=session)
     if possible_times != None and appointment_dict["start_time"] in possible_times:
-        # Получаем или создаём working_day
-        working_day = await WorkingDayModel.get_by_master_and_date(
-            session=session,
-            master_id=appointment_dict["master_id"],
-            day_date=appointment_dict["date"]
-        )
-
-        if not working_day:
-            # Создаём из week_template
-            weekday = _get_weekday_caps(appointment_dict["date"]).value
-            week_template = await WeekTemplateModel.get_by_master_and_weekday(
-                session=session,
-                master_id=appointment_dict["master_id"],
-                weekday=weekday
-            )
-            if week_template:
-                wd_data = {
-                    "master_id": appointment_dict["master_id"],
-                    "day_date": appointment_dict["date"],
-                    "start_time": week_template.start_time,
-                    "end_time": week_template.end_time,
-                    "address": week_template.address
-                }
-                wd_id = await WorkingDayModel.create(session=session, data=wd_data)
-                working_day = await WorkingDayModel.get_by_id(session=session, id=wd_id)
-
-        if working_day:
-            appointment_dict["working_day_id"] = working_day.id
-
-        appointment_dict["final_price"] = price.price
-
         status = await AppointmentModel.create(session=session, data=appointment_dict)
         return status
     return "unpredictable error"
 
-'''
+
 async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession) -> str:
     """Отмена записи"""
     return await AppointmentModel.delete(session=session, appointment_id=appointment_id)

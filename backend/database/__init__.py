@@ -717,6 +717,7 @@ class AppointmentModel(Base):
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
+        data["status"] = AppointmentStatus.PENDING
         appointment = cls(**data)
         session.add(appointment)
         await session.flush()
@@ -729,8 +730,8 @@ class AppointmentModel(Base):
         return result.scalars().all()
 
     @classmethod
-    async def get_by_master_confirmation(cls, session: AsyncSession, master_id: uuid.UUID):
-        query = select(cls).where(cls.master_id == master_id, cls.status == AppointmentStatus.PENDING).order_by(cls.start_time)
+    async def get_by_master_confirmation(cls, session: AsyncSession, master_id: uuid.UUID, day: date):
+        query = select(cls).where(and_(cls.master_id == master_id, cls.status == AppointmentStatus.PENDING, day>cls.date)).order_by(cls.start_time)
         result = await session.execute(query)
         return result.scalars().all()
 

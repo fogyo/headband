@@ -96,3 +96,5 @@ async def create_pricelist(data: List, master_id: uuid.UUID, session: AsyncSessi
         p["master_id"] = master_id
         d["id"] = await PriceModel.create(session=session, data=p)
     return data
+
+
