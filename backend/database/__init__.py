@@ -203,8 +203,6 @@ class MasterModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chat_id_tg: Mapped[int] = mapped_column(BigInteger, nullable=True)
     username_tg: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    chat_id_max: Mapped[int] = mapped_column(BigInteger, nullable=True)
-    username_max: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     full_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -213,7 +211,6 @@ class MasterModel(Base):
     referrer_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)  # Кто пригласил
     referral_counted: Mapped[bool] = mapped_column(default=False)  # Засчитан ли реферал
     ambassador: Mapped[bool] = mapped_column(default=False)
-    avatar: Mapped[str]
 
     # Relationships
     appointments: Mapped[List["AppointmentModel"]] = relationship(

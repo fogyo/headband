@@ -10,10 +10,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+PROXY_URL = os.getenv("PROXY_URL")
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://example.com/miniapp")
 
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN, proxy=PROXY_URL)
 dp = Dispatcher()
 
 def get_main_keyboard() -> InlineKeyboardMarkup:
