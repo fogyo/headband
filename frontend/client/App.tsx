@@ -7,20 +7,24 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
-import Schedule from "./pages/Schedule";
+import Schedule from "./pages/master/Schedule";
 import NotFound from "./pages/NotFound";
-import GuidesPage from "./pages/Guides";
-import GuideDetailPage from "./pages/GuideDetail";
-import ProfilePage from "./pages/Profile";
-import ProfilePersonalInfoPage from "./pages/ProfilePersonalInfo";
-import ProfileSchedulePage from "./pages/ProfileSchedule";
-import ProfilePriceListPage from "./pages/ProfilePriceList";
-import ProfileIncomePage from "./pages/ProfileIncome";
-import ProfileGuidesPage from "./pages/ProfileGuides";
-import GuideManagePage from "./pages/GuideManage";
-import ProfileWorksPage from "./pages/ProfileWorks";
-import ProfileWorksDetailPage from "./pages/ProfileWorksDetail";
-import ProfileNotificationsPage from "./pages/ProfileNotifications";
+import GuidesPage from "./pages/master/Guides";
+import GuideDetailPage from "./pages/master/GuideDetail";
+import ProfilePage from "./pages/master/Profile";
+import ProfilePersonalInfoPage from "./pages/master/ProfilePersonalInfo";
+import ProfileSchedulePage from "./pages/master/ProfileSchedule";
+import ProfilePriceListPage from "./pages/master/ProfilePriceList";
+import ProfileIncomePage from "./pages/master/ProfileIncome";
+import ProfileGuidesPage from "./pages/master/ProfileGuides";
+import GuideManagePage from "./pages/master/GuideManage";
+import ProfileWorksPage from "./pages/master/ProfileWorks";
+import ProfileWorksDetailPage from "./pages/master/ProfileWorksDetail";
+import ProfileNotificationsPage from "./pages/master/ProfileNotifications";
+import UserIndexPage from "./pages/client/UserIndex";
+import CategoryMastersPage from "./pages/client/CategoryMastersPage";
+import MasterPriceListPage from "./pages/client/MasterPriceListPage";
+import BookAppointmentPage from "./pages/client/BookAppointmentsPage";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +50,10 @@ const App = () => (
           <Route path="/profile/portfolio" element={<ProfileWorksPage />} />
           <Route path="/profile/portfolio/:hashtag" element={<ProfileWorksDetailPage />} />
           <Route path="/profile/notifications" element={<ProfileNotificationsPage />} />
+          <Route path="/category/:category" element={<CategoryMastersPage />} />
+          <Route path="/user" element={<UserIndexPage />} />
+          <Route path="/booking/:masterId" element={<MasterPriceListPage />} />
+          <Route path="/booking/:masterId/:serviceId" element={<BookAppointmentPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
