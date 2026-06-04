@@ -17,12 +17,14 @@ async def update_master(update_data, session: AsyncSession) -> str:
         update_data=master_to_upd
     )
 
+async def check_master(chat_id: int, session: AsyncSession):
+    return await MasterModel.get_by_chat_id_tg(session=session, chat_id=chat_id) == None
+
 async def create_master_tg(
         chat_id: int,
         username: str,
-        full_name: str,
-        referrer_master_id: Optional[uuid.UUID],
-        session: AsyncSession
+        session: AsyncSession,
+        referrer_master_id: Optional[uuid.UUID] = None
 ):
     """Создание мастера по диплинку с отслеживанием реферала"""
     try:
@@ -33,7 +35,6 @@ async def create_master_tg(
         master_data = MasterCreateRequestTG(
             chat_id_tg=chat_id,
             username_tg=username,
-            full_name=full_name,
             master_link_id=new_master_link_id,
             user_link_id=new_user_link_id
         )
@@ -62,6 +63,9 @@ async def get_master_categories(master_id: uuid.UUID, session: AsyncSession):
 
 async def get_master(master_id: uuid.UUID, session: AsyncSession) -> MasterModel:
     return await MasterModel.get_by_id(master_id=master_id, session=session)
+
+async def get_master_by_chat(chat_id: int, session: AsyncSession) -> MasterModel:
+    return await MasterModel.get_by_chat_id_tg(chat_id=chat_id, session=session)
 
 async def get_constant_masters(user_id: uuid.UUID, session: AsyncSession):
     return await MasterConstantUsersModel.get_by_user_id(user_id=user_id, session=session)

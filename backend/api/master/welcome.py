@@ -11,12 +11,6 @@ from backend.database import miniapp_db_fcn, get_db_session
 
 
 
-# Requests
-class DateRequest(BaseModel):
-    master_id: uuid.UUID
-    day: date
-
-
 # Responses
 class AppointmentResponse(BaseModel):
     id: uuid.UUID
@@ -43,10 +37,12 @@ router = APIRouter(
 
 @router.get("/", response_model=AppointmentListResponse)
 async def get_appointments_today(
-        master_id: uuid.UUID,
+        chat_id: int,
         session: AsyncSession = Depends(get_db_session)
 ):
     """Получение записей мастера на дату"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     appointments, count, status, addresses, names = await miniapp_db_fcn.get_appointments_by_date(
         master_id=master_id,
         app_date=date.today(),

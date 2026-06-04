@@ -1,20 +1,25 @@
+from sqlalchemy.ext.asyncio import AsyncSession
 
-#TODO юзер
-'''async def create_user(
-        user: User,
-        chat: Chat,
+from backend.database import UserModel
+
+
+async def check_user(chat_id: int,
+                     session: AsyncSession):
+    return await UserModel.get_by_chat_id(session=session, chat_id=chat_id) == None
+
+
+async def create_user(
+        username: str | None,
+        chat_id: int ,
         session: AsyncSession
-) -> str:
+):
     """Создание пользователя"""
-    user_data = UserCreateRequest(
-        chat_id=chat.id,
-        username=user.username
-    )
-
-    created = await UserModel.create(session=session, data=user_data.model_dump())
+    user = {"chat_id": chat_id,
+            "username": username}
+    created = await UserModel.create(session=session, data=user)
     if created:
         return "success"
-    return "unable to create"'''
+    return "unable to create"
 
 
 """async def create_user_from_deeplink(
