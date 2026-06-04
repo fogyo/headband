@@ -1,12 +1,32 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import homeIconUrl from "@/assets/home.svg"; // твоя SVG иконка
+import homeIconUrl from "@/assets/home.svg";
 import eyeIcon from "@/assets/eye.svg";
 import starIcon from "@/assets/star.svg";
 import starFilledIcon from "@/assets/filled_star.svg";
-import videoTypeIcon from "@/assets/video_icon.svg"; // твоя иконка для видео
-import textTypeIcon from "@/assets/text_icon.svg";   // твоя иконка для текста
+import videoTypeIcon from "@/assets/video_icon.svg";
+import textTypeIcon from "@/assets/text_icon.svg";
 
-// Тип данных для карточки гайда
+const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+
+// Тип ответа от бэка
+interface GuideFromBackend {
+  id: string;
+  name: string;
+  category: string;
+  video: boolean;      // true = видео-гайд, false = текстовый
+  liked: boolean;
+  likes: number;
+  views: number;
+}
+
+interface GuidesResponse {
+  status: string;
+  guides_fit: GuideFromBackend[];
+  guides_all: GuideFromBackend[];
+}
+
+// Тип для карточки (адаптирован под бэк)
 interface GuideItem {
   id: string;
   title: string;
@@ -14,113 +34,39 @@ interface GuideItem {
   views: number;
   likes: number;
   isStarred: boolean;
-  bgColor: string;
   type: "video" | "text";
 }
 
-// Моковые данные для секции "Могут Вам подойти"
-const recommendedGuides: GuideItem[] = [
-  {
-    id: "1",
-    title: "Современная",
-    category: "Стрижки",
-    views: 567,
-    likes: 72,
-    isStarred: true, // отмечен
-    bgColor: "#FFE9EF",
-    type: "text",
-  },
-  {
-    id: "2",
-    title: "Фэйд",
-    category: "Стрижки",
-    views: 567,
-    likes: 72,
-    isStarred: false,
-    bgColor: "#FFD0DC",
-    type: "video",
-  },
-  {
-    id: "3",
-    title: "Модельная",
-    category: "Стрижки",
-    views: 567,
-    likes: 72,
-    isStarred: true,
-    bgColor: "#FFD0DC",
-    type: "video",
-  },
-  {
-    id: "4",
-    title: "Помпадур",
-    category: "Стрижки",
-    views: 567,
-    likes: 72,
-    isStarred: false,
-    bgColor: "#FFE9EF",
-    type: "text",
-  },
-];
-
-// Моковые данные для секции "Все гайды" (пока пусто, можно добавить позже)
-const allGuides: GuideItem[] = [];
-
-
 function GuideCard({ item }: { item: GuideItem }) {
   const typeIcon = item.type === "video" ? videoTypeIcon : textTypeIcon;
+  // Фон: чередование или статический – пусть будет на основе id
+  const bgColor = (parseInt(item.id) % 2 === 0) ? "#FFE9EF" : "#FFD0DC";
 
   return (
     <Link
-      to={`/guide/${item.id}`}
+      to={`/guide/${item.id}?from=guides`}
       className={`relative w-full h-24 rounded-[20px] overflow-hidden shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]`}
-      style={{ border: "0.5px solid rgba(0,0,0,0.00)", backgroundColor: item.bgColor, boxShadow: "box-shadow: 57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
+      style={{ backgroundColor: bgColor }}
     >
       <div className="flex h-full">
-        {/* Левая часть: текст + вертикальная статистика */}
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-          <div className="min-w-0">
-            <h4
-              className="text-[12px] font-['Sofia_Sans'] text-black leading-tight truncate"
-              style={{ overflowWrap: "normal", wordBreak: "normal" }}
-            >
-              {item.title}
-            </h4>
-            <p
-              className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-normal"
-              style={{ overflowWrap: "normal", wordBreak: "normal" }}
-            >
-              {item.category}
-            </p>
+          <div>
+            <h4 className="text-[12px] font-['Sofia_Sans'] text-black truncate">{item.title}</h4>
+            <p className="text-[10px] font-['Sofia_Sans'] text-black/50">{item.category}</p>
           </div>
-
           <div className="flex flex-col gap-0.5 mt-1">
-          <div className="flex items-center gap-1">
-              {/* Звезда: заполненная, если isStarred */}
-              <img
-                src={item.isStarred ? starFilledIcon : starIcon}
-                alt="star"
-                className="w-3 h-3 relative z-10"
-              />
-              <span className="text-[10px] font-['Sofia_Sans'] text-black leading-none">
-                {item.likes}
-              </span>
+            <div className="flex items-center gap-1">
+              <img src={item.isStarred ? starFilledIcon : starIcon} alt="star" className="w-3 h-3" />
+              <span className="text-[10px] font-['Sofia_Sans'] text-black">{item.likes}</span>
             </div>
-          <div className="flex items-center gap-1">
-            <img src={eyeIcon} alt="eye" className="w-2 h-2 relative z-10" />
-            <span className="text-[8px] font-['Sofia_Sans'] text-black/50 leading-none">
-              {item.views}
-            </span>
+            <div className="flex items-center gap-1">
+              <img src={eyeIcon} alt="eye" className="w-2 h-2" />
+              <span className="text-[8px] font-['Sofia_Sans'] text-black/50">{item.views}</span>
+            </div>
           </div>
         </div>
-      </div>
-
-        {/* Правая часть: иконка типа (строго 73×92) */}
         <div className="w-[73px] h-[92px] flex-shrink-0 self-center mr-0.5">
-          <img
-            src={typeIcon}
-            alt={item.type}
-            className="w-full h-full object-contain"
-          />
+          <img src={typeIcon} alt={item.type} className="w-full h-full object-contain" />
         </div>
       </div>
     </Link>
@@ -128,81 +74,104 @@ function GuideCard({ item }: { item: GuideItem }) {
 }
 
 export default function GuidesPage() {
+  const STATIC_CHAT_ID = 980609742; // замени на реальный chat_id
+
+  const [fitGuides, setFitGuides] = useState<GuideItem[]>([]);
+  const [allGuides, setAllGuides] = useState<GuideItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchGuides = async () => {
+      try {
+        const url = `${baseUrl}/master/guides/?chat_id=${STATIC_CHAT_ID}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: GuidesResponse = await res.json();
+        if (data.status !== "success") throw new Error(data.status);
+
+        const mapGuide = (g: GuideFromBackend): GuideItem => ({
+          id: g.id,
+          title: g.name,
+          category: g.category,
+          views: g.views,
+          likes: g.likes,
+          isStarred: g.liked,
+          type: g.video ? "video" : "text",
+        });
+
+        setFitGuides(data.guides_fit.map(mapGuide));
+        setAllGuides(data.guides_all.map(mapGuide));
+      } catch (err: any) {
+        console.error(err);
+        setError("Не удалось загрузить гайды");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGuides();
+  }, [STATIC_CHAT_ID]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
-        {/* Кнопка Home с локальной SVG иконкой */}
         <Link
           to="/"
-          className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
+          className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow"
         >
-          <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />
-          <img src={homeIconUrl} alt="home" className="w-6 h-6 relative z-10" />
+          <img src={homeIconUrl} alt="home" className="w-6 h-6" />
         </Link>
 
-        {/* Header */}
         <div className="pt-8 pb-2">
-          <h1
-            className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
-            style={{
-              fontFamily: "Poppins, sans-serif",
-              WebkitTextStroke: "1px #000",
-            }}
-          >
+          <h1 className="text-[40px] leading-tight tracking-[3.2px] text-transparent" style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}>
             guides
           </h1>
-          <p
-            className="text-right text-[16px] tracking-[1.28px] text-transparent mt-[-4px]"
-            style={{
-              fontFamily: "Poppins, sans-serif",
-              WebkitTextStroke: "0.4px #000",
-            }}
-          >
+          <p className="text-right text-[16px] tracking-[1.28px] text-transparent mt-[-4px]" style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "0.4px #000" }}>
             version for masters
           </p>
         </div>
 
         {/* Секция "Могут Вам подойти" */}
         <section className="mt-8">
-        <h2
-            className="text-[30px] leading-tight tracking-[-2px] text-black"
-            style={{ fontFamily: "'Sofia Sans', sans-serif" }}
-        >
-            Могут Вам подойти
-        </h2>
-        <div className="h-px bg-black w-[210px] mb-3" />
-
-        {recommendedGuides.length === 0 ? (
-            <p className="text-black/50 text-sm italic font-['Sofia_Sans']">
-            Пока здесь пусто
-            </p>
-        ) : (
+          <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">Могут Вам подойти</h2>
+          <div className="h-px bg-black w-[210px] mb-3" />
+          {fitGuides.length === 0 ? (
+            <p className="text-black/50 text-sm italic font-['Sofia_Sans']">Пока здесь пусто</p>
+          ) : (
             <div className="grid grid-cols-2 gap-3">
-            {recommendedGuides.map((guide, idx) => (
-                <GuideCard key={idx} item={guide} />
-            ))}
+              {fitGuides.map((guide) => (
+                <GuideCard key={guide.id} item={guide} />
+              ))}
             </div>
-        )}
+          )}
         </section>
 
         {/* Секция "Все гайды" */}
         <section className="mt-10">
-          <h2
-            className="text-[30px] leading-tight tracking-[-2px] text-black"
-            style={{ fontFamily: "'Sofia Sans', sans-serif" }}
-            >
-            Все гайды
-            </h2>
+          <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">Все гайды</h2>
           <div className="h-px bg-black w-[210px] mb-3" />
-
           {allGuides.length === 0 ? (
-            <p className="text-black/50 text-sm italic font-['Sofia_Sans']">
-              Пока здесь пусто
-            </p>
+            <p className="text-black/50 text-sm italic font-['Sofia_Sans']">Пока здесь пусто</p>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {allGuides.map((guide, idx) => (
-                <GuideCard key={idx} item={guide} />
+              {allGuides.map((guide) => (
+                <GuideCard key={guide.id} item={guide} />
               ))}
             </div>
           )}
