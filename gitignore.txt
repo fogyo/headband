@@ -1,4 +1,0 @@
-/.env
-/temps
-/categories.txt
-.DS_Store
