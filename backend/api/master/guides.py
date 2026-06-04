@@ -13,10 +13,8 @@ from fastapi.responses import FileResponse
 
 
 #Request
-
-
 class ViewRequest(BaseModel):
-    master_id: uuid.UUID
+    chat_id: int
     guide_id: uuid.UUID
 
 
@@ -63,10 +61,12 @@ router = APIRouter(
 
 @router.get("/", response_model=GuidePageResponse)
 async def get_guides(
-    master_id: uuid.UUID,
+    chat_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Получение списка гайдов для мастера"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     status, g_fitable, g_all = await miniapp_db_fcn.get_guides(
         master_id=master_id,
         session=session
@@ -121,7 +121,9 @@ async def create_view(
         request: ViewRequest,
         session: AsyncSession = Depends(get_db_session)
 ):
-    await miniapp_db_fcn.add_view(master_id=request.master_id, guide_id=request.guide_id, session=session)
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=request.chat_id, session=session)
+    master_id = master.id
+    await miniapp_db_fcn.add_view(master_id=master_id, guide_id=request.guide_id, session=session)
     return {"status": "success"}
 
 @router.patch("/like", response_model=StatusResponse)
@@ -129,7 +131,9 @@ async def toggle_like(
         request: ViewRequest,
         session: AsyncSession = Depends(get_db_session)
 ):
-    await miniapp_db_fcn.change_state(master_id=request.master_id, guide_id=request.guide_id, session=session)
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=request.chat_id, session=session)
+    master_id = master.id
+    await miniapp_db_fcn.change_state(master_id=master_id, guide_id=request.guide_id, session=session)
     return {"status": "success"}
 
 @router.get("/steps/{step_id}/images", response_model=List[str])
