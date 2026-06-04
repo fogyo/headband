@@ -40,11 +40,14 @@ router = APIRouter(
 
 @router.get("/date", response_model=AppointmentListResponse)
 async def get_appointments_by_date(
-        master_id: uuid.UUID,
+        chat_id: int,
         day: date,
         session: AsyncSession = Depends(get_db_session)
 ):
     """Получение записей мастера на дату"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
+
     appointments, count, status, addresses, names = await miniapp_db_fcn.get_appointments_by_date(
         master_id=master_id,
         app_date=day,
@@ -67,11 +70,14 @@ async def get_appointments_by_date(
 
 @router.get("/week", response_model=WeekTimetableResponse)
 async def get_week_timetable(
-        master_id: uuid.UUID,
+        chat_id: int,
         day: date,
         session: AsyncSession = Depends(get_db_session)
 ):
     """Получение расписания мастера на неделю"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
+
     week_appointments, status = await miniapp_db_fcn.get_week_timetable(
         master_id=master_id,
         start_date=day,
