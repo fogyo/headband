@@ -101,7 +101,7 @@ function buildTimeline(appointments: AppointmentFromBackend[]): TimelineItem[] {
 }
 
 // Временный статический chat_id (потом заменишь на window.Telegram...)
-const STATIC_CHAT_ID = 123456789; // замени на свой ID мастера
+const STATIC_CHAT_ID = 980609742; // замени на свой ID мастера
 
 export default function Index() {
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
@@ -116,7 +116,7 @@ export default function Index() {
         if (!res.ok) throw new Error(`Ошибка ${res.status}`);
         const data: ApiResponse = await res.json();
 
-        if (data.status !== "ok") throw new Error("Статус ответа не ok");
+        if (data.status !== "success") throw new Error("Статус ответа не ok");
 
         const items = buildTimeline(data.appointments);
         setTimelineItems(items);

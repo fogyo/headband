@@ -8,7 +8,7 @@ from backend.api.master.schedule import AppointmentResponse
 from backend.database import MasterModel, SubscriptionModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
     AppointmentModel, MasterAbsenceModel, AddressModel
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
-    _get_week_dates, _get_weekday_caps
+    _get_week_dates
 
 
 async def get_possible_start_time(
@@ -145,7 +145,7 @@ async def get_appointments_by_date(
     if appointments:
         return appointments, len(appointments), "success", addresses, names
 
-    return [], 0, "no appointments today", [], []
+    return [], 0, "success", [], []
 
 
 async def get_week_timetable(

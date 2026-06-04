@@ -5,6 +5,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,7 +39,13 @@ app = FastAPI(
 )
 
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080"],   # или ["*"] для разработки
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 UPLOAD_DIR = Path("/var/uploads/guides")
