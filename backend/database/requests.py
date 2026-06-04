@@ -58,7 +58,7 @@ class AppointmentCreateRequest(BaseModel):
 class MasterCreateRequestTG(BaseModel):
     chat_id_tg: int
     username_tg: Optional[str] = "no info"
-    full_name: Optional[str] = "no info"
+    full_name: Optional[str] = "Имя не указано"
     master_link_id: uuid.UUID
     user_link_id: uuid.UUID
 
