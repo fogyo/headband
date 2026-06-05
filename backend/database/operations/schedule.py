@@ -71,7 +71,7 @@ async def get_absences_by_master(
     status = "success"
     if len(absences) == 0:
        status = "no absences"
-       res = [{"res": "no periods"}]
+       res = []
     else:
        res = [{"id": a.id,
                 "start_date": a.start_date,
@@ -116,19 +116,19 @@ async def get_week_template_by_master(master_id: uuid.UUID, session: AsyncSessio
     return response
 
 
-async def update_week_template(templates: List, session: AsyncSession):
+async def update_week_template(master_id: uuid.UUID, templates: List, session: AsyncSession):
     """Обновление шаблона на неделю"""
     try:
         for req in templates:
             # Находим существующий шаблон
             template = await WeekTemplateModel.get_by_master_and_weekday(
                 session=session,
-                master_id=req.master_id,
+                master_id=master_id,
                 weekday=req.weekday
             )
             if not template:
                 await WeekTemplateModel.create(session=session, data={
-                    "master_id": req.master_id,
+                    "master_id": master_id,
                     "weekday": req.weekday,
                     "start_time": req.start_time,
                     "end_time": req.end_time,
@@ -163,7 +163,8 @@ async def get_day(master_id: uuid.UUID, day: date, session: AsyncSession):
 
 async def update_working_day(
         request: WorkingDayUpdateRequest,
-        session: AsyncSession
+        session: AsyncSession,
+        master_id: uuid.UUID
 ):
     """
     Обновление конкретного рабочего дня (форс-мажор).
@@ -171,15 +172,15 @@ async def update_working_day(
     """
     try:
         working_day = await WorkingDayModel.get_by_master_and_date(
-            session=session, master_id=request.master_id, day_date=request.date
+            session=session, master_id=master_id, day_date=request.day_date
         )
         if not working_day:
-            await WorkingDayModel.create(data = request.model_dump(), session=session)
-            return "success"
+            await WorkingDayModel.create(master_id=master_id, data = request.model_dump(), session=session)
+            return "success", []
 
         cancelled = await _cancel_conflicting_appointments_for_date(
             session=session,
-            master_id=request.master_id,
+            master_id=master_id,
             date=request.day_date,
             new_start=request.start_time,
             new_end=request.end_time
@@ -247,7 +248,5 @@ async def update_absence(update_data, session: AsyncSession):
     return await MasterAbsenceModel.update(
         session=session,
         id=update_data.absence_id,
-        master_id=update_data.master_id,
         update_data=data_to_upd
-
     )

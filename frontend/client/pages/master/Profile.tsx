@@ -61,7 +61,7 @@ function MenuRow({
 }
 
 export default function ProfilePage() {
-  const STATIC_CHAT_ID = 980609742; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
+  const STATIC_CHAT_ID = 1386270482; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
 
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +105,7 @@ export default function ProfilePage() {
   // Подготовка данных с учётом null
   const fullName = profile.name || "Имя не указано";
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
-  const phone = profile.phone || "Телефон не указан";
+  const phone = "+"+profile.phone || "+7 (___) ___-__-__";
   const avatarUrl = "https://placehold.co/100x100"; // бэк не отдаёт аватар, оставляем заглушку
 
   return (
@@ -145,12 +145,12 @@ export default function ProfilePage() {
         {/* Секция "Аккаунт" – стили нетронуты */}
         <section className="mt-8">
           <h2
-            className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']"
+            className="text-[30px] leading-tight tracking-[-1.5px] text-black font-['Sofia_Sans']"
             style={{ fontFamily: "'Sofia Sans', sans-serif" }}
           >
             Аккаунт
           </h2>
-          <div className="h-px bg-black w-32 mb-4" />
+          <div className="h-px bg-black w-36 mb-4" />
 
           {/* Аватар и данные – динамические значения */}
           <div className="flex items-center gap-4 mb-6">
@@ -215,12 +215,12 @@ export default function ProfilePage() {
         {/* Секция "Приложение" – без изменений */}
         <section className="mt-10">
           <h2
-            className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']"
+            className="text-[30px] leading-tight tracking-[-1.5px] text-black font-['Sofia_Sans']"
             style={{ fontFamily: "'Sofia Sans', sans-serif" }}
           >
             Приложение
           </h2>
-          <div className="h-px bg-black w-32 mb-4" />
+          <div className="h-px bg-black w-36 mb-4" />
 
           <div className="flex flex-col gap-2">
             <MenuRow

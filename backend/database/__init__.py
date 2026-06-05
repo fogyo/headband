@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from doctest import master
 from enum import Enum
 from typing import List, Optional, AsyncGenerator
 
@@ -436,7 +437,8 @@ class WorkingDayModel(Base):
     )
 
     @classmethod
-    async def create(cls, session: AsyncSession, data: dict):
+    async def create(cls, session: AsyncSession, data: dict, master_id: uuid.UUID):
+        data["master_id"] = master_id
         working_day = cls(**data)
         session.add(working_day)
         await session.flush()
@@ -565,8 +567,8 @@ class MasterAbsenceModel(Base):
         return result.scalars().first() is not None
 
     @classmethod
-    async def update(cls, session: AsyncSession, id: uuid.UUID, master_id: uuid.UUID, update_data: dict) -> str:
-        query = update(cls).where(cls.id == id, cls.master_id == master_id).values(**update_data)
+    async def update(cls, session: AsyncSession, id: uuid.UUID, update_data: dict) -> str:
+        query = update(cls).where(cls.id == id).values(**update_data)
         await session.execute(query)
         return "success"
 

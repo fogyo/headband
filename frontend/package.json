@@ -16,6 +16,7 @@
     "@tma.js/sdk": "^3.2.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "react-input-mask": "^2.0.4",
     "zod": "^3.25.76"
   },
   "devDependencies": {

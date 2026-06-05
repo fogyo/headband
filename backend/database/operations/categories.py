@@ -22,7 +22,7 @@ async def create_category(
 ):
     """Создание категории"""
     data = {"name": name}
-    return await CategoryModel.create(session=session, data = data)
+    return await CategoryModel.create(session=session, data=data)
 
 async def check_category(category_id: uuid.UUID,
                          master_id: uuid.UUID,

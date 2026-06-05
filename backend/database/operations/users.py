@@ -1,6 +1,8 @@
+import uuid
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import UserModel
+from backend.database import UserModel, MasterConstantUsersModel
 
 
 async def check_user(chat_id: int,
@@ -21,6 +23,8 @@ async def create_user(
         return "success"
     return "unable to create"
 
+async def get_consonant_users(master_id: uuid.UUID, session: AsyncSession):
+    return len(await MasterConstantUsersModel.get_by_master_id(master_id=master_id, session=session))
 
 """async def create_user_from_deeplink(
         chat_id: int,

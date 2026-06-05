@@ -1,0 +1,5 @@
+/.env
+/temps
+/categories.txt
+.DS_Store
+venv/Lib

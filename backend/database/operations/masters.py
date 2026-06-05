@@ -8,13 +8,13 @@ from backend.database import MasterModel, MasterReferralModel, MasterNotificatio
 from backend.database.requests import MasterCreateRequestTG
 
 
-async def update_master(update_data, session: AsyncSession) -> str:
+async def update_master(master_id: uuid.UUID, update_data: dict, session: AsyncSession) -> str:
     """Обновление данных мастера"""
-    master_to_upd = update_data.model_dump(exclude_unset=True)
+
     return await MasterModel.update(
         session=session,
-        master_id=update_data.id,
-        update_data=master_to_upd
+        master_id=master_id,
+        update_data=update_data
     )
 
 async def check_master(chat_id: int, session: AsyncSession):

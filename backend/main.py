@@ -9,6 +9,7 @@ import uvicorn
 from dotenv import load_dotenv
 import database as db
 from backend import app
+from backend.api import create_categories
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 
 load_dotenv()
@@ -55,7 +56,9 @@ async def lifespan(app: FastAPI):
 def run_server_process():
     async def start_server():
         if await db.setup_database():
+            await create_categories()
             logging.info("База данных инициализирована")
+
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
         server = uvicorn.Server(config)
         await server.serve()
