@@ -173,6 +173,14 @@ class CategoryModel(Base):
     )
 
     @classmethod
+    async def delete(cls, session: AsyncSession, category_id: uuid.UUID) -> str:
+        obj = await session.get(cls, category_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "cat not found"
+
+    @classmethod
     async def get_all(cls, session: AsyncSession):
         query = select(cls)
         result = await session.execute(query)
@@ -393,7 +401,7 @@ class MasterCategoryModel(Base):
                                      session: AsyncSession):
         """Создаёт связь между мастером и категорией."""
         # Проверяем, не существует ли уже такая связь
-        stmt = select(cls).where(cls.master_id == master_id, cls.category_id == category_id)
+        stmt = select(cls).where(and_(cls.master_id == master_id, cls.category_id == category_id))
         existing = await session.execute(stmt)
         if existing.scalar_one_or_none():
             return "Relation already exists"

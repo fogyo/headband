@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import CategoryModel, MasterCategoryModel
 
-'''async def get_all_categories(session: AsyncSession):
+async def get_all_categories(session: AsyncSession):
     """Получение всех категорий"""
     categories = await CategoryModel.get_all(session=session)
     return [
@@ -13,7 +13,7 @@ from backend.database import CategoryModel, MasterCategoryModel
             "name": cat.name
         }
         for cat in categories
-    ]'''
+    ]
 
 
 async def create_category(
@@ -31,4 +31,8 @@ async def check_category(category_id: uuid.UUID,
     if category_id in cats:
         return True
     return False
+
+async def delete_category(category_id: uuid.UUID,
+                          session: AsyncSession):
+    return await CategoryModel.delete(session=session, category_id=category_id)
 

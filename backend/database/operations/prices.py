@@ -17,8 +17,7 @@ async def create_price_position(
     session: AsyncSession
 ):
     """Создание позиции прайса"""
-    cat_id = await CategoryModel.get_by_name(name=price["category"], session=session)
-    await MasterCategoryModel.add_category_to_master(master_id=price["master_id"], category_id=cat_id)
+    await MasterCategoryModel.add_category_to_master(master_id=price["master_id"], category_id=price["category_id"], session=session)
     return await PriceModel.create(session=session, data=price)
 
 
@@ -32,7 +31,7 @@ async def update_price(
     price = await PriceModel.get_by_id(price_id=id, session=session)
     prices = await get_prices_by_category(category_id=price.category_id, master_id=price.master_id, session=session)
     if (len(prices) == 1 and update_data["category_id"]!=price.category_id):
-        await MasterCategoryModel.remove_category_from_master(master_id=price.master_id, category_id=price.category_id)
+        await MasterCategoryModel.remove_category_from_master(master_id=price.master_id, category_id=price.category_id, session=session)
     return await PriceModel.update(
         session=session,
         price_id=id,

@@ -16,19 +16,17 @@ from backend.model import pricelist
 
 #Requests
 class PriceCreateRequest(BaseModel):
-    category: str
+    category_id: uuid.UUID
     name: str
     approximate_time: int
     price: int
-    master_id: uuid.UUID
 
 class PriceUpdateRequest(BaseModel):
     id: uuid.UUID
-    master_id: uuid.UUID
     name: Optional[str] = None
     price: Optional[int] = None
     category_id: Optional[uuid.UUID] = None
-    approximate_time: Optional[time] = None
+    approximate_time: Optional[int] = None
 
 #Responses
 class PriceBaseResponse(BaseModel):
@@ -37,11 +35,18 @@ class PriceBaseResponse(BaseModel):
     price: int
     category: str
     approximate_time: int  # минуты
-    master_id: uuid.UUID
+
 
 class PriceListResponse(BaseModel):
     status: str
     prices: List[PriceBaseResponse]
+
+class CategoryBaseResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+
+class CategoryListResponse(StatusResponse):
+    categories: List[CategoryBaseResponse]
 
 #API
 router = APIRouter(
@@ -49,10 +54,12 @@ router = APIRouter(
     tags=["Master.Profile"])
 
 
-@router.post("/upload_price_file/{master_id}")
-async def upload_file(master_id: uuid.UUID,
+@router.post("/upload_price_file/{chat_id}")
+async def upload_file(chat_id: int,
         file: UploadFile = File(...),
         session: AsyncSession = Depends(get_db_session)):
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     if not file.content_type.startswith("image/"):
         raise HTTPException(400, detail="Invalid file type")
 
@@ -71,25 +78,30 @@ async def upload_file(master_id: uuid.UUID,
 
 @router.post("/create_price", response_model=IDResponse)
 async def create_price(
+    chat_id: int,
     request: PriceCreateRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Создание позиции прайса"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     price_dict = request.model_dump()
-    status, price_id = await miniapp_db_fcn.create_price_position(price=price_dict,
-        session=session
-    )
-    if status != "success":
-        raise HTTPException(status_code=400, detail=status)
-    return {"status": status, "id": price_id}
+    price_dict["master_id"] = master_id
+    price_id = await miniapp_db_fcn.create_price_position(price=price_dict,
+        session=session)
+    return {"status": "success", "id": price_id}
 
-@router.patch("/prices", response_model=StatusResponse)
+@router.patch("/", response_model=StatusResponse)
 async def update_price(
+    chat_id: int,
     request: PriceUpdateRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Обновление позиции прайса"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     price_to_upd = request.model_dump(exclude_unset=True)
+    price_to_upd["master_id"] = master_id
     status = await miniapp_db_fcn.update_price(
         update_data=price_to_upd,
         session=session
@@ -98,7 +110,7 @@ async def update_price(
         raise HTTPException(status_code=400, detail=status)
     return {"status": status}
 
-@router.delete("/prices/{price_id}", response_model=StatusResponse)
+@router.delete("/{price_id}", response_model=StatusResponse)
 async def delete_price(
     price_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session)
@@ -114,10 +126,12 @@ async def delete_price(
 
 @router.get("/prices", response_model=PriceListResponse)
 async def get_master_prices(
-    master_id: uuid.UUID,
+    chat_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Получение всех позиций прайса мастера"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     prices = await miniapp_db_fcn.get_prices_by_master(
         master_id=master_id,
         session=session
@@ -126,3 +140,9 @@ async def get_master_prices(
         "status": "success",
         "prices": prices,
     }
+
+@router.get("/categories", response_model=CategoryListResponse)
+async def get_categories(session: AsyncSession = Depends(get_db_session)):
+    cats = await miniapp_db_fcn.get_all_categories(session=session)
+    return {"status": "success",
+            "categories": cats}
