@@ -61,7 +61,7 @@ function MenuRow({
 }
 
 export default function ProfilePage() {
-  const STATIC_CHAT_ID = 1386270482; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
+  const STATIC_CHAT_ID = 980609742; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
 
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +105,7 @@ export default function ProfilePage() {
   // Подготовка данных с учётом null
   const fullName = profile.name || "Имя не указано";
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
-  const phone = "+"+profile.phone || "+7 (___) ___-__-__";
+  const phone = profile.phone ? `+${profile.phone}` : "+7 (___) ___-__-__";
   const avatarUrl = "https://placehold.co/100x100"; // бэк не отдаёт аватар, оставляем заглушку
 
   return (

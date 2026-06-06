@@ -85,7 +85,7 @@ const formatPhoneForDisplay = (rawDigits: string): string => {
 const extractDigits = (masked: string): string => masked.replace(/\D/g, "");
 
 export default function ProfilePersonalInfoPage() {
-  const STATIC_CHAT_ID = 1386270482;
+  const STATIC_CHAT_ID = 980609742;
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");          // храним только цифры

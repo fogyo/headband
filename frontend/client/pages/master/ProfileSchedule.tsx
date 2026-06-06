@@ -399,6 +399,39 @@ export default function ProfileSchedulePage() {
   }
 };
 
+const deleteDayTemplate = async (weekday: number) => {
+  const res = await fetch(`${baseUrl}/master/profile/schedule/day_off_template?chat_id=${STATIC_CHAT_ID}&weekday=${weekday}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Ошибка удаления дня: ${errorText}`);
+  }
+  const data = await res.json();
+  if (data.status !== "success") throw new Error(data.status);
+};
+
+// Обновить один день в шаблоне (для включения рабочего дня)
+const updateSingleDayTemplate = async (weekday: number, startTime: string, endTime: string, addressId: string) => {
+  const payload = [{
+    weekday: weekday,
+    start_time: toTimeWithSeconds(startTime),
+    end_time: toTimeWithSeconds(endTime),
+    address_id: addressId,
+  }];
+  const res = await fetch(`${baseUrl}/master/profile/schedule/update_template?chat_id=${STATIC_CHAT_ID}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Ошибка обновления дня: ${errorText}`);
+  }
+  const data = await res.json();
+  if (data.status !== "success") throw new Error(data.status);
+};
+
   const addAbsence = async () => {
     if (!newAbsence.startDate || !newAbsence.endDate) return;
     const confirmed = window.confirm("Все существующие записи в этот период будут удалены. Продолжить?");
@@ -519,17 +552,61 @@ export default function ProfileSchedulePage() {
           <div className="flex flex-col gap-3">
             {dayNames.map((day, idx) => {
               const d = week[idx];
+              const handleToggle = async () => {
+                const willBeOff = !d.dayOff;
+                // Сохраняем текущие значения для возможного отката
+                const prevState = { ...d };
+                // Оптимистичное обновление локального состояния
+                updateDay(idx, {
+                  dayOff: willBeOff,
+                  startTime: willBeOff ? "" : "9:00",
+                  endTime: willBeOff ? "" : "18:00",
+                  addressId: willBeOff ? "" : addresses[0]?.id || "",
+                });
+                try {
+                  if (willBeOff) {
+                    // Включаем выходной – DELETE
+                    await deleteDayTemplate(idx + 1);
+                  } else {
+                    // Включаем рабочий день – PATCH с новыми значениями
+                    const newStart = "9:00";
+                    const newEnd = "18:00";
+                    const newAddressId = addresses[0]?.id || "";
+                    await updateSingleDayTemplate(idx + 1, newStart, newEnd, newAddressId);
+                  }
+                  toast.success(willBeOff ? "День отмечен как выходной" : "Рабочий день восстановлен");
+                } catch (err: any) {
+                  console.error(err);
+                  toast.error(err.message || "Ошибка сохранения");
+                  // Откатываем изменения
+                  updateDay(idx, prevState);
+                }
+              };
+
               return (
                 <div key={day} className="flex items-center gap-5">
                   <div className="w-8 flex-shrink-0 text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">{day}</div>
-                  <TimeInput value={d.startTime} onChange={v => updateDay(idx, { startTime: v })} className="flex-1" disabled={d.dayOff} />
-                  <TimeInput value={d.endTime} onChange={v => updateDay(idx, { endTime: v })} className="flex-1" disabled={d.dayOff} />
-                  <AddressSelect value={d.addressId} addresses={addresses} onChange={addrId => updateDay(idx, { addressId: addrId })} className="flex-1" disabled={d.dayOff} />
+                  <TimeInput
+                    value={d.startTime}
+                    onChange={(v) => updateDay(idx, { startTime: v })}
+                    className="flex-1"
+                    disabled={d.dayOff}
+                  />
+                  <TimeInput
+                    value={d.endTime}
+                    onChange={(v) => updateDay(idx, { endTime: v })}
+                    className="flex-1"
+                    disabled={d.dayOff}
+                  />
+                  <AddressSelect
+                    value={d.addressId}
+                    addresses={addresses}
+                    onChange={(addrId) => updateDay(idx, { addressId: addrId })}
+                    className="flex-1"
+                    disabled={d.dayOff}
+                  />
                   <div className="w-10 flex-shrink-0 flex justify-center">
-                    <Toggle checked={d.dayOff} onChange={() => {
-                      const willBeOff = !d.dayOff;
-                      updateDay(idx, { dayOff: willBeOff, startTime: willBeOff ? "" : "9:00", endTime: willBeOff ? "" : "18:00", addressId: willBeOff ? "" : addresses[0]?.id || "" });
-                    }} />
+                    <Toggle checked={d.dayOff} onChange={handleToggle} />
                   </div>
                 </div>
               );

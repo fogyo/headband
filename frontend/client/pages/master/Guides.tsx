@@ -108,7 +108,7 @@ export default function GuidesPage() {
           isStarred: g.liked,
           type: g.video ? "video" : "text",
           // Цвет фона: чередование, как в моках (не меняем стиль карточки)
-          bgColor: index % 2 === 0 ? "#FFE9EF" : "#FFD0DC",
+          bgColor: index % 4 <= 1  ? "#FFE9EF" : "#FFD0DC",
         });
 
         setFitGuides(data.guides_fit.map((g: any, idx: number) => mapGuide(g, idx)));

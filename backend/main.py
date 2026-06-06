@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
 def run_server_process():
     async def start_server():
         if await db.setup_database():
-            await create_categories()
+            #await create_categories()
             logging.info("База данных инициализирована")
 
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")

@@ -150,47 +150,64 @@ export default function ProfilePriceListPage() {
   };
 
   const loadData = async () => {
-    try {
-      setLoading(true);
-      const cats = await fetchCategories();
-      setCategoriesOptions(cats);
-      const services = await fetchPrices();
-      const grouped = groupServicesByCategory(services, cats);
-      setCategories(grouped);
-      setError(null);
-    } catch (err: any) {
-      console.error(err);
-      setError("Не удалось загрузить прайс-лист");
-      toast.error("Ошибка загрузки");
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const cats = await fetchCategories();
+    // Уникальные категории
+    const uniqueCats = Array.from(new Map(cats.map(cat => [cat.id, cat])).values());
+    setCategoriesOptions(uniqueCats);
+    const services = await fetchPrices();
+    const grouped = groupServicesByCategory(services, uniqueCats);
+    setCategories(grouped);
+    setError(null);
+  } catch (err: any) {
+    console.error(err);
+    setError("Не удалось загрузить прайс-лист");
+    toast.error("Ошибка загрузки");
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     loadData();
   }, [STATIC_CHAT_ID]);
 
+useEffect(() => {
+  if (categoriesOptions.length > 0 && !newService.categoryId) {
+    setNewService(prev => ({ ...prev, categoryId: categoriesOptions[0].id }));
+  }
+}, [categoriesOptions]);
+
   // ---------- Создание услуги ----------
  const createService = async (data: {
-    category_id: string;   // UUID
-    name: string;
-    approximate_time: number;
-    price: number;
-  }) => {
-    const res = await fetch(`${baseUrl}/master/profile/prices/create_price?chat_id=${STATIC_CHAT_ID}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Ошибка создания");
+  category_id: string;
+  name: string;
+  approximate_time: number;
+  price: number;
+}) => {
+  console.log("Отправляем createService:", data);
+  const res = await fetch(`${baseUrl}/master/profile/prices/create_price?chat_id=${STATIC_CHAT_ID}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Ответ сервера 422:", errorText);
+    let errorMsg = "Ошибка создания услуги";
+    try {
+      const parsed = JSON.parse(errorText);
+      errorMsg = parsed.detail || JSON.stringify(parsed);
+    } catch (e) {
+      errorMsg = errorText;
     }
-    const result = await res.json();
-    if (result.status !== "success") throw new Error(result.status);
-    return result.id;
-  };
+    throw new Error(errorMsg);
+  }
+  const result = await res.json();
+  if (result.status !== "success") throw new Error(result.status);
+  return result.id;
+};
 
   // ---------- Обновление услуги ----------
   const updateService = async (id: string, data: Partial<{
@@ -243,49 +260,48 @@ export default function ProfilePriceListPage() {
   };
 
   // ---------- Обработчики UI ----------
-  const handleAddService = async () => {
-    if (!newService.name || !newService.duration || !newService.price) {
-      toast.warning("Заполните все поля");
-      return;
-    }
-    const durationNum = parseInt(newService.duration, 10);
-    const priceNum = parseInt(newService.price, 10);
-    if (isNaN(durationNum) || isNaN(priceNum)) {
-      toast.warning("Длительность и цена должны быть числами");
-      return;
-    }
+const handleAddService = async () => {
+  if (!newService.name || !newService.duration || !newService.price) {
+    toast.warning("Заполните все поля");
+    return;
+  }
+  const durationNum = parseInt(newService.duration, 10);
+  const priceNum = parseInt(newService.price, 10);
+  if (isNaN(durationNum) || isNaN(priceNum)) {
+    toast.warning("Длительность и цена должны быть числами");
+    return;
+  }
 
-    try {
-      if (editingService) {
-        // Редактирование – уже правильно использует category_id
-        await updateService(editingService.serviceId, {
-          name: newService.name,
-          price: priceNum,
-          approximate_time: durationNum,
-          category_id: newService.categoryId,
-        });
-        toast.success("Услуга изменена");
-      } else {
-        // Создание – теперь отправляем category_id
-        await createService({
-          category_id: newService.categoryId,
-          name: newService.name,
-          approximate_time: durationNum,
-          price: priceNum,
-        });
-        toast.success("Услуга добавлена");
-      }
-          // Перезагрузить данные
-      await loadData();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Ошибка сохранения");
-    } finally {
-      setIsAddModalOpen(false);
-      setEditingService(null);
-      setNewService({ name: "", categoryId: categoriesOptions[0]?.id || "", duration: "", price: "" });
+  try {
+    if (editingService) {
+      // Редактирование
+      await updateService(editingService.serviceId, {
+        name: newService.name,
+        price: priceNum,
+        approximate_time: durationNum,
+        category_id: newService.categoryId,
+      });
+    } else {
+      // Создание
+      await createService({
+        category_id: newService.categoryId,
+        name: newService.name,
+        approximate_time: durationNum,
+        price: priceNum,
+      });
     }
-  };
+    // После успешного запроса перезагружаем данные с бэка
+    await loadData();
+    toast.success(editingService ? "Услуга изменена" : "Услуга добавлена");
+  } catch (err: any) {
+    console.error(err);
+    toast.error(err.message || "Ошибка сохранения");
+  } finally {
+    setIsAddModalOpen(false);
+    setEditingService(null);
+    setNewService({ name: "", categoryId: categoriesOptions[0]?.id || "", duration: "", price: "" });
+  }
+};
 
   const handleDeleteService = async (categoryId: string, serviceId: string) => {
     if (!window.confirm("Удалить эту услугу? Все записи по этой услуге будут удалены")) return;
@@ -470,8 +486,7 @@ export default function ProfilePriceListPage() {
                 <select
                   value={newService.categoryId}
                   onChange={(e) => setNewService(prev => ({ ...prev, categoryId: e.target.value }))}
-                  disabled={!!editingService}
-                  className="flex-1 bg-transparent text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black outline-none text-center disabled:text-gray-400"
+                  className="flex-1 bg-transparent text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black outline-none text-center"
                 >
                   {categoriesOptions.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
