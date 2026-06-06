@@ -79,7 +79,7 @@ class VideoContentResponse(StatusResponse):
 class GuidesPageResponse(StatusResponse):
     my_guides: List[MyGuidesResponse]
     liked_guides: List[StatGuideResponse]
-    approve_guides: Optional[List[BaseGuideResponse]]
+    approve_guides: Optional[List[BaseGuideResponse]] = []
 
 
 #API
@@ -90,10 +90,11 @@ router = APIRouter(
 
 @router.get("/", response_model=GuidesPageResponse)
 async def get_guides_page(
-        master_id: uuid.UUID,
+        chat_id: int,
         session: AsyncSession = Depends(get_db_session)
 ):
-    master = await miniapp_db_fcn.get_master(master_id=master_id, session=session)
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
 
     master_guides, liked_guides = miniapp_db_fcn.preuploaded_data(master_id=master_id, session=session)
 
@@ -291,6 +292,7 @@ async def delete(
 ):
     status = await miniapp_db_fcn.delete_step(step_id=step_id, session=session)
     return {"status": status}
+
 @router.post("/steps/{step_id}/upload-image", response_model=StatusResponse)
 async def upload_and_link_image(
     step_id: uuid.UUID,

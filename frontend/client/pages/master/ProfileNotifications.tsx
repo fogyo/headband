@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import backIcon from "@/assets/back_icon.svg";
+import { toast } from "sonner";
 
-// Тот же Toggle, что на странице расписания
+const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+
+// Тот же Toggle, что на странице расписания (стили не меняем)
 const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
   <button
     onClick={onChange}
@@ -17,27 +20,127 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void 
 );
 
 interface NotificationSetting {
-  id: number;
+  id: string;          // используем ключ поля как id
   label: string;
   enabled: boolean;
+  field: keyof Omit<MasterNotification, "id" | "master_id">;
 }
 
-const initialSettings: NotificationSetting[] = [
-  { id: 1, label: "Присылать уведомление о записи", enabled: false },
-  { id: 2, label: "Присылать уведомление о отмене записи", enabled: true },
-  { id: 3, label: "Присылать подтверждение записи", enabled: true },
-  { id: 4, label: "Присылать уведомление о одобрении гайда", enabled: false },
-  { id: 5, label: "Присылать уведомление о заканчивающейся подписке", enabled: false },
-];
+interface MasterNotification {
+  id: string;
+  master_id: string;
+  appointment_notification: boolean;
+  appointment_cancel_notification: boolean;
+  appointment_confirm_notification: boolean;
+  guide_approved_notification: boolean;
+  subscription_ending_notification: boolean;
+}
 
 export default function ProfileNotificationsPage() {
-  const [settings, setSettings] = useState(initialSettings);
+  const STATIC_CHAT_ID = 980609742; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
 
-  const toggleSetting = (id: number) => {
-    setSettings(prev =>
-      prev.map(s => (s.id === id ? { ...s, enabled: !s.enabled } : s))
-    );
+  const [settings, setSettings] = useState<NotificationSetting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Маппинг полей бэка на человекочитаемые подписи
+  const labelMap: Record<keyof Omit<MasterNotification, "id" | "master_id">, string> = {
+    appointment_notification: "Присылать уведомление о записи",
+    appointment_cancel_notification: "Присылать уведомление о отмене записи",
+    appointment_confirm_notification: "Присылать подтверждение записи",
+    guide_approved_notification: "Присылать уведомление о одобрении гайда",
+    subscription_ending_notification: "Присылать уведомление о заканчивающейся подписке",
   };
+
+  // Загрузка настроек с бэка
+  const fetchNotifications = async () => {
+    const res = await fetch(`${baseUrl}/master/profile/notifications/?chat_id=${STATIC_CHAT_ID}`);
+    if (!res.ok) throw new Error("Ошибка загрузки настроек");
+    const data = await res.json();
+    if (data.status !== "success") throw new Error(data.status);
+    const notif: MasterNotification = data.notification;
+    // Преобразуем в массив для удобного рендера
+    const settingsArray: NotificationSetting[] = (
+      Object.keys(labelMap) as Array<keyof typeof labelMap>
+    ).map((field) => ({
+      id: field,
+      label: labelMap[field],
+      enabled: notif[field],
+      field,
+    }));
+    setSettings(settingsArray);
+  };
+
+  // Отправка обновления одного поля (PATCH)
+  const updateNotification = async (field: keyof MasterNotification, value: boolean) => {
+    const payload = { [field]: value };
+    const res = await fetch(`${baseUrl}/master/profile/notifications/update?chat_id=${STATIC_CHAT_ID}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Ошибка обновления");
+    }
+    const data = await res.json();
+    if (data.status !== "success") throw new Error(data.status);
+  };
+
+  // Переключение тогла – сразу отправляем запрос и обновляем локальное состояние
+  const toggleSetting = async (id: string) => {
+    const setting = settings.find(s => s.id === id);
+    if (!setting) return;
+    const newValue = !setting.enabled;
+    // Оптимистичное обновление UI
+    setSettings(prev =>
+      prev.map(s => (s.id === id ? { ...s, enabled: newValue } : s))
+    );
+    try {
+      await updateNotification(setting.field, newValue);
+      toast.success("Настройка обновлена");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Ошибка сохранения");
+      // Откат при ошибке
+      setSettings(prev =>
+        prev.map(s => (s.id === id ? { ...s, enabled: setting.enabled } : s))
+      );
+    }
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        await fetchNotifications();
+        setError(null);
+      } catch (err: any) {
+        console.error(err);
+        setError("Не удалось загрузить настройки");
+        toast.error(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
