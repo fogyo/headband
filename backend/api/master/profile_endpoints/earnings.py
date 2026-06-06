@@ -20,17 +20,12 @@ class EarningDateRangeRequest(BaseModel):
     start_date: date
     end_date: date
 
-class EarningCreateRequest(BaseModel):
-    master_id: uuid.UUID
-    appointment_id: uuid.UUID
-
 class EarningUpdateRequest(BaseModel):
     id: uuid.UUID
     price: Optional[int] = None
     date: Optional[date] = None
 
 class PrepayCreateRequest(BaseModel):
-    master_id: uuid.UUID
     percent: int
     start_date: date
     end_date: date
@@ -42,16 +37,10 @@ class PrepayUpdateRequest(BaseModel):
     end_date: Optional[date] = None
 
 #Responses
-class EarningBaseResponse(BaseModel):
-    id: uuid.UUID
-    price: int
-    date: date
-    master_id: uuid.UUID
-
-class EarningListResponse(BaseModel):
+class EarningResponse(BaseModel):
     status: str
-    earnings: List[EarningBaseResponse]
-    total: int = 0  # общая сумма
+    amount: int
+    number: int
 
 class PrepayBaseResponse(BaseModel):
     id: uuid.UUID
@@ -86,9 +75,11 @@ router = APIRouter(
 
 @router.get("/confirmation", response_model=AppointmentConfirmationList)
 async def get_pending_appointments(
-        master_id: uuid.UUID,
+        chat_id: int,
         session: AsyncSession = Depends(get_db_session)
 ):
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     appointments = await miniapp_db_fcn.get_on_confirm(master_id=master_id, session=session)
     pends = []
     for a in appointments:
@@ -104,14 +95,16 @@ async def get_pending_appointments(
             "pending_appos": pends}
 
 
-@router.get("/this_month", response_model=EarningListResponse)
+@router.get("/this_month", response_model=EarningResponse)
 async def get_master_earnings_this_month(
-    master_id: uuid.UUID,
+    chat_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Получение всех доходов мастера"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     start_date = date.today().replace(day=1)
-    status, earnings, total = await miniapp_db_fcn.get_earnings_by_date_range(
+    status, amount, number = await miniapp_db_fcn.get_earnings_by_date_range(
         master_id=master_id,
         start_date=start_date,
         end_date=date.today(),
@@ -119,37 +112,45 @@ async def get_master_earnings_this_month(
     )
     return {
         "status": status,
-        "earnings": earnings,
-        "total": total
+        "amount": amount,
+        "number": number
     }
 
-@router.get("/range", response_model=EarningListResponse)
-async def get_earnings_by_range(
-    request: EarningDateRangeRequest,
+@router.get("/range", response_model=EarningResponse)
+async def get_master_earnings_by_range(
+    chat_id: int,
+    start_date: date,
+    end_date: date,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Получение доходов за период"""
-    status, earnings, total = await miniapp_db_fcn.get_earnings_by_date_range(
-        master_id=request.master_id,
-        start_date=request.start_date,
-        end_date=request.end_date,
+    """Получение всех доходов мастера"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
+    status, amount, number = await miniapp_db_fcn.get_earnings_by_date_range(
+        master_id=master_id,
+        start_date=start_date,
+        end_date=end_date,
         session=session
     )
     return {
         "status": status,
-        "earnings": earnings,
-        "total": total
+        "amount": amount,
+        "number": number
     }
+
 
 @router.post("/confirm", response_model=IDResponse)
 async def create_earning(
-    request: EarningCreateRequest,
+    chat_id: int,
+    appointment_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Создание записи о доходе"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     status, earning_id = await miniapp_db_fcn.create_earning(
-        master_id=request.master_id,
-        appointment_id=request.appointment_id,
+        master_id=master_id,
+        appointment_id=appointment_id,
         session=session
     )
     if status != "success":
@@ -173,10 +174,12 @@ async def delete_earning(
 
 @router.get("/prepayments", response_model=PrepayListResponse)
 async def get_master_prepayments(
-    master_id: uuid.UUID,
+    chat_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Получение всех периодов предоплаты мастера"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     status, prepayments = await miniapp_db_fcn.get_prepayments_by_master(
         master_id=master_id,
         session=session
@@ -188,12 +191,15 @@ async def get_master_prepayments(
 
 @router.post("/prepayments/create", response_model=IDResponse)
 async def create_prepayment(
+    chat_id: int,
     request: PrepayCreateRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Создание периода предоплаты"""
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
     status, prepay_id = await miniapp_db_fcn.create_prepayment(
-        master_id=request.master_id,
+        master_id=master_id,
         percent=request.percent,
         start_date=request.start_date,
         end_date=request.end_date,
@@ -231,12 +237,13 @@ async def delete_prepayment(
         raise HTTPException(status_code=404, detail=status)
     return {"status": status}
 
-@router.post("/card/create", response_model=IDResponse)
+
+#TODO сделать интеграцию юкассы позже. Ввжно
+"""@router.post("/card/create", response_model=IDResponse)
 async def create_card(
     request: CreateCardRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Создание карты для Юкассы"""
     status, prepay_id = await miniapp_db_fcn.create_card(
         master_id=request.master_id,
         last_digits=int(request.number[-4:]),
@@ -262,7 +269,6 @@ async def update_card(
     request: CreateCardRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Обновление периода предоплаты"""
     card = await miniapp_db_fcn.get_card(master_id=request.master_id, session=session)
     update_data = {"last_digits": request.number[:-4],
                    "amount_digits": len(request.number)}
@@ -271,4 +277,4 @@ async def update_card(
         update_data=update_data,
         session=session
     )
-    return {"status": status}
+    return {"status": status}"""
