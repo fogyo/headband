@@ -27,8 +27,9 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=AppointmentListResponse)
-async def get_welcome(user_id: uuid.UUID,
+async def get_welcome(chat_id: int,
                       session: AsyncSession = Depends(get_db_session)):
+    user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
     appointments = await miniapp_db_fcn.get_appointments_by_user(user_id=user_id, session=session)
     return {"status": "success",
             "appointments": appointments}

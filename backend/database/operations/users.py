@@ -26,6 +26,10 @@ async def create_user(
 async def get_consonant_users(master_id: uuid.UUID, session: AsyncSession):
     return len(await MasterConstantUsersModel.get_by_master_id(master_id=master_id, session=session))
 
+async def get_user_id(chat_id: int, session: AsyncSession):
+    user = await UserModel.get_by_chat_id(chat_id=chat_id, session=session)
+    return user.id
+
 """async def create_user_from_deeplink(
         chat_id: int,
         username: str,

@@ -2,7 +2,7 @@ import logging
 import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.client.session.aiohttp import AiohttpSession
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
@@ -41,17 +41,36 @@ def get_main_keyboard(role: str) -> InlineKeyboardMarkup:
 
 def get_role_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Клиент", callback_data="role_user")],
+        [InlineKeyboardButton(text="Клиент", callback_data="role_client")],
         [InlineKeyboardButton(text="Мастер", callback_data="role_master")]
     ])
 
 
-@dp.message(CommandStart())
-async def cmd_start(message: types.Message, state: FSMContext):
+@dp.message(CommandStart(deep_link=True, magic=F.args))
+async def cmd_start(message: types.Message, command: CommandStart, state: FSMContext):
     user_data = await state.get_data()
     role = user_data.get("role")
+    ref_code = command.args
+    if ref_code:
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                chat_id = message.from_user.id
+                username = message.from_user.username
+                invited_role, master_id = await miniapp_db_fcn.get_referral_owner(link_id=ref_code, session=session)
+                if invited_role=="client":
+                    if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
+                        await miniapp_db_fcn.create_user(chat_id=chat_id, username=username, session=session)
+                    user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
+                    status = await miniapp_db_fcn.make_relationship_user_to_master(master_id=master_id, user_id=user_id, session=session)
+                    await state.update_data(role="client")
+                    logging.info("User added by deeplink")
+                    await message.answer(
+                        f"✅ Отлично! Вы добавлены в список постоянных клиентов мастера. Для Вас это означает, что Вы будете при записи видеть этого мастера в первую очередь\n"
+                        f"Для получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
+                        reply_markup=get_main_keyboard(role)
+                    )
 
-    if role is None:
+    elif role is None:
         await message.answer(
             "👋 Добро пожаловать!\nВыберите кто пользуется приложением:",
             reply_markup=get_role_keyboard()
@@ -97,11 +116,11 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
             await callback.answer()
 
 
-@dp.callback_query(F.data.in_(["role_user", "role_master"]))
+@dp.callback_query(F.data.in_(["role_client", "role_master"]))
 async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext):
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            new_role = "user" if callback.data == "role_user" else "master"
+            new_role = "client" if callback.data == "role_client" else "master"
             await state.update_data(role=new_role)
 
             chat_id = callback.from_user.id

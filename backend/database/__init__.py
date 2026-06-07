@@ -7,7 +7,8 @@ from typing import List, Optional, AsyncGenerator
 
 from dotenv import load_dotenv
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func, UniqueConstraint
+from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func, UniqueConstraint, \
+    or_
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
 from datetime import time, date
@@ -338,6 +339,12 @@ class MasterModel(Base):
     @classmethod
     async def get_by_id(cls, session: AsyncSession, master_id: uuid.UUID):
         query = select(cls).where(cls.id == master_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_link_id(cls, session: AsyncSession, ref: uuid.UUID):
+        query = select(cls).where(or_(cls.user_link_id == ref, cls.master_link_id==ref))
         result = await session.execute(query)
         return result.scalars().first()
 
