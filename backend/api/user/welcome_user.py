@@ -11,6 +11,7 @@ from backend.database.responses import StatusResponse
 
 
 class Appointment(BaseModel):
+    appointment_id: uuid.UUID
     service_name: str
     address: str
     day: date
@@ -35,5 +36,6 @@ async def get_welcome(chat_id: int,
             "appointments": appointments}
 
 @router.delete("/appointment", response_model=StatusResponse)
-async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession):
-    return {"status": await miniapp_db_fcn.cancel_appointment(appointment_id=appointment_id, session=session)}
+async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession = Depends(get_db_session)):
+    status = await miniapp_db_fcn.cancel_appointment(appointment_id=appointment_id, session=session)
+    return {"status": status}

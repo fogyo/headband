@@ -11,6 +11,7 @@ import database as db
 from backend import app
 from backend.api import create_categories
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
+from backend.api.user import welcome_user, price, masters, booking
 
 load_dotenv()
 from backend.api.master import guides, profile, schedule, welcome, profile_endpoints
@@ -26,7 +27,10 @@ app.include_router(profile_endpoints.earnings.router)
 app.include_router(profile_endpoints.works.router)
 app.include_router(guides.router)
 app.include_router(schedule.router)
-
+app.include_router(welcome_user.router)
+app.include_router(price.router)
+app.include_router(masters.router)
+app.include_router(booking.router)
 
 """@asynccontextmanager
 async def lifespan(app: FastAPI):

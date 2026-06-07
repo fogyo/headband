@@ -197,7 +197,8 @@ async def get_appointments_by_user(
     for a in appointments:
         working_day = await WorkingDayModel.get_by_id(session=session, id=a.working_day_id)
         price = await PriceModel.get_by_id(session=session, price_id=a.price_id)
-        aresponse = {"service_name": price.name,
+        aresponse = {"appointment_id": a.id,
+                    "service_name": price.name,
                      "address": working_day.address,
                      "day": a.date,
                      "start_time": a.start_time,
