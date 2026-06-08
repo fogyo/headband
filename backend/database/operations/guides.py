@@ -3,9 +3,7 @@ from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import MasterCategoryModel, GuidesModel, GuideTextStepModel, GuideVideoStepModel, GuideStatModel, \
-    GuideTextStepImageModel
-
+from backend.database import MasterCategoryModel, GuidesModel, GuideTextStepModel, GuideVideoStepModel, GuideStatModel
 
 async def get_guides(master_id: uuid.UUID, session: AsyncSession):
     """Получение гайдов по категориям мастера"""
@@ -47,7 +45,8 @@ async def get_steps(guide_id: uuid.UUID, session: AsyncSession):
     steps_resp = [{
         "step_id": s.id,
         "step_num": s.step_num,
-        "text": s.text
+        "text": s.text,
+        "img_url": s.image_url
     } for s in steps]
     return "success", steps_resp
 
@@ -88,7 +87,8 @@ async def get_video_steps(guide_id: uuid.UUID, session: AsyncSession):
     step_resp = {
         "status": "success",
         "video_name": step.video_name,
-        "description": step.description
+        "description": step.description,
+        "video_url": step.video_file_path
     }
     return step_resp
 
@@ -173,10 +173,4 @@ async def pending_guides(session: AsyncSession):
 async def change_status(session: AsyncSession, guide_id: uuid.UUID, state: int):
     res = await GuidesModel.change_status(session=session, guide_id=guide_id, state=state)
     return res
-
-async def add_image(session: AsyncSession, step_id: uuid.UUID, filepath: str):
-    await GuideTextStepImageModel.create(
-        session=session,
-        data={"step_id": step_id, "filepath": filepath}
-    )
 

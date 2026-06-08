@@ -52,7 +52,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 TEMPS_DIR = Path("/var/uploads/temps")
 TEMPS_DIR.mkdir(parents=True, exist_ok=True)
 
-MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
+MAX_FILE_SIZE = 10240 * 1024 * 1024
 ALLOWED_VID_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv"}
 ALLOWED_IMG_EXT = {".jpg", ".jpeg", ".png"}
 

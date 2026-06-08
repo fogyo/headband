@@ -28,6 +28,7 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
+
 async def setup_database():
     try:
         async with engine.begin() as conn:
@@ -841,6 +842,7 @@ class GuidesModel(Base):
         )
         result = await session.execute(stmt_master_guides)
         return result.scalars().all()
+
     @classmethod
     async def get_by_author(cls, author_id: uuid.UUID, session: AsyncSession)->List["GuidesModel"]:
         query = select(cls).where(cls.author == author_id)
@@ -904,14 +906,9 @@ class GuideTextStepModel(Base):
     guide_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("guides.id", ondelete="CASCADE"))
     step_num: Mapped[int]
     text: Mapped[str]
+    image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     guide: Mapped["GuidesModel"] = relationship("GuidesModel", back_populates="steps_list")
-    images: Mapped[List["GuideTextStepImageModel"]] = relationship(
-        "GuideTextStepImageModel",
-        back_populates="step",
-        cascade="all, delete-orphan",
-        passive_deletes=True
-    )
 
     @classmethod
     async def create(cls, session: AsyncSession, data: List[dict]):
@@ -947,55 +944,6 @@ class GuideTextStepModel(Base):
             return "success"
         return "step not found"
 
-
-class GuideTextStepImageModel(Base):
-    __tablename__ = "guide_text_step_images"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    step_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),
-                                               ForeignKey("guide_text_steps.id", ondelete="CASCADE"))
-    filepath: Mapped[str] = mapped_column(String)
-
-    # Relationships
-    step: Mapped["GuideTextStepModel"] = relationship("GuideTextStepModel", back_populates="images")
-
-    @classmethod
-    async def create(cls, session: AsyncSession, data: dict):
-        """Добавление изображения к текстовому шагу"""
-        image = cls(**data)
-        session.add(image)
-        await session.flush()
-        return image.id
-
-    @classmethod
-    async def get_by_step_id(cls, session: AsyncSession, step_id: uuid.UUID):
-        """Получение всех изображений конкретного шага"""
-        query = select(cls).where(cls.step_id == step_id)
-        result = await session.execute(query)
-        return result.scalars().all()
-
-    @classmethod
-    async def get_by_id(cls, session: AsyncSession, image_id: uuid.UUID) :
-        """Получение изображения по ID"""
-        query = select(cls).where(cls.id == image_id)
-        result = await session.execute(query)
-        return result.scalars().first()
-
-    @classmethod
-    async def delete(cls, session: AsyncSession, image_id: uuid.UUID):
-        """Удаление одного изображения по ID"""
-        obj = await session.get(cls, image_id)
-        if obj:
-            await session.delete(obj)
-            return "success"
-        return "no such image"
-
-    @classmethod
-    async def delete_by_step_id(cls, session: AsyncSession, step_id: uuid.UUID):
-        """Удаление всех изображений шага (полезно при обновлении/удалении шага)"""
-        query = delete(cls).where(cls.step_id == step_id)
-        await session.execute(query)
-        return "success"
 
 class GuideVideoStepModel(Base):
     __tablename__ = "guide_video_steps"

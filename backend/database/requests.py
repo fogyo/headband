@@ -164,15 +164,6 @@ class GuideUpdateRequest(BaseModel):
     steps: Optional[str] = None
 
 
-
-
-
-
-
-
-
-
-
 class PrepayCheckRequest(BaseModel):
     master_id: uuid.UUID
     check_date: date

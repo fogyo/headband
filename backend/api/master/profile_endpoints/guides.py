@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import UPLOAD_DIR, MAX_FILE_SIZE, ALLOWED_IMG_EXT, ALLOWED_VID_EXT
-from backend.database import get_db_session, miniapp_db_fcn, GuideTextStepImageModel
+from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
 
 
