@@ -8,12 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import miniapp_db_fcn, get_db_session
 from backend.database.responses import StatusResponse
-from fastapi.responses import FileResponse
-
-
-
-#Request
-
 
 #Responses
 class GuideBaseResponse(BaseModel):

@@ -45,13 +45,30 @@ def get_role_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Мастер", callback_data="role_master")]
     ])
 
+@dp.message(CommandStart())
+async def cmd_start_simple(message: types.Message, state: FSMContext):
+    # логика для /start без аргументов
+    user_data = await state.get_data()
+    role = user_data.get("role")
+    if role is None:
+        await message.answer(
+            "👋 Добро пожаловать!\nВыберите кто пользуется приложением:",
+            reply_markup=get_role_keyboard()
+        )
+    else:
+        role_text = "Клиент" if role == "user" else "Мастер"
+        await message.answer(
+            f"✅ Ваша роль: {role_text}",
+            reply_markup=get_main_keyboard(role)
+        )
+
 
 @dp.message(CommandStart(deep_link=True, magic=F.args))
 async def cmd_start(message: types.Message, command: CommandStart, state: FSMContext):
     user_data = await state.get_data()
     role = user_data.get("role")
     ref_code = command.args
-    if ref_code:
+    if ref_code != "":
         async with AsyncSessionLocal() as session:
             async with session.begin():
                 chat_id = message.from_user.id
@@ -70,17 +87,6 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         reply_markup=get_main_keyboard(role)
                     )
 
-    elif role is None:
-        await message.answer(
-            "👋 Добро пожаловать!\nВыберите кто пользуется приложением:",
-            reply_markup=get_role_keyboard()
-        )
-    else:
-        role_text = "Клиент" if role == "user" else "Мастер"
-        await message.answer(
-            f"✅ Ваша роль: {role_text}",
-            reply_markup=get_main_keyboard(role)
-        )
 
 @dp.callback_query(F.data == "switch_role")
 async def switch_role(callback: types.CallbackQuery, state: FSMContext):
