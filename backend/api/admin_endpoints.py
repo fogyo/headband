@@ -3,23 +3,22 @@ import uuid
 from fastapi import Depends, APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import miniapp_db_fcn, get_db_session
-from backend.database.requests import OrganizationCreateRequest, OrganizationUpdateRequest, PriceCreateRequest, \
-    AdminCreateRequest, AdminUpdateRequest, OfferCreateRequest, OfferUpdateRequest, PriceUpdateRequest, \
-    AdminAuthRequest, CategoryCreateRequest
-from backend.database.responses import OrganizationResponse, StatusResponse, IDResponse, AdminResponseInfo
-from backend.telegram_bot import BOT_URL
+from backend.database import get_db_session, miniapp_db_fcn
+from backend.database.responses import StatusResponse
+
 
 router = APIRouter(
     prefix="/admins",
     tags=["Admin"]
 )
 
-@router.post("/create_caytegory", response_model=StatusResponse)
-async def create_category(
-        request: CategoryCreateRequest,
+@router.patch("/set_ambassador", response_model=StatusResponse)
+async def set_amba(
+        chat_id: int,
         session: AsyncSession = Depends(get_db_session)):
-    """Создание категории"""
-    status = await db_functions.create_category(name=request.name, session=session)
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
+    status = await miniapp_db_fcn.set_ambassador(master_id=master_id, session=session)
     return {"status": status}
+
 

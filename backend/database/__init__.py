@@ -919,6 +919,12 @@ class GuideTextStepModel(Base):
         return "success"
 
     @classmethod
+    async def get_by_step_id(cls, session: AsyncSession, step_id: uuid.UUID):
+        query = select(cls).where(cls.id == step_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
     async def get_by_guide_id(cls, session: AsyncSession, guide_id: uuid.UUID):
         query = select(cls).where(cls.guide_id == guide_id).order_by(cls.step_num)
         result = await session.execute(query)
@@ -1003,6 +1009,8 @@ class GuideStatModel(Base):
     master: Mapped["MasterModel"] = relationship("MasterModel",
                                                  back_populates="guide_stats")
 
+    __table_args__ = (UniqueConstraint("guide_id", "master_id", name="uq_guide_master"),)
+
     @classmethod
     async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
         """Создание записи статистики"""
@@ -1011,11 +1019,6 @@ class GuideStatModel(Base):
         await session.flush()
         return stat.id
 
-    @classmethod
-    async def record_action(cls, session: AsyncSession, guide_id: uuid.UUID, master_id: uuid.UUID,
-                            action: int) -> uuid.UUID:
-        """Удобный метод для быстрой записи действия (просмотр/лайк)"""
-        return await cls.create(session, {"guide_id": guide_id, "master_id": master_id, "action": action})
 
     @classmethod
     async def get_by_id(cls, session: AsyncSession, stat_id: uuid.UUID) -> Optional["GuideStatModel"]:
@@ -1061,9 +1064,9 @@ class GuideStatModel(Base):
 
         stats = {"views": 0, "likes": 0}
         for action, count in result.all():
-            if action == 0:
+            if action == 0 or action == 1:
                 stats["views"] = count
-            elif action == 1:
+            if action == 1:
                 stats["likes"] = count
         return stats
 

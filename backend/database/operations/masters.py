@@ -72,3 +72,7 @@ async def get_constant_masters(user_id: uuid.UUID, session: AsyncSession):
 
 async def get_ambassadors(session: AsyncSession):
     return await MasterModel.get_ambassadors(session=session)
+
+async def set_ambassador(master_id: uuid.UUID, session: AsyncSession):
+    upd_data = {"ambassador": True}
+    return await MasterModel.update(session=session, master_id=master_id, update_data=upd_data)

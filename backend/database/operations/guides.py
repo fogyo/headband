@@ -2,8 +2,12 @@ import uuid
 from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.util import await_only
 
-from backend.database import MasterCategoryModel, GuidesModel, GuideTextStepModel, GuideVideoStepModel, GuideStatModel
+from backend.database import MasterCategoryModel, GuidesModel, GuideTextStepModel, GuideVideoStepModel, GuideStatModel, \
+    miniapp_db_fcn
+from backend.database.obj_storage import s3_domain
+
 
 async def get_guides(master_id: uuid.UUID, session: AsyncSession):
     """Получение гайдов по категориям мастера"""
@@ -15,29 +19,30 @@ async def get_guides(master_id: uuid.UUID, session: AsyncSession):
     g_all_resp = []
 
     for g in g_fitable:
+        stat = await get_stats(guide_id=g.id, session=session)
         g_fit_resp.append({
             "id": g.id,
             "name": g.name,
             "category": g.category,
             "video": bool(await GuideVideoStepModel.get_by_guide_id(guide_id=g.id, session=session)),
             "liked": await GuideStatModel.check_like(guide_id=g.id, master_id=master_id, session=session),
-            "likes": (await GuideStatModel.get_guide_stats(guide_id=g.id, session=session))["likes"],
-            "views": (await GuideStatModel.get_guide_stats(guide_id=g.id, session=session))["views"]
+            "likes": stat["likes"],
+            "views": stat["views"]
         })
 
     for g in g_all:
+        stat = await get_stats(guide_id=g.id, session=session)
         g_all_resp.append({
             "id": g.id,
             "name": g.name,
             "category": g.category,
             "video": bool(await GuideVideoStepModel.get_by_guide_id(guide_id=g.id, session=session)),
             "liked": await GuideStatModel.check_like(guide_id=g.id, master_id=master_id, session=session),
-            "likes": (await GuideStatModel.get_guide_stats(guide_id=g.id, session=session))["likes"],
-            "views": (await GuideStatModel.get_guide_stats(guide_id=g.id, session=session))["views"]
+            "likes": stat["likes"],
+            "views": stat["views"]
         })
 
     return "success", g_fit_resp, g_all_resp
-
 
 async def get_steps(guide_id: uuid.UUID, session: AsyncSession):
     """Получение шагов гайда по ID"""
@@ -46,7 +51,7 @@ async def get_steps(guide_id: uuid.UUID, session: AsyncSession):
         "step_id": s.id,
         "step_num": s.step_num,
         "text": s.text,
-        "img_url": s.image_url
+        "img_url": f"{s3_domain}{s.image_url}" if s.image_url != None else None
     } for s in steps]
     return "success", steps_resp
 
@@ -88,7 +93,7 @@ async def get_video_steps(guide_id: uuid.UUID, session: AsyncSession):
         "status": "success",
         "video_name": step.video_name,
         "description": step.description,
-        "video_url": step.video_file_path
+        "video_url": f"{s3_domain}{step.video_file_path}"
     }
     return step_resp
 
@@ -127,8 +132,10 @@ async def get_content_from_step(guide_id: uuid.UUID, session: AsyncSession):
 
 async def add_view(master_id: uuid.UUID, guide_id: uuid.UUID, session: AsyncSession):
     """Добавление записи о просмотре"""
-    id = await GuideStatModel.create(data={"master_id": master_id,
-                                           "guide_id": guide_id}, session=session)
+    id = await GuideStatModel.get_by_guide_master(guide_id=guide_id, master_id=master_id, session=session)
+    if id == None:
+        id = await GuideStatModel.create(data={"master_id": master_id,
+                                               "guide_id": guide_id}, session=session)
     return id
 
 async def change_state(master_id: uuid.UUID, guide_id: uuid.UUID, session: AsyncSession):

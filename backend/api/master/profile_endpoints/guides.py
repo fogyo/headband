@@ -9,9 +9,10 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import UPLOAD_DIR, MAX_FILE_SIZE, ALLOWED_IMG_EXT, ALLOWED_VID_EXT
-from backend.database import get_db_session, miniapp_db_fcn
+from backend.database import get_db_session, miniapp_db_fcn, obj_storage
+from backend.database.obj_storage import s3_client
 from backend.database.responses import StatusResponse
-
+from backend.telegram_bot.bot_main import send_notification
 
 
 #Requests
@@ -21,13 +22,14 @@ class DenyRequest(BaseModel):
 
 class GuideTextRequest(BaseModel):
     text: str
+    image_url: Optional[str] = None
 
 class GuideUpdateTextRequest(BaseModel):
     step_id: uuid.UUID
     text: Optional[str] = None
+    image_url: Optional[str] = None
 
 class GuideCreateRequest(BaseModel):
-    master_id: uuid.UUID
     name: str
     category: str
     steps: List[GuideTextRequest]
@@ -45,7 +47,6 @@ class UpdateVideoRequest(GuideUpdateTextRequest):
     filepath: Optional[str] = None
 
 class GuideCreateVideoRequest(BaseModel):
-    master_id: uuid.UUID
     name: str
     category: str
     video: GuideVideoRequest
@@ -58,9 +59,14 @@ class GuideUpdateVideoRequest(BaseModel):
 
 #Responses
 class BaseGuideResponse(BaseModel):
+    id: uuid.UUID
     name: str
     category: str
     guide_type: int
+
+class ApproveGuideResponse(BaseGuideResponse):
+    created: date
+    changed: date
 
 class StatGuideResponse(BaseGuideResponse):
     views: int
@@ -70,7 +76,7 @@ class StatGuideResponse(BaseGuideResponse):
 class MyGuidesResponse(StatGuideResponse):
     created: date
     changed: date
-    approved: date
+    approved: Optional[date] = None
 
 class VideoContentResponse(StatusResponse):
     filepath: str
@@ -79,7 +85,7 @@ class VideoContentResponse(StatusResponse):
 class GuidesPageResponse(StatusResponse):
     my_guides: List[MyGuidesResponse]
     liked_guides: List[StatGuideResponse]
-    approve_guides: Optional[List[BaseGuideResponse]] = []
+    approve_guides: Optional[List[ApproveGuideResponse]] = []
 
 
 #API
@@ -96,22 +102,22 @@ async def get_guides_page(
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
 
-    master_guides, liked_guides = miniapp_db_fcn.preuploaded_data(master_id=master_id, session=session)
+    master_guides, liked_guides = await miniapp_db_fcn.preuploaded_data(master_id=master_id, session=session)
 
     my_guides_resp = []
     for guide in master_guides:
-        likes = sum(1 for stat in guide.guide_stats if stat.action == 1)
-        views = sum(1 for stat in guide.guide_stats if stat.action == 0)
+        stat = await miniapp_db_fcn.get_stats(guide_id=guide.id, session=session)
 
         liked_by_me = any(stat.master_id == master_id and stat.action == 1 for stat in guide.guide_stats)
 
         guide_type = 1 if guide.video_steps_list else 0
 
         my_guides_resp.append({
+            "id": guide.id,
             "name": guide.name,
             "category": guide.category,
-            "views": views,
-            "likes": likes,
+            "views": stat["views"],
+            "likes": stat["likes"],
             "like": liked_by_me,
             "guide_type": guide_type,
             "created": guide.guide_created,
@@ -122,15 +128,15 @@ async def get_guides_page(
 
     liked_guides_resp = []
     for guide in liked_guides:
-        likes = sum(1 for stat in guide.guide_stats if stat.action == 1)
-        views = sum(1 for stat in guide.guide_stats if stat.action == 0)
+        stat = await miniapp_db_fcn.get_stats(guide_id=guide.id, session=session)
         guide_type = 1 if guide.video_steps_list else 0
 
         liked_guides_resp.append({
+            "id": guide.id,
             "name": guide.name,
             "category": guide.category,
-            "views": views,
-            "likes": likes,
+            "views": stat["views"],
+            "likes": stat["likes"],
             "like": True,   # мы загружали только лайкнутые
             "guide_type": guide_type,
             "created": guide.guide_created,
@@ -145,9 +151,12 @@ async def get_guides_page(
         for guide in pending_guides:
             guide_type = 1 if guide.video_steps_list else 0
             amb_resp.append({
+                "id": guide.id,
                 "name": guide.name,
                 "category": guide.category,
                 "guide_type": guide_type,
+                "created": guide.guide_created,
+                "changed": guide.guide_last_change,
             })
         return {
             "status": "success",
@@ -169,7 +178,9 @@ async def approve_guide(
         session: AsyncSession = Depends(get_db_session)
 ):
     status = await miniapp_db_fcn.change_status(session=session, guide_id=guide_id, state=1)
-    #сделать отправку уведомления через бота мастеру
+    guide = await miniapp_db_fcn.get_guide(guide_id=guide_id, session=session)
+    master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
+    await send_notification(chat_id=master.chat_id_tg, text="✅ Ваш гайд был одобрен амбассадором headband. Поздравляем!")
     return {"status": status}
 
 @router.patch("/ambassador/deny", response_model=StatusResponse)
@@ -178,17 +189,23 @@ async def deny_guide(
         session: AsyncSession = Depends(get_db_session)
 ):
     status = await miniapp_db_fcn.change_status(session=session, guide_id=request.guide_id, state=0)
-    #сделать отправку уведомления через бота мастеру
+    guide = await miniapp_db_fcn.get_guide(guide_id=request.guide_id, session=session)
+    master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
+    await send_notification(chat_id=master.chat_id_tg,
+                            text=f"❌ К сожалению, Ваш гайд пока не был одобрен амбассадором headband по причине: {request.comment}")
     return {"status": status}
 
 @router.post("/create_text", response_model=StatusResponse)
 async def create_guide_text(
+        chat_id: int,
         request: GuideCreateRequest,
         session: AsyncSession = Depends(get_db_session)
 ):
-    guide_id = miniapp_db_fcn.create_guide(request={"name": request.name,
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
+    guide_id = await miniapp_db_fcn.create_guide(request={"name": request.name,
                                                     "category": request.category,
-                                                    "author": request.master_id,
+                                                    "author": master_id,
                                                     "guide_created": date.today(),
                                                     "guide_last_change": date.today()},
                                            session=session)
@@ -196,7 +213,9 @@ async def create_guide_text(
     for i, step in enumerate(request.steps):
         a = {"guide_id": guide_id,
              "step_num": i+1,
-             "text": step.text}
+             "text": step.text,
+             "image_url": step.image_url
+             }
         steps.append(a)
     status = await miniapp_db_fcn.create_step(step_data=steps, session=session)
     return {"status": status}
@@ -204,12 +223,15 @@ async def create_guide_text(
 
 @router.post("/create_video", response_model=StatusResponse)
 async def create_guide_video(
+        chat_id: int,
         request: GuideCreateVideoRequest,
         session: AsyncSession = Depends(get_db_session)
 ):
-    guide_id = miniapp_db_fcn.create_guide(request={"name": request.name,
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
+    guide_id = await miniapp_db_fcn.create_guide(request={"name": request.name,
                                                     "category": request.category,
-                                                    "author": request.master_id,
+                                                    "author": master_id,
                                                     "guide_created": date.today(),
                                                     "guide_last_change": date.today()},
                                            session=session)
@@ -221,27 +243,6 @@ async def create_guide_video(
     status = await miniapp_db_fcn.create_video_step(step_data=step, session=session)
     return {"status": status}
 
-@router.post("/upload-video")
-async def upload_video(file: UploadFile = File(...)):
-    original_name = file.filename
-    ext = Path(original_name).suffix.lower()
-    if ext not in ALLOWED_VID_EXT:
-        raise HTTPException(400, f"Недопустимое расширение файла. Разрешены: {ALLOWED_VID_EXT}")
-
-    safe_filename = f"{uuid.uuid4().hex}{ext}"
-    file_path = UPLOAD_DIR / "guide_videos" / safe_filename
-
-    try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(500, f"Ошибка сохранения файла: {e}")
-
-    if file_path.stat().st_size > MAX_FILE_SIZE:
-        file_path.unlink()
-        raise HTTPException(400, f"Файл превышает максимальный размер {MAX_FILE_SIZE // (1024**2)} МБ")
-
-    return {"filepath": str(file_path.absolute())}
 
 @router.patch("/update_text", response_model=StatusResponse)
 async def update_text(
@@ -255,8 +256,13 @@ async def update_text(
     status = await miniapp_db_fcn.update_guide(update_data=upd_guide, session=session)
     for i, step in enumerate(steps):
         upd_step = step.model_dump(exclude_unset=True)
+        step_id = upd_step["step_id"]
         del upd_step["step_id"]
         upd_step["step_num"] = i+1
+        if step.image_url != None:
+            text_step = await miniapp_db_fcn.get_text_step(step_id=step_id, session=session)
+            if text_step.image_url != None:
+                await s3_client.delete_object(object_key=text_step.image_url)
         status = await miniapp_db_fcn.update_step(step_id=step.step_id, update_data=upd_step, session=session)
     return {"status": status}
 
@@ -274,76 +280,40 @@ async def update_video(
     upd_video = {"video_file_path": video.filepath,
                  "description": video.text}
     exclude_video = {k: v for k, v in upd_video.items() if v is not None}
+    if video.filepath != None:
+        video_step = await miniapp_db_fcn.get_video_steps(guide_id=request.guide_id, session=session)
+        await s3_client.delete_object(object_key=video_step["video_url"])
     status = await miniapp_db_fcn.update_video_step(step_id=video.step_id, update_data=exclude_video, session=session)
     return {"status": status}
 
 @router.delete("/delete_guide", response_model=StatusResponse)
-async def delete(
+async def delete_guide(
         guide_id: uuid.UUID,
+        type: str,
         session: AsyncSession = Depends(get_db_session)
 ):
+    if type=='Video':
+        video_step = await miniapp_db_fcn.get_video_steps(guide_id=guide_id, session=session)
+        await s3_client.delete_object(object_key=video_step["video_url"])
+    else:
+        status, steps = await miniapp_db_fcn.get_steps(guide_id=guide_id, session=session)
+        for step in steps:
+            await delete_step(step_id=step["step_id"], session=session)
     status = await miniapp_db_fcn.delete_guide(guide_id=guide_id, session=session)
     return {"status": status}
 
 @router.delete("/delete_text_step", response_model=StatusResponse)
-async def delete(
+async def delete_step(
         step_id: uuid.UUID,
         session: AsyncSession = Depends(get_db_session)
 ):
+    text_step = await miniapp_db_fcn.get_text_step(step_id=step_id, session=session)
+    if text_step.image_url != None:
+        await s3_client.delete_object(object_key=text_step.image_url)
     status = await miniapp_db_fcn.delete_step(step_id=step_id, session=session)
     return {"status": status}
 
-@router.post("/steps/{step_id}/upload-image", response_model=StatusResponse)
-async def upload_and_link_image(
-    step_id: uuid.UUID,
-    file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_db_session)
-):
-    original_name = file.filename or "image.jpg"
-    ext = Path(original_name).suffix.lower()
-    if ext not in ALLOWED_IMG_EXT:
-        raise HTTPException(400, f"Недопустимое расширение. Разрешены: {ALLOWED_IMG_EXT}")
-
-    safe_filename = f"{uuid.uuid4().hex}{ext}"
-    img_dir = UPLOAD_DIR / "guide_images"
-    img_dir.mkdir(exist_ok=True)
-    file_path = img_dir / safe_filename
-
-    try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(500, f"Ошибка сохранения файла: {e}")
-
-    if file_path.stat().st_size > MAX_FILE_SIZE:
-        file_path.unlink()
-        raise HTTPException(400, f"Файл превышает максимальный размер {MAX_FILE_SIZE // (1024**2)} МБ")
-
-    filepath_str = str(file_path.absolute())
-    try:
-        await miniapp_db_fcn.add_image(session=session, step_id=step_id, filepath=filepath_str)
-    except Exception as e:
-        # Откат: если запись в БД не прошла, удаляем файл
-        file_path.unlink(missing_ok=True)
-        raise HTTPException(500, f"Ошибка записи в БД: {e}")
-    return {"status": "success"}
 
 
 
-@router.delete("/steps/images/{image_id}", response_model=StatusResponse)
-async def delete_step_image(
-    image_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db_session)
-):
-    """Удалить изображение из БД и с диска"""
-    img_obj = await GuideTextStepImageModel.get_by_id(session=session, image_id=image_id)
-    if not img_obj:
-        return {"status": "no such image"}
 
-    try:
-        Path(img_obj.filepath).unlink(missing_ok=True)
-    except Exception:
-        pass
-
-    status = await GuideTextStepImageModel.delete(session=session, image_id=image_id)
-    return {"status": status}

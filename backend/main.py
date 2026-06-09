@@ -17,6 +17,7 @@ load_dotenv()
 from backend.api.master import guides, profile, schedule, welcome, profile_endpoints
 from backend.auth import telegram_middleware
 from backend.database import obj_storage
+from backend.api import admin_endpoints
 
 app.include_router(welcome.router)
 app.include_router(profile.router)
@@ -35,6 +36,7 @@ app.include_router(masters.router)
 app.include_router(booking.router)
 app.include_router(telegram_middleware.router)
 app.include_router(obj_storage.router)
+app.include_router(admin_endpoints.router)
 
 """@asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -64,7 +66,7 @@ async def lifespan(app: FastAPI):
 def run_server_process():
     async def start_server():
         if await db.setup_database():
-            # await create_categories()
+            #await create_categories()
             logging.info("База данных инициализирована")
 
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")

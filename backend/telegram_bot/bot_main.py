@@ -145,6 +145,13 @@ async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext
             )
             await callback.answer()
 
+async def send_notification(chat_id: int, text: str):
+    try:
+        await bot.send_message(chat_id=chat_id, text=text)
+        logging.info(f"Уведомление отправлено пользователю {chat_id}")
+    except Exception as e:
+        logging.error(f"Не удалось отправить сообщение {chat_id}: {e}")
+
 async def test_proxy(bot: Bot) -> bool:
     """Проверяет, работает ли прокси, запрашивая информацию о боте"""
     try:

@@ -44,6 +44,8 @@ class VideoResponse(StatusResponse):
 class GuideResponse(StatusResponse):
     steps: List[StepResponse]
 
+class LikeResponse(StatusResponse):
+    liked: bool
 
 """API"""
 router = APIRouter(
@@ -70,7 +72,7 @@ async def get_guides(
         "guides_all": g_all
     }
 
-@router.get("/step_text", response_model=StepResponse)
+@router.get("/step_text", response_model=GuideResponse)
 async def get_steps_text(
         guide_id: uuid.UUID,
         session: AsyncSession = Depends(get_db_session)
@@ -108,4 +110,15 @@ async def toggle_like(
     master_id = master.id
     await miniapp_db_fcn.change_state(master_id=master_id, guide_id=guide_id, session=session)
     return {"status": "success"}
+
+@router.get("/like_status", response_model=LikeResponse)
+async def check_like(chat_id: int,
+                     guide_id: uuid.UUID,
+                     session: AsyncSession = Depends(get_db_session)
+                     ):
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    master_id = master.id
+    condition = await miniapp_db_fcn.check_like(master_id=master_id, guide_id=guide_id, session=session)
+    return {"status": "success",
+            "liked": condition}
 
