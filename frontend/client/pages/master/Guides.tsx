@@ -27,6 +27,7 @@ function GuideCard({ item }: { item: GuideItem }) {
   return (
     <Link
       to={`/guide/${item.id}`}
+      state={{ categoryName: item.category }}
       className={`relative w-full h-24 rounded-[20px] overflow-hidden shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]`}
       style={{ border: "0.5px solid rgba(0,0,0,0.00)", backgroundColor: item.bgColor, boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
     >
@@ -108,7 +109,7 @@ export default function GuidesPage() {
           isStarred: g.liked,
           type: g.video ? "video" : "text",
           // Цвет фона: чередование, как в моках (не меняем стиль карточки)
-          bgColor: index % 4 <= 1  ? "#FFE9EF" : "#FFD0DC",
+          bgColor: (index+1) % 4 <= 1  ? "#FFE9EF" : "#FFD0DC",
         });
 
         setFitGuides(data.guides_fit.map((g: any, idx: number) => mapGuide(g, idx)));

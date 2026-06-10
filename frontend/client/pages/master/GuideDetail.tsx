@@ -1,6 +1,17 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import haircutIcon from "@/assets/category_hairdresser.svg";
+import beardIcon from "@/assets/beard_icon_category.svg";
+import colorIcon from "@/assets/color_icon_category.svg";
+import creamIcon from "@/assets/cream_icon_category.svg";
+import nailsIcon from "@/assets/nails_icon_category.svg";
+import lashesIcon from "@/assets/lashes_icon_category.svg"
+import epilationIcon from "@/assets/epilation_icon_category.svg"
+import makeupIcon from "@/assets/makeup_icon_category.svg"
+import tanIcon from "@/assets/tan_icon_category.svg"
+import lotusIcon from "@/assets/lotus_icon_category.svg"
+import consultationIcon from "@/assets/consultation_icon_category.svg"
+import plantIcon from "@/assets/plant_icon_category.svg"
 import backIcon from "@/assets/back_icon.svg";
 import starLikedIcon from "@/assets/starLiked.svg";
 import starUnlikedIcon from "@/assets/starUnliked.svg";
@@ -14,6 +25,7 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 // ---------- Типы ответов бэкенда ----------
 interface TextStepApi {
   step_id: string;
+  name: string;        // <-- добавить
   text: string;
   step_num: number;
   img_url?: string;
@@ -21,19 +33,40 @@ interface TextStepApi {
 
 interface VideoStepApi {
   status: string;
-  video_name: string;
+  step_id?: string;       // опционально
+  video_name: string;     // добавить
   description: string;
   video_url: string;
+  preview: string | null;
 }
-
 interface UnifiedStep {
   type: "text" | "video";
+  name?: string;           // for text step title
   text?: string;
   description?: string;
   step_num: number;
   imgUrl?: string;
   videoUrl?: string;
+  preview?: string;        // for video poster
 }
+
+const categoryIconMap: Record<string, string> = {
+  "Стрижки": haircutIcon,
+  "Борода и усы": beardIcon,
+  "Окрашивание": colorIcon,
+  "Косметология и Skincare": creamIcon,
+  "Маникюр": nailsIcon,
+  "Педикюр": nailsIcon,
+  "Брови": lashesIcon,
+  "Ресницы": lashesIcon,
+  "Депиляция": epilationIcon,
+  "Эпиляция": epilationIcon,
+  "Makeup": makeupIcon,
+  "Солярий": tanIcon,
+  "Массажи и SPA": lotusIcon,
+  "Консультации": consultationIcon,
+  "Другое": plantIcon,
+};
 
 export default function GuideDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +75,9 @@ export default function GuideDetailPage() {
   const reviewMode = searchParams.get("review") === "true";
   const from = searchParams.get("from");
   const returnPath = from === "profile" ? "/profile/guides" : "/guides";
+  const location = useLocation();
+  const categoryName = (location.state as { categoryName?: string })?.categoryName || "";
+  const [videoTitle, setVideoTitle] = useState("");
 
   const STATIC_CHAT_ID = 980609742;
 
@@ -52,12 +88,29 @@ export default function GuideDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [guideType, setGuideType] = useState<"text" | "video">("text");
 
-  // Модальное окно для отклонения
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Загрузка статуса лайка
+  const [categoriesMap, setCategoriesMap] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/master/profile/prices/categories`);
+        const data = await res.json();
+        if (data.status === "success") {
+          const map = new Map();
+          data.categories.forEach((cat: any) => map.set(cat.id, cat.name));
+          setCategoriesMap(map);
+        }
+      } catch (err) {
+        console.error("Ошибка загрузки категорий", err);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const fetchLikeStatus = async () => {
     if (!id) return;
     try {
@@ -77,30 +130,31 @@ export default function GuideDetailPage() {
     if (!id) return;
     const fetchGuide = async () => {
       try {
-        // Регистрируем просмотр
         await fetch(`${baseUrl}/master/guides/view?chat_id=${STATIC_CHAT_ID}&guide_id=${id}`, { method: "POST" });
         
         // Пробуем загрузить текстовые шаги
         const textRes = await fetch(`${baseUrl}/master/guides/step_text?guide_id=${id}`);
         if (textRes.ok) {
           const textData = await textRes.json();
-          if (textData.status === "success") {
+          // Проверяем, что статус success и есть хотя бы один шаг
+          if (textData.status === "success" && textData.steps && textData.steps.length > 0) {
             const sortedSteps = textData.steps.sort((a: TextStepApi, b: TextStepApi) => a.step_num - b.step_num);
             const unified: UnifiedStep[] = sortedSteps.map((step) => ({
               type: "text",
+              name: step.name,
               text: step.text,
               step_num: step.step_num,
               imgUrl: step.img_url,
             }));
             setSteps(unified);
             setGuideType("text");
-            await fetchLikeStatus(); // загружаем статус лайка
+            await fetchLikeStatus();
             setLoading(false);
             return;
           }
         }
         
-        // Иначе пробуем видео
+        // Если сюда дошли – текстовых шагов нет или их ноль, пробуем видео
         const videoRes = await fetch(`${baseUrl}/master/guides/step_video?guide_id=${id}`);
         if (videoRes.ok) {
           const videoData: VideoStepApi = await videoRes.json();
@@ -111,8 +165,10 @@ export default function GuideDetailPage() {
                 description: videoData.description,
                 step_num: 1,
                 videoUrl: videoData.video_url,
+                preview: videoData.preview || undefined,
               },
             ]);
+            setVideoTitle(videoData.video_name);
             setGuideType("video");
             await fetchLikeStatus();
             setLoading(false);
@@ -206,6 +262,8 @@ export default function GuideDetailPage() {
     );
   }
 
+  const categoryIcon = categoryName && categoryIconMap[categoryName] ? categoryIconMap[categoryName] : haircutIcon;
+
   const isVideoGuide = guideType === "video";
   const totalSteps = steps.length;
   const currentStepData = steps[currentStep];
@@ -240,10 +298,10 @@ export default function GuideDetailPage() {
         <div className="grid grid-cols-3 gap-2 place-items-center mt-6">
           <div className="flex flex-col items-center gap-1">
             <div className="w-12 h-12 rounded-lg overflow-hidden">
-              <img src={haircutIcon} alt="category" className="w-full h-full object-cover" />
+              <img src={categoryIcon} alt={categoryName || "категория"} className="w-full h-full object-cover" />
             </div>
             <h3 className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black text-center">
-              {isVideoGuide ? "Видео-гайд" : "Текстовый гайд"}
+              {categoryName || (isVideoGuide ? "Видео-гайд" : "Текстовый гайд")}
             </h3>
           </div>
           <div className="flex flex-col items-center gap-1">
@@ -273,80 +331,181 @@ export default function GuideDetailPage() {
         {isVideoGuide ? (
           // ВИДЕО-ГАЙД
           <>
-            <div className="bg-white rounded-xl overflow-hidden shadow-md mb-6">
-              <video controls className="w-full h-auto" src={currentStepData.videoUrl}>
-                Ваш браузер не поддерживает видео.
-              </video>
-            </div>
-            <div className="text-[12px] font-['Sofia_Sans'] text-black leading-normal whitespace-pre-line">
-              {currentStepData.description}
-            </div>
-          </>
+          {videoTitle && (
+            <h3 className="text-[20px] font-['Sofia_Sans'] text-black font-semibold mb-2 text-center">
+              {videoTitle}
+            </h3>
+          )}
+          <div className="bg-white rounded-xl overflow-hidden shadow-md mb-6">
+            <video controls className="w-full h-auto" src={currentStepData.videoUrl} poster={currentStepData.preview}>
+              Ваш браузер не поддерживает видео.
+            </video>
+          </div>
+          <div className="text-[16px] font-['Sofia_Sans'] text-black leading-normal whitespace-pre-wrap">
+            {currentStepData.description}
+          </div>
+        </>
         ) : (
           // ТЕКСТОВЫЙ ГАЙД
-          <>
-            <div className="mt-2">
-              <p className="text-base font-['Sofia_Sans'] text-black leading-normal mb-4">
-                {currentStepData.text}
-              </p>
-              {currentStepData.imgUrl && (
-                <div className="rounded-xl overflow-hidden shadow-md">
-                  <img src={currentStepData.imgUrl} alt={`Шаг ${currentStepData.step_num}`} className="w-full h-auto object-cover" />
-                </div>
-              )}
-            </div>
-          </>
+          <div className="mt-2">
+            {currentStepData.name && (
+              <h4 className="text-[20px] font-['Sofia_Sans'] text-black font-semibold mb-2">
+                {currentStepData.name}
+              </h4>
+            )}
+            <p className="text-[16px] font-['Sofia_Sans'] text-black leading-normal mb-4 whitespace-pre-wrap">
+              {currentStepData.text}
+            </p>
+            {currentStepData.imgUrl && (
+              <div className="rounded-xl overflow-hidden shadow-md">
+                <img src={currentStepData.imgUrl} alt={`Шаг ${currentStepData.step_num}`} className="w-full h-auto object-cover" />
+              </div>
+            )}
+          </div>
         )}
 
         {/* Навигационные кнопки / Кнопки модерации */}
-        <div className="flex justify-between mt-8">
-          {!isVideoGuide && currentStep !== 0 && (
-            <button
-              onClick={handlePrev}
-              className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1"
-              style={buttonShadowStyle}
-            >
-              <img src={arrowForwardIcon} alt="prev" className="w-4 h-4 rotate-180" />
-              <span className="text-[14px] font-['Sofia_Sans'] text-black">Предыдущий шаг</span>
-            </button>
-          )}
-
-          {reviewMode ? (
-            // Режим ревью – показываем две кнопки всегда
-            <div className="flex justify-end gap-4 w-full">
-              <button
-                onClick={handleReject}
-                disabled={isSubmitting}
-                className="relative bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 text-[12px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
-                style={buttonShadowStyle}
-              >
-                <X className="w-4 h-4" />
-                <span>Отклонить</span>
-              </button>
-              <button
-                onClick={handleApprove}
-                disabled={isSubmitting}
-                className="relative bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 text-[12px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
-                style={buttonShadowStyle}
-              >
-                <Check className="w-4 h-4" />
-                <span>Согласовать</span>
-              </button>
-            </div>
-          ) : (
-            // Обычный режим – кнопка "Вернуться" (для видео) или "Следующий шаг"/"Вернуться" для текста
+        <div className="mt-8">
+         {reviewMode ? (
+            // Режим ревью
             <>
+              {/* Для текстового гайда: до последнего шага – обычная навигация */}
               {!isVideoGuide && currentStep !== totalSteps - 1 && (
-                <button
-                  onClick={handleNext}
-                  className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1 ml-auto"
-                  style={buttonShadowStyle}
-                >
-                  <span className="text-[14px] font-['Sofia_Sans'] text-black">Следующий шаг</span>
-                  <img src={arrowForwardIcon} alt="next" className="w-4 h-4" />
-                </button>
+                <div className="flex justify-between mt-8">
+                  {currentStep !== 0 && (
+                    <button
+                      onClick={handlePrev}
+                      className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1"
+                      style={buttonShadowStyle}
+                    >
+                      <img src={arrowForwardIcon} alt="prev" className="w-4 h-4 rotate-180" />
+                      <span className="text-[14px] font-['Sofia_Sans'] text-black">Предыдущий шаг</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleNext}
+                    className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1 ml-auto"
+                    style={buttonShadowStyle}
+                  >
+                    <span className="text-[14px] font-['Sofia_Sans'] text-black">Следующий шаг</span>
+                    <img src={arrowForwardIcon} alt="next" className="w-4 h-4" />
+                  </button>
+                </div>
               )}
-              {(isVideoGuide || currentStep === totalSteps - 1) && (
+
+              {/* Для текстового гайда: последний шаг – два ряда */}
+              {!isVideoGuide && currentStep === totalSteps - 1 && (
+                <div className="flex flex-col gap-4 mt-8">
+                  <div className="flex justify-between">
+                    {currentStep !== 0 && (
+                      <button
+                        onClick={handlePrev}
+                        className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1"
+                        style={buttonShadowStyle}
+                      >
+                        <img src={arrowForwardIcon} alt="prev" className="w-4 h-4 rotate-180" />
+                        <span className="text-[14px] font-['Sofia_Sans'] text-black">Предыдущий шаг</span>
+                      </button>
+                    )}
+                    <Link
+                      to={returnPath}
+                      className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center ml-auto"
+                      style={buttonShadowStyle}
+                    >
+                      <span className="text-[14px] font-['Sofia_Sans'] text-black">Вернуться к гайдам</span>
+                    </Link>
+                  </div>
+                  <div className="flex justify-between">
+                    <button
+                      onClick={handleReject}
+                      disabled={isSubmitting}
+                      className="relative bg-[#FFE9EF] rounded-[10px] w-40 h-10 text-[14px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
+                      style={buttonShadowStyle}
+                    >
+                      <X className="w-4 h-4" /><span>Отклонить</span>
+                    </button>
+                    <button
+                      onClick={handleApprove}
+                      disabled={isSubmitting}
+                      className="relative bg-[#FFE9EF] rounded-[10px] w-40 h-10 text-[14px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
+                      style={buttonShadowStyle}
+                    >
+                      <Check className="w-4 h-4" /><span>Согласовать</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Для видео-гайда (всегда один шаг) – сразу два ряда */}
+              {isVideoGuide && (
+                <div className="flex flex-col gap-4 mt-8">
+                  <div className="flex justify-end">
+                    <Link
+                      to={returnPath}
+                      className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center ml-auto"
+                      style={buttonShadowStyle}
+                    >
+                      <span className="text-[14px] font-['Sofia_Sans'] text-black">Вернуться к гайдам</span>
+                    </Link>
+                  </div>
+                  <div className="flex justify-between">
+                    <button
+                      onClick={handleReject}
+                      disabled={isSubmitting}
+                      className="relative bg-[#FFE9EF] rounded-[10px] w-40 h-10 text-[14px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
+                      style={buttonShadowStyle}
+                    >
+                      <X className="w-4 h-4" /><span>Отклонить</span>
+                    </button>
+                    <button
+                      onClick={handleApprove}
+                      disabled={isSubmitting}
+                      className="relative bg-[#FFE9EF] rounded-[10px] w-40 h-10 text-[14px] font-['Sofia_Sans'] text-black flex items-center justify-center gap-2"
+                      style={buttonShadowStyle}
+                    >
+                      <Check className="w-4 h-4" /><span>Согласовать</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            // Обычный режим (без ревью)
+            <>
+            {!isVideoGuide && (
+              <div className="flex justify-between mt-8">
+                {currentStep !== 0 && (
+                  <button
+                    onClick={handlePrev}
+                    className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1"
+                    style={buttonShadowStyle}
+                  >
+                    <img src={arrowForwardIcon} alt="prev" className="w-4 h-4 rotate-180" />
+                    <span className="text-[14px] font-['Sofia_Sans'] text-black">Предыдущий шаг</span>
+                  </button>
+                )}
+                {currentStep !== totalSteps - 1 ? (
+                  <button
+                    onClick={handleNext}
+                    className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1 ml-auto"
+                    style={buttonShadowStyle}
+                  >
+                    <span className="text-[14px] font-['Sofia_Sans'] text-black">Следующий шаг</span>
+                    <img src={arrowForwardIcon} alt="next" className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <Link
+                    to={returnPath}
+                    className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center ml-auto"
+                    style={buttonShadowStyle}
+                  >
+                    <span className="text-[14px] font-['Sofia_Sans'] text-black">Вернуться к гайдам</span>
+                  </Link>
+                )}
+              </div>
+            )}
+            {isVideoGuide && (
+              <div className="flex justify-end mt-8">
                 <Link
                   to={returnPath}
                   className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center ml-auto"
@@ -354,8 +513,9 @@ export default function GuideDetailPage() {
                 >
                   <span className="text-[14px] font-['Sofia_Sans'] text-black">Вернуться к гайдам</span>
                 </Link>
-              )}
-            </>
+              </div>
+            )}
+          </>
           )}
         </div>
       </div>
@@ -364,9 +524,9 @@ export default function GuideDetailPage() {
       {isRejectModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
-            <h3 className="text-xl font-semibold mb-4 text-black">Отклонить гайд</h3>
+            <h3 className="text-[24px] font-semibold mb-4 text-black">Отклонить гайд</h3>
             <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm font-['Sofia_Sans'] text-black resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
+              className="w-full border border-gray-300 rounded-lg p-3 text-[14px] font-['Sofia_Sans'] text-black resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
               rows={4}
               placeholder="Укажите причину отклонения..."
               value={rejectComment}
@@ -375,14 +535,14 @@ export default function GuideDetailPage() {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setIsRejectModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800"
               >
                 Отмена
               </button>
               <button
                 onClick={handleRejectConfirm}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 disabled:opacity-50"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg text-[14px] font-medium hover:bg-red-600 disabled:opacity-50"
               >
                 {isSubmitting ? "Отклонение..." : "Отклонить"}
               </button>

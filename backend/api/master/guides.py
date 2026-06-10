@@ -32,16 +32,20 @@ class StepInfoResponse(StatusResponse):
 
 class StepResponse(BaseModel):
     step_id: uuid.UUID
+    name: str
     text: str
     step_num: int
     img_url: Optional[str] = None
 
 class VideoResponse(StatusResponse):
+    step_id: uuid.UUID
     video_name: str
     description: str
     video_url: str
+    preview: Optional[str] = None
 
 class GuideResponse(StatusResponse):
+    name: str
     steps: List[StepResponse]
 
 class LikeResponse(StatusResponse):
@@ -78,7 +82,9 @@ async def get_steps_text(
         session: AsyncSession = Depends(get_db_session)
 ):
     status, steps = await miniapp_db_fcn.get_steps(guide_id=guide_id, session=session)
+    guide = await miniapp_db_fcn.get_guide(guide_id=guide_id, session=session)
     return {"status": "success",
+            "name": guide.name,
             "steps": steps}
 
 @router.get("/step_video", response_model=VideoResponse)

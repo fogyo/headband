@@ -23,7 +23,7 @@ async def get_guides(master_id: uuid.UUID, session: AsyncSession):
         g_fit_resp.append({
             "id": g.id,
             "name": g.name,
-            "category": g.category,
+            "category": g.category.name,
             "video": bool(await GuideVideoStepModel.get_by_guide_id(guide_id=g.id, session=session)),
             "liked": await GuideStatModel.check_like(guide_id=g.id, master_id=master_id, session=session),
             "likes": stat["likes"],
@@ -35,7 +35,7 @@ async def get_guides(master_id: uuid.UUID, session: AsyncSession):
         g_all_resp.append({
             "id": g.id,
             "name": g.name,
-            "category": g.category,
+            "category": g.category.name,
             "video": bool(await GuideVideoStepModel.get_by_guide_id(guide_id=g.id, session=session)),
             "liked": await GuideStatModel.check_like(guide_id=g.id, master_id=master_id, session=session),
             "likes": stat["likes"],
@@ -44,11 +44,15 @@ async def get_guides(master_id: uuid.UUID, session: AsyncSession):
 
     return "success", g_fit_resp, g_all_resp
 
+async def get_text_step(step_id: uuid.UUID, session: AsyncSession):
+    return await GuideTextStepModel.get_by_step_id(step_id=step_id, session=session)
+
 async def get_steps(guide_id: uuid.UUID, session: AsyncSession):
     """Получение шагов гайда по ID"""
     steps = await GuideTextStepModel.get_by_guide_id(guide_id=guide_id, session=session)
     steps_resp = [{
         "step_id": s.id,
+        "name": s.name,
         "step_num": s.step_num,
         "text": s.text,
         "img_url": f"{s3_domain}{s.image_url}" if s.image_url != None else None
@@ -91,9 +95,11 @@ async def get_video_steps(guide_id: uuid.UUID, session: AsyncSession):
     step = await GuideVideoStepModel.get_by_guide_id(guide_id=guide_id, session=session)
     step_resp = {
         "status": "success",
+        "step_id": step.id,
         "video_name": step.video_name,
         "description": step.description,
-        "video_url": f"{s3_domain}{step.video_file_path}"
+        "video_url": f"{s3_domain}{step.video_file_path}",
+        "preview": f"{s3_domain}{step.preview}" if step.preview != None else None
     }
     return step_resp
 

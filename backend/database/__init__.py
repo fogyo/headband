@@ -401,7 +401,7 @@ class MasterCategoryModel(Base):
         query = select(cls).where(cls.master_id == id)
         result = await session.execute(query)
         categories = result.scalars().all()
-        category_ids = [cat.id for cat in categories]
+        category_ids = [cat.category_id for cat in categories]
         return category_ids
 
     @classmethod
@@ -790,15 +790,24 @@ class AppointmentModel(Base):
 
 class GuidesModel(Base):
     __tablename__ = "guides"
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str]
-    category: Mapped[str]
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("categories.id", ondelete="RESTRICT")  # гайд не должен удаляться при удалении категории
+    )
     author: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     guide_status: Mapped[int]
     guide_created: Mapped[date]
     guide_last_change: Mapped[date]
     guide_approved: Mapped[date] = mapped_column(Date, nullable=True)
 
+    # Relationships
+    category: Mapped["CategoryModel"] = relationship(
+        "CategoryModel",
+        lazy="joined"
+    )
     steps_list: Mapped[List["GuideTextStepModel"]] = relationship(
         "GuideTextStepModel",
         back_populates="guide",
@@ -825,8 +834,11 @@ class GuidesModel(Base):
         return result.scalars().all()
 
     @classmethod
-    async def get_by_categories(cls, categories: List[str], session: AsyncSession):
-        query = select(cls).where(cls.category.in_(categories), cls.guide_status == GuideStatus.CONFIRMED.value)
+    async def get_by_categories(cls, categories: List[uuid.UUID], session: AsyncSession) -> List[GuidesModel]:
+        query = select(cls).where(
+            cls.category_id.in_(categories),
+            cls.guide_status == GuideStatus.CONFIRMED.value
+        )
         result = await session.execute(query)
         return result.scalars().all()
 
@@ -904,6 +916,7 @@ class GuideTextStepModel(Base):
     __tablename__ = "guide_text_steps"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     guide_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("guides.id", ondelete="CASCADE"))
+    name: Mapped[str]
     step_num: Mapped[int]
     text: Mapped[str]
     image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -959,6 +972,7 @@ class GuideVideoStepModel(Base):
     video_name: Mapped[str]
     video_file_path: Mapped[str] = mapped_column(String, nullable=True)
     description: Mapped[str] = mapped_column(String, nullable=True)
+    preview: Mapped[str] = mapped_column(String, nullable=True)
 
     guide: Mapped["GuidesModel"] = relationship("GuidesModel", back_populates="video_steps_list")
 

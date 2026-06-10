@@ -49,7 +49,7 @@ interface ApproveGuide {
 }
 
 // Вспомогательные функции
-const getBgColor = (index: number) => (index % 4 <= 1 ? "#FFE9EF" : "#FFD0DC");
+const getBgColor = (index: number) => (index % 2 < 1 ? "#FFE9EF" : "#FFD0DC");
 const mapGuideType = (guideType: number): "text" | "video" => (guideType === 1 ? "video" : "text");
 
 // Форматирование даты "2026-06-08" → "08.06.26"
@@ -125,6 +125,7 @@ function GuideCardPlain({ item }: { item: ApproveGuide }) {
   return (
     <Link
       to={`/guide/${item.id}?from=profile&review=true`}
+      state={{ categoryName: item.category }}
       className="block w-full h-24 rounded-[20px] overflow-hidden"
       style={{
         border: "0.5px solid rgba(0,0,0,0.00)",
