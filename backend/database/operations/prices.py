@@ -91,7 +91,7 @@ async def create_pricelist(data: List, master_id: uuid.UUID, session: AsyncSessi
         p["name"] = d["name"]
         p["price"] = d["price"]
         p["approximate_time"] = d["approximate_time"]
-        p["category_id"] = await CategoryModel.get_by_name(session=session, name=d["category"])
+        p["category_id"] = d["category_id"]
         p["master_id"] = master_id
         d["id"] = await PriceModel.create(session=session, data=p)
     return data

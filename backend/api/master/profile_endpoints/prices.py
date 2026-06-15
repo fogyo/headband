@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend import TEMPS_DIR
 from backend.database import get_db_session, miniapp_db_fcn
+from backend.database.obj_storage import s3_domain
 from backend.database.responses import StatusResponse, IDResponse
 from backend.model import pricelist
 
@@ -36,6 +37,8 @@ class PriceBaseResponse(BaseModel):
     category: str
     approximate_time: int  # минуты
 
+class FileUploadRequest(BaseModel):
+    filepath: str
 
 class PriceListResponse(BaseModel):
     status: str
@@ -54,24 +57,16 @@ router = APIRouter(
     tags=["Master.Profile"])
 
 
-@router.post("/upload_price_file/{chat_id}")
+@router.post("/upload_price_file/")
 async def upload_file(chat_id: int,
-        file: UploadFile = File(...),
+        request: FileUploadRequest,
         session: AsyncSession = Depends(get_db_session)):
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(400, detail="Invalid file type")
 
-    file_extension = os.path.splitext(file.filename)[1]
-    safe_filename = f"image_{uuid.uuid4().hex}{file_extension}"
-    file_path = os.path.join(TEMPS_DIR, safe_filename)
-
-    async with aiofiles.open(file_path, 'wb') as f:
-        while chunk := await file.read(1024 * 1024):  # читаем по 1 МБ
-            await f.write(chunk)
-
-    data = await pricelist.get_price_list(file_path)
+    file_url = f"{s3_domain}{request.filepath}"
+    data = await pricelist.get_price_list(file_url=file_url, session=session)
+    print(data)
     res = await miniapp_db_fcn.create_pricelist(data=data, master_id=master_id, session=session)
     return {"status": "success",
             "prices": res}

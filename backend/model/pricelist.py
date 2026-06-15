@@ -1,62 +1,104 @@
+import os
+
+import aiohttp
 import json
-import logging
-
-import pytesseract
 import re
-import ollama
+import logging
+from sqlalchemy.ext.asyncio import AsyncSession
 
-CATEGORIES_FILE = 'model\categories.txt'
+from backend.database import miniapp_db_fcn
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+api_key = os.getenv("API_GENAI")
 
-def load_categories():
-    """Загружает список категорий из файла"""
-    with open(CATEGORIES_FILE, 'r', encoding='utf-8') as f:
-        return f.read()
-
-async def get_price_list(filepath: str):
-    text = pytesseract.image_to_string(filepath, lang='rus+eng')
-
-    categories = load_categories()
+async def get_price_list(file_url: str, session: AsyncSession):
+    categories = await miniapp_db_fcn.get_all_categories(session=session)
+    names = [cat["name"] for cat in categories]
+    ids = [cat["id"] for cat in categories]
 
     prompt = f"""
-        Ты помощник, который извлекает данные из прайс-листов. Читай внимательно, внутри строки может быть несколько услуг(например для разной длины волос - разная цена)
-        Из текста ниже нужно получить JSON-массив объектов.
-        Структура объекта:
-        - "name": название услуги (строка)
-        - "price": цена в рублях (число, без знака валюты)
-        - "approximate_time": время выполнения в минутах (целое число, оцени сам исходя из названия)
-        - "category": одна из категорий: {categories}
+    Ты помощник, который извлекает данные из прайс-листов. 
+    Из предоставленного файла (изображение или текст) нужно получить JSON-массив объектов.
 
-        Правила:
-        1. Игнорируй заголовки, итоги, пустые строки.
-        2. Если цена не найдена, поставь 0.
-        3. Ответ должен быть ТОЛЬКО валидным JSON массивом. Без маркдауна, без пояснений.
+    Структура объекта:
+    - "name": название услуги (строка)
+    - "price": цена в рублях (число, без знака валюты). Если цена не указана или не найдена — поставь 0.
+    - "approximate_time": время выполнения в минутах (целое число). Оценивай реалистично, исходя из типовых норм
+    - "category_id": одна из категорий: {names}, которым соответствуют айди {ids}. Категорию выбирай максимально точно:
+      * Если ни одна не подходит, выбери ближайшую или "Другое".
 
-        Текст для анализа:
-        {text}
-        """
+    Правила:
+    1. Игнорируй заголовки, итоги, пустые строки.
+    2. Если цена не найдена — 0.
+    3. Ответ должен быть ТОЛЬКО валидным JSON массивом. Без маркдауна, без пояснений.
 
-    models_obj = ollama.list()
-    models = [x.model for x in models_obj.models]
+    Файл для анализа приложен ниже.
+    """
 
-    try:
-        response = ollama.chat(model=models[0], messages=[
-            {'role': 'user', 'content': prompt},
-        ])
-        content = response['message']['content']
+    payload = {
+        "is_sync": True,
+        "temperature": 0.2,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": file_url}}
+                ]
+            }
+        ]
+    }
 
-        # Очистка от возможных маркдаун блоков ```json ... ```
-        clean_json = re.sub(r'```json\s*|\s*```', '', content).strip()
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    url = "https://api.gen-api.ru/api/v1/networks/gemini-2-5-flash-lite"
+    async with aiohttp.ClientSession() as sess:
+        try:
+            async with sess.post(url, json=payload, headers=headers, timeout=120) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logging.error(f"HTTP {resp.status}: {text}")
+                    return []
 
-        data = json.loads(clean_json)
-        return data
-    except Exception as e:
-        logging.error(f"Ошибка при обработке LLM: {e}")
-        return []
+                data = await resp.json()
 
+                if 'response' in data:
 
+                    if isinstance(data['response'], list) and len(data['response']) > 0:
 
+                        content = data['response'][0].get('message', {}).get('content', '')
+                    elif isinstance(data['response'], str):
+                        content = data['response']
+                    else:
+                        content = ''
+                else:
+                    # fallback для других форматов
+                    content = data.get('output', '') or data.get('choices', [{}])[0].get('message', {}).get('content',
+                                                                                                            '')
+                if not content:
+                    logging.error(f"Пустой ответ, полный data: {data}")
+                    return []
 
+                clean_json = re.sub(r'```json\s*|\s*```', '', content).strip()
+                match = re.search(r'\[\s*\{.*?\}\s*\]', clean_json, re.DOTALL)
+                if match:
+                    clean_json = match.group(0)
 
+                data_list = json.loads(clean_json)
+                if not isinstance(data_list, list):
+                    logging.error("Ответ не является массивом")
+                    return []
 
+                validated = []
+                for item in data_list:
+                    if 'name' in item and 'price' in item:
+                        validated.append(item)
+                    else:
+                        logging.warning(f"Пропущен некорректный объект: {item}")
+                return validated
+
+        except Exception as e:
+            logging.error(f"Ошибка при обработке LLM: {e}", exc_info=True)
+            return []
