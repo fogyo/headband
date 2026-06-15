@@ -27,6 +27,9 @@ import UserIndexPage from "./pages/client/UserIndex";
 import CategoryMastersPage from "./pages/client/CategoryMastersPage";
 import MasterPriceListPage from "./pages/client/MasterPriceListPage";
 import BookAppointmentPage from "./pages/client/BookAppointmentsPage";
+import HeadbeautyIndexPage from "./pages/headbeauty/IndexHeadbeauty"
+import AICategoryPage from "./pages/headbeauty/HeadbeautyCategory";
+import AIHairPage from "./pages/headbeauty/HairHeadbeautyCategory";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +90,9 @@ const App = () => (
             <Route path="/user" element={<UserIndexPage />} />
             <Route path="/booking/:masterId" element={<MasterPriceListPage />} />
             <Route path="/booking/:masterId/:serviceId" element={<BookAppointmentPage />} />
+            <Route path="/headbeauty" element={<HeadbeautyIndexPage />} />
+            <Route path="/headbeauty-category/:gender" element={<AICategoryPage />} />
+            <Route path="/headbeauty-hair/:gender" element={<AIHairPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TelegramAuthProvider>

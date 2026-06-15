@@ -1,8 +1,10 @@
 import headbeautyAiImg from "@/assets/PinkScissors.png";
+import { Link } from "react-router-dom";
 
 export default function HeadbeautyAICard() {
   return (
-    <div
+    <Link
+    to="/headbeauty"
       className="relative rounded-[10px] overflow-hidden bg-[#FFE9EF] p-6 flex items-start justify-between"
       style={{
         boxShadow:
@@ -39,6 +41,6 @@ export default function HeadbeautyAICard() {
           style={{ mixBlendMode: "multiply" }} // можно убрать, если не нужно
         />
       </div>
-    </div>
+    </Link>
   );
 }
