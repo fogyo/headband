@@ -189,6 +189,12 @@ class CategoryModel(Base):
         return result.scalars().all()
 
     @classmethod
+    def get_all_sync(cls, session):
+        query = select(cls)
+        result = session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
     async def get_by_id(cls, session: AsyncSession, category_id: uuid.UUID):
         query = select(cls.name).where(cls.id == category_id)
         result = await session.execute(query)
@@ -668,6 +674,13 @@ class PriceModel(Base):
         price = cls(**data)
         session.add(price)
         await session.flush()
+        return price.id
+
+    @classmethod
+    def create_sync(cls, session, data: dict):
+        price = cls(**data)
+        session.add(price)
+        session.flush()
         return price.id
 
     @classmethod

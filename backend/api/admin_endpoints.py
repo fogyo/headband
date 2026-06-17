@@ -1,11 +1,12 @@
 import uuid
 
+from celery.result import AsyncResult
 from fastapi import Depends, APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
-
+from backend.model.bg_factory import task_manager
 
 router = APIRouter(
     prefix="/admins",
@@ -21,4 +22,15 @@ async def set_amba(
     status = await miniapp_db_fcn.set_ambassador(master_id=master_id, session=session)
     return {"status": status}
 
+@router.get("/task")
+async def get_task_price_list(task_id: str):
+    task_result = AsyncResult(task_id, app=task_manager.app)
 
+    if not task_result.ready():
+        return {"status": "pending"}
+    if task_result.successful():
+        return {"status": "success"}
+    else:
+        # failed
+        error = str(task_result.result) if task_result.result else "Unknown error"
+        return {"status": "failed", "error": error}

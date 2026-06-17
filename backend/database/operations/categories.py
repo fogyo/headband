@@ -15,6 +15,17 @@ async def get_all_categories(session: AsyncSession):
         for cat in categories
     ]
 
+def get_all_categories_sync(session):
+    """Получение всех категорий"""
+    categories = CategoryModel.get_all_sync(session=session)
+    return [
+        {
+            "id": cat.id,
+            "name": cat.name
+        }
+        for cat in categories
+    ]
+
 
 async def create_category(
         name: str,

@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Pencil, Plus, Download, X } from "lucide-react";
 import trashIcon from "@/assets/Trash.svg";
 import pencilIcon from "@/assets/Pencil.svg";
 import backIcon from "@/assets/back_icon.svg";
-import loadingSpinner from "@/assets/loading.svg"; // иконка загрузки
+import loadingSpinner from "@/assets/loading.svg";
 import { toast } from "sonner";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
@@ -96,7 +96,72 @@ export default function ProfilePriceListPage() {
   const [newService, setNewService] = useState({ name: "", categoryId: "", duration: "", price: "" });
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false); // состояние загрузки файла
+  const [uploading, setUploading] = useState(false);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Остановка опроса
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setUploading(false);
+  };
+
+  // Опрос статуса задачи
+  const pollTaskStatus = async (taskId: string) => {
+    try {
+      const res = await fetch(`${baseUrl}/admins/task?task_id=${taskId}`);
+      if (!res.ok) {
+        throw new Error("Ошибка получения статуса задачи");
+      }
+      const data = await res.json();
+
+      if (data.status === "pending") {
+        // продолжаем ожидать
+        return;
+      }
+
+      // Задача завершена
+      stopPolling();
+
+      if (data.status === "success") {
+        toast.success("Прайс успешно загружен и обработан");
+        await loadData(); // перезагружаем данные
+        setIsUploadModalOpen(false);
+        setUploadFile(null);
+        setTaskId(null);
+      } else {
+        // failed
+        toast.error(data.error || "Ошибка обработки файла");
+        setTaskId(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Ошибка при проверке статуса");
+      stopPolling();
+      setTaskId(null);
+    }
+  };
+
+  const startPolling = (taskId: string) => {
+    setTaskId(taskId);
+    setUploading(true);
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    pollingIntervalRef.current = setInterval(() => {
+      pollTaskStatus(taskId);
+    }, 2000); // опрашиваем каждые 2 секунды
+  };
+
+  // Очистка интервала при размонтировании
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   const fetchCategories = async (): Promise<CategoryFromApi[]> => {
     const res = await fetch(`${baseUrl}/master/profile/prices/categories`);
@@ -261,7 +326,6 @@ export default function ProfilePriceListPage() {
       toast.warning("Выберите файл");
       return;
     }
-    setUploading(true);
     try {
       const fileKey = await uploadFileToS3(uploadFile);
       const res = await fetch(`${baseUrl}/master/profile/prices/upload_price_file/?chat_id=${STATIC_CHAT_ID}`, {
@@ -274,15 +338,14 @@ export default function ProfilePriceListPage() {
         throw new Error(err.detail || "Ошибка обработки файла");
       }
       const data = await res.json();
-      if (data.status !== "success") throw new Error(data.status);
-      toast.success("Прайс загружен и обработан");
-      await loadData();
-      setIsUploadModalOpen(false);
-      setUploadFile(null);
+      if (data.status !== "processing") {
+        throw new Error("Неожиданный статус ответа");
+      }
+      // Запускаем опрос
+      startPolling(data.task);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка загрузки");
-    } finally {
       setUploading(false);
     }
   };
@@ -297,41 +360,102 @@ export default function ProfilePriceListPage() {
       {/* Модалка загрузки файла */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => { setIsUploadModalOpen(false); setUploadFile(null); }} />
+          <div
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={() => {
+              if (!uploading) {
+                setIsUploadModalOpen(false);
+                setUploadFile(null);
+                if (taskId) stopPolling();
+              }
+            }}
+          />
           <div className="relative bg-[#FFE9EF] rounded-[20px] w-72 p-6 shadow-xl">
-            <h3 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black text-center">Добавление услуг</h3>
+            <h3 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black text-center">
+              {uploading ? "Загрузка прайс-листа" : "Добавление услуг"}
+            </h3>
             <div className="h-px bg-black w-60 mx-auto mt-2 mb-4" />
-            <div className="flex flex-col gap-4">
-              <label className="relative bg-[#FFE9EF] rounded-[10px] h-44 shadow flex flex-col items-center justify-center cursor-pointer" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
-                <div className="mb-2">
-                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <rect x="6" y="4" width="36" height="32" rx="3" stroke="black" strokeWidth="2" />
-                    <path d="M18 24L24 18L30 24" stroke="black" strokeWidth="2" />
-                    <line x1="24" y1="18" x2="24" y2="30" stroke="black" strokeWidth="2" />
-                    <line x1="12" y1="38" x2="36" y2="38" stroke="black" strokeWidth="2" />
-                  </svg>
+
+            {uploading ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-8">
+                <img src={loadingSpinner} alt="Загрузка..." className="w-12 h-12" />
+                <p className="text-[16px] font-['Sofia_Sans'] text-black text-center leading-tight">
+                  Ваш прайс-лист загружается,<br />пожалуйста, подождите
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col gap-4">
+                  <label
+                    className="relative bg-[#FFE9EF] rounded-[10px] h-44 shadow flex flex-col items-center justify-center cursor-pointer"
+                    style={{
+                      border: "0.5px solid rgba(0,0,0,0.00)",
+                      boxShadow:
+                        "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                    }}
+                  >
+                    <div className="mb-2">
+                      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                        <rect x="6" y="4" width="36" height="32" rx="3" stroke="black" strokeWidth="2" />
+                        <path d="M18 24L24 18L30 24" stroke="black" strokeWidth="2" />
+                        <line x1="24" y1="18" x2="24" y2="30" stroke="black" strokeWidth="2" />
+                        <line x1="12" y1="38" x2="36" y2="38" stroke="black" strokeWidth="2" />
+                      </svg>
+                    </div>
+                    {uploadFile ? (
+                      <p className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black text-center">
+                        {uploadFile.name}
+                      </p>
+                    ) : (
+                      <span className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black/50">
+                        Нажмите, чтобы выбрать файл
+                      </span>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setUploadFile(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                  <button
+                    onClick={handleSendFile}
+                    disabled={uploading}
+                    className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center"
+                    style={{
+                      border: "0.5px solid rgba(0,0,0,0.00)",
+                      boxShadow:
+                        "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                    }}
+                  >
+                    {uploading ? (
+                      <img src={loadingSpinner} alt="Загрузка..." className="w-5 h-5" />
+                    ) : (
+                      <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                        Отправить картинку
+                      </span>
+                    )}
+                  </button>
                 </div>
-                {uploadFile ? (
-                  <p className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black text-center">{uploadFile.name}</p>
-                ) : (
-                  <span className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black/50">Нажмите, чтобы выбрать файл</span>
-                )}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]); }} />
-              </label>
+              </>
+            )}
+
+            {!uploading && (
               <button
-                onClick={handleSendFile}
-                disabled={uploading}
-                className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center"
-                style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  setUploadFile(null);
+                  if (taskId) stopPolling();
+                }}
+                className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center"
               >
-                {uploading ? (
-                  <img src={loadingSpinner} alt="Загрузка..." className="w-5 h-5" />
-                ) : (
-                  <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">Отправить картинку</span>
-                )}
+                <X className="w-4 h-4 text-black/50" />
               </button>
-            </div>
-            <button onClick={() => { setIsUploadModalOpen(false); setUploadFile(null); }} className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center"><X className="w-4 h-4 text-black/50" /></button>
+            )}
           </div>
         </div>
       )}

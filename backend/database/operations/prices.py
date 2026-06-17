@@ -85,7 +85,7 @@ async def get_prices_by_category(
     return "success", resp
 
 
-async def create_pricelist(data: List, master_id: uuid.UUID, session: AsyncSession):
+def create_pricelist_sync(data: List, master_id: uuid.UUID, session: AsyncSession):
     for d in data:
         p = {}
         p["name"] = d["name"]
@@ -93,7 +93,7 @@ async def create_pricelist(data: List, master_id: uuid.UUID, session: AsyncSessi
         p["approximate_time"] = d["approximate_time"]
         p["category_id"] = d["category_id"]
         p["master_id"] = master_id
-        d["id"] = await PriceModel.create(session=session, data=p)
+        d["id"] = PriceModel.create_sync(session=session, data=p)
     return data
 
 

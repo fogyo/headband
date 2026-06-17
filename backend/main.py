@@ -12,6 +12,7 @@ from backend import app
 from backend.api import create_categories
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 from backend.api.user import welcome_user, price, masters, booking
+from backend.model.bg_factory import factory
 
 load_dotenv()
 from backend.api.master import guides, profile, schedule, welcome, profile_endpoints
@@ -63,12 +64,14 @@ async def lifespan(app: FastAPI):
     finally:
         await db.close_connection()"""
 
+def run_celery_process():
+    subprocess.run(["celery", "-A", "backend.model.bg_factory.factory", "worker", "--pool=threads", "--concurrency=4", "--loglevel=info"], check=True)
+
 def run_server_process():
     async def start_server():
         if await db.setup_database():
             #await create_categories()
             logging.info("База данных инициализирована")
-
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
         server = uvicorn.Server(config)
         await server.serve()
@@ -86,9 +89,12 @@ if __name__ == "__main__":
     multiprocessing.freeze_support()
     bot_process = Process(target=run_bot_process)
     server_process = Process(target=run_server_process)
+    celery_process = Process(target=run_celery_process)
 
     bot_process.start()
     server_process.start()
+    celery_process.start()
 
     bot_process.join()
     server_process.join()
+    celery_process.join()

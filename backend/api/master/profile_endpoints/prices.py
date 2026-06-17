@@ -14,6 +14,8 @@ from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.obj_storage import s3_domain
 from backend.database.responses import StatusResponse, IDResponse
 from backend.model import pricelist
+from backend.model.bg_factory import task_manager, TaskType
+
 
 #Requests
 class PriceCreateRequest(BaseModel):
@@ -65,11 +67,12 @@ async def upload_file(chat_id: int,
     master_id = master.id
 
     file_url = f"{s3_domain}{request.filepath}"
-    data = await pricelist.get_price_list(file_url=file_url, session=session)
-    print(data)
-    res = await miniapp_db_fcn.create_pricelist(data=data, master_id=master_id, session=session)
-    return {"status": "success",
-            "prices": res}
+    task_request = {"ai_task": TaskType.PRICELIST_MANAGING.value,
+                    "data": {"file_url": file_url,
+                            "master_id": master_id}}
+    task = task_manager.delay(task_request)
+    return {"status": "processing",
+            "task": task.id}
 
 @router.post("/create_price", response_model=IDResponse)
 async def create_price(
