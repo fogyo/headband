@@ -3,6 +3,7 @@ from backend.database.operations.appointments import *
 from backend.database.operations.categories import *
 from backend.database.operations.earnings import *
 from backend.database.operations.guides import *
+from backend.database.operations.headbeauty import *
 from backend.database.operations.masters import *
 from backend.database.operations.notifications import *
 from backend.database.operations.prepayments import *

@@ -1,16 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Camera, Upload, X } from "lucide-react";
 import backIconSrc from "@/assets/back_icon.svg";
 import { toast } from "sonner";
 
+const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+const STATIC_CHAT_ID = 980609742; // замени на реальный chat_id
+
+// Тип для сессии
+interface Session {
+  id: string;
+  gender: boolean; // true = мужской, false = женский
+  img_url: string; // object_key
+  created_at: string;
+}
+
+// Функция загрузки файла в S3 (как в других модулях)
+async function uploadFile(file: File): Promise<string> {
+  const res = await fetch(`${baseUrl}/media/upload-url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename: file.name, content_type: file.type }),
+  });
+  if (!res.ok) throw new Error("Не удалось получить ссылку для загрузки");
+  const data = await res.json();
+  if (data.status !== "success") throw new Error(data.status);
+  const { upload_url, file_key } = data;
+
+  const uploadRes = await fetch(upload_url, {
+    method: "PUT",
+    body: file,
+  });
+  if (!uploadRes.ok) throw new Error("Ошибка загрузки файла в S3");
+  return file_key;
+}
+
+// Форматирование даты
+const formatDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getFullYear()}`;
+};
+
 export default function AIStylePage() {
   const navigate = useNavigate();
 
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showGenderModal, setShowGenderModal] = useState(false);
 
+  // Загрузка сессий
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/headbeauty/?chat_id=${STATIC_CHAT_ID}`);
+        if (!res.ok) throw new Error("Ошибка загрузки сессий");
+        const data = await res.json();
+        if (data.status !== "success") throw new Error(data.status);
+        setSessions(data.sessions || []);
+      } catch (err: any) {
+        console.error(err);
+        toast.error("Не удалось загрузить историю");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSessions();
+  }, []);
+
+  // Обработка выбора файла
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -20,16 +79,46 @@ export default function AIStylePage() {
     }
   };
 
-  const handleSend = (gender: string) => {
+  // Отправка сессии (после выбора пола)
+  const handleSend = async (gender: boolean) => {
     if (!selectedFile) return;
-    // Здесь будет запрос к API с файлом и полом
-    console.log("Отправка:", { file: selectedFile, gender });
-    setShowGenderModal(false);
-    navigate(`/headbeauty-category/${gender}`);
-    // После успешной отправки можно перейти на другую страницу или показать результат
+    try {
+      // 1. Загружаем изображение в S3
+      const objectKey = await uploadFile(selectedFile);
+      // 2. Создаём сессию на бэкенде
+      const res = await fetch(`${baseUrl}/headbeauty/make_new_session?chat_id=${STATIC_CHAT_ID}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gender, img_url: objectKey }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Ошибка создания сессии");
+      }
+      const data = await res.json();
+      if (data.status !== "success") throw new Error(data.status);
+      toast.success("Сессия создана");
+      // 3. Обновляем список сессий
+      const updatedRes = await fetch(`${baseUrl}/headbeauty/?chat_id=${STATIC_CHAT_ID}`);
+      if (updatedRes.ok) {
+        const updatedData = await updatedRes.json();
+        if (updatedData.status === "success") {
+          setSessions(updatedData.sessions || []);
+        }
+      }
+      // 4. Переходим на страницу с результатами
+      navigate(`/headbeauty-category/${gender ? "male" : "female"}`, {
+        state: { gender, img_url: objectKey }
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Ошибка создания сессии");
+    } finally {
+      setShowGenderModal(false);
+    }
   };
 
-  // При клике на кнопку "Отправить картинку" открываем модальное окно, если файл выбран
+  // Клик по кнопке "Отправить"
   const onSendClick = () => {
     if (!selectedFile) {
       toast.warning("Сначала выберите фото");
@@ -37,6 +126,23 @@ export default function AIStylePage() {
     }
     setShowGenderModal(true);
   };
+
+  // Выбор существующей сессии
+  const selectSession = (session: Session) => {
+  navigate(`/headbeauty-category/${session.gender ? "male" : "female"}?session_id=${session.id}`, {
+      state: { gender: session.gender, img_url: session.img_url }
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  const hasSessions = sessions.length > 0;
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
@@ -60,71 +166,182 @@ export default function AIStylePage() {
           </h1>
         </div>
 
-        {/* Текст приветствия */}
-        <div className="mt-8 text-center">
-          <p className="text-[36px] font-['Sofia_Sans'] text-black leading-tight">
-            Добро пожаловать в{" "}
-            <span className="font-['Aclonica']">headbeauty AI</span>!
-          </p>
-          <p className="text-[20px] font-['Sofia_Sans'] text-black mt-4 leading-relaxed">
-            Хотите примерить модную стрижку или найти «тот самый» оттенок волос, не выходя из дома?
-            Наш ИИ-инструмент проанализирует геометрию Вашего лица и другие особенности, а затем покажет,
-            как эти образы будут смотреться на Вас.
-          </p>
-        </div>
+        {!hasSessions ? (
+          // ---------- НЕТ СЕССИЙ ----------
+          <>
+            <div className="mt-8 text-center">
+              <p className="text-[36px] tracking-[-1.8px] font-['Sofia_Sans'] text-black leading-tight">
+                Добро пожаловать в{" "}
+                <span className="font-['Aclonica']">headbeauty AI</span>!
+              </p>
+              <p className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black mt-4 leading-relaxed">
+                Хотите примерить модную стрижку или найти «тот самый» оттенок волос, не выходя из дома?
+                Наш ИИ-инструмент проанализирует геометрию Вашего лица и другие особенности, а затем покажет,
+                как эти образы будут смотреться на Вас.
+              </p>
+            </div>
 
-        {/* Загрузка фото */}
-        <div className="mt-8 flex flex-col items-center">
-          <label
-            className="relative bg-[#FFE9EF] rounded-[10px] w-64 h-44 shadow-md flex flex-col items-center justify-center cursor-pointer"
-            style={{
-              boxShadow:
-                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              border: "0.5px solid rgba(0,0,0,0.00)",
-            }}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="preview"
-                className="w-full h-full object-cover rounded-[10px]"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Camera className="w-12 h-12 text-black/50" />
-                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
-                  Нажмите, чтобы загрузить фото
+            <div className="mt-8 flex flex-col items-center">
+              <label
+                className="relative bg-[#FFE9EF] rounded-[10px] w-64 h-44 shadow-md flex flex-col items-center justify-center cursor-pointer"
+                style={{
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="preview"
+                    className="w-full h-full object-cover rounded-[10px]"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Camera className="w-12 h-12 text-black/50" />
+                    <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
+                      Нажмите, чтобы загрузить фото
+                    </span>
+                  </div>
+                )}
+              </label>
+
+              <button
+                onClick={onSendClick}
+                disabled={!selectedFile}
+                className="mt-6 relative bg-[#FFE9EF] rounded-[10px] w-64 h-11 flex items-center justify-center disabled:opacity-50"
+                style={{
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                }}
+              >
+                <Upload className="w-5 h-5 mr-2" />
+                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                  Отправить картинку
                 </span>
-              </div>
-            )}
-          </label>
+              </button>
+            </div>
+          </>
+        ) : (
+          // ---------- ЕСТЬ СЕССИИ ----------
+          <>
+            <div className="mt-8 text-center">
+              <p className="text-[36px] tracking-[-1.8px] font-['Sofia_Sans'] text-black leading-tight">
+                С возвращением в{" "}
+                <span className="font-['Aclonica']">headbeauty AI</span>!
+              </p>
+            </div>
 
-          {/* Кнопка отправки */}
-          <button
-            onClick={onSendClick}
-            disabled={!selectedFile}
-            className="mt-6 relative bg-[#FFE9EF] rounded-[10px] w-64 h-11 flex items-center justify-center disabled:opacity-50"
+            {/* Список сессий (горизонтальный скролл) */}
+            <div className="mt-6 rounded-[10px] p-2"
             style={{
-              boxShadow:
-                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              border: "0.5px solid rgba(0,0,0,0.00)",
-            }}
-          >
-            <Upload className="w-5 h-5 mr-2" />
-            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-              Отправить картинку
-            </span>
-          </button>
-        </div>
+                        boxShadow:
+                          "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                        border: "0.5px solid rgba(0,0,0,0.00)",
+                      }}>
+              <div className="overflow-x-auto no-scrollbar">
+                <div className="flex gap-4 pb-0">
+                  {sessions.map((session) => (
+                    <div
+                      key={session.id}
+                      onClick={() => selectSession(session)}
+                      className="flex-shrink-0 w-40 bg-[#FFE9EF]  p-2 shadow-md cursor-pointer"
+                      style={{
+                        boxShadow:
+                          "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                        border: "0.5px solid rgba(0,0,0,0.00)",
+                      }}
+                    >
+                      <div className="w-full h-24 rounded-[5px] overflow-hidden">
+                        <img
+                          src={session.img_url}
+                          alt="session"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
+                          }}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div>
+                          <p className="text-[12px] font-['Sofia_Sans'] text-black font-semibold">
+                            Сессия {sessions.indexOf(session) + 1}
+                          </p>
+                          <p className="text-[10px] font-['Sofia_Sans'] text-black/50">
+                            {formatDate(session.created_at)}
+                          </p>
+                        </div>
+                        <div
+                          className={`w-4 h-4 rounded-full ${session.gender ? "bg-blue-400" : "bg-pink-400"}`}
+                          title={session.gender ? "Мужской" : "Женский"}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Кнопка добавления новой сессии (остаётся, но без превью) */}
+            <div className="mt-6 flex flex-col items-center">
+              <label
+                className="relative bg-[#FFE9EF] rounded-[10px] w-64 h-44 shadow-md flex flex-col items-center justify-center cursor-pointer"
+                style={{
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                }}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="preview"
+                    className="w-full h-full object-cover rounded-[10px]"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Camera className="w-12 h-12 text-black/50" />
+                    <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
+                      Нажмите, чтобы загрузить фото
+                    </span>
+                  </div>
+                )}
+              </label>
+
+              <button
+                onClick={onSendClick}
+                disabled={!selectedFile}
+                className="mt-6 relative bg-[#FFE9EF] rounded-[10px] w-64 h-11 flex items-center justify-center disabled:opacity-50"
+                style={{
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                }}
+              >
+                <Upload className="w-5 h-5 mr-2" />
+                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                  Отправить картинку
+                </span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Модальное окно выбора пола */}
+      {/* Модальное окно выбора пола (без изменений) */}
       {showGenderModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -139,7 +356,7 @@ export default function AIStylePage() {
 
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => handleSend("male")}
+                onClick={() => handleSend(true)} // мужской
                 className="relative bg-[#6A92FF] rounded-[10px] h-11 shadow w-full"
                 style={{
                   border: "0.5px solid rgba(0,0,0,0.00)",
@@ -152,7 +369,7 @@ export default function AIStylePage() {
                 </span>
               </button>
               <button
-                onClick={() => handleSend("female")}
+                onClick={() => handleSend(false)} // женский
                 className="relative bg-[#FF6A92] rounded-[10px] h-11 shadow w-full"
                 style={{
                   border: "0.5px solid rgba(0,0,0,0.00)",
@@ -166,7 +383,6 @@ export default function AIStylePage() {
               </button>
             </div>
 
-            {/* Кнопка закрытия */}
             <button
               onClick={() => setShowGenderModal(false)}
               className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center"

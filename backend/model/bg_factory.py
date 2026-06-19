@@ -1,9 +1,7 @@
-import asyncio
 import os
 from enum import Enum
 
 from celery import Celery
-from pydantic import BaseModel
 
 from backend.model import pricelist
 
@@ -28,6 +26,7 @@ def task_manager(self, data: dict):
         ai_task = data["ai_task"]
         if ai_task == TaskType.PRICELIST_MANAGING.value:
             result = pricelist.run_sync(request=data["data"])
+        
         return result
     except Exception as e:
         raise self.retry(exc=e, countdown=5)

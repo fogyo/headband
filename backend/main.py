@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import database as db
 from backend import app
 from backend.api import create_categories
+from backend.api.headbeauty import hb_welcome
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 from backend.api.user import welcome_user, price, masters, booking
 from backend.model.bg_factory import factory
@@ -38,6 +39,7 @@ app.include_router(booking.router)
 app.include_router(telegram_middleware.router)
 app.include_router(obj_storage.router)
 app.include_router(admin_endpoints.router)
+app.include_router(hb_welcome.router)
 
 """@asynccontextmanager
 async def lifespan(app: FastAPI):

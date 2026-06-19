@@ -8,7 +8,7 @@ from typing import List, Optional, AsyncGenerator
 from dotenv import load_dotenv
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func, UniqueConstraint, \
-    or_
+    or_, Boolean
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
 from datetime import time, date
@@ -32,11 +32,12 @@ AsyncSessionLocal = async_sessionmaker(
 async def setup_database():
     try:
         async with engine.begin() as conn:
-            """tables_result = await conn.execute(
+            tables_result = await conn.execute(
                 text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
             )
+            """
             tables = [row[0] for row in tables_result.fetchall()]
-
+             
             await conn.execute(text("SET CONSTRAINTS ALL DEFERRED"))
 
             for table in tables:
@@ -1573,3 +1574,51 @@ class MasterConstantUsersModel(Base):
             await session.delete(obj)
             return "success"
         return "no such relation"
+
+class HeadbeautySessionModel(Base):
+    __tablename__ = "headbeauty_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    gender: Mapped[bool] = mapped_column(Boolean, nullable=False)  # 0 – мужской, 1 – женский
+    img_url: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[date] = mapped_column(Date, default=date.today)  # дата создания сессии
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Создаёт новую запись сессии"""
+        # Если в data нет created_at, оно подставится автоматически благодаря default
+        obj = cls(**data)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_chat_id(cls, session: AsyncSession, chat_id: int):
+        """Получает сессию по chat_id"""
+        query = select(cls).where(cls.chat_id == chat_id).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, session_id: uuid.UUID) -> Optional["HeadbeautySessionModel"]:
+        """Получает сессию по id"""
+        query = select(cls).where(cls.id == session_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, session_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет поля сессии (кроме created_at, если оно явно не передано)"""
+        query = update(cls).where(cls.id == session_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, session_id: uuid.UUID) -> str:
+        """Удаляет сессию по id"""
+        obj = await session.get(cls, session_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such session"

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import homeIconSrc from "@/assets/home.svg";
 import backIconSrc from "@/assets/back_icon.svg";
 import aiHair from "@/assets/ai_hair_icon.svg";
@@ -21,33 +21,40 @@ const maleCategories = [
 
 export default function AICategoryPage() {
   const navigate = useNavigate();
-  const { gender } = useParams<{ gender: string }>();
-  const selectedGender = gender || "female";
-  const categories = selectedGender === "male" ? maleCategories : femaleCategories;
+  const location = useLocation();
+  const { gender: urlGender } = useParams<{ gender: string }>();
+
+  const state = location.state as { gender?: boolean; img_url?: string } | null;
+  const gender = state?.gender !== undefined ? state.gender : (urlGender === "male" ? true : false);
+  const imgUrl = state?.img_url || "";
+
+  const selectedGender = gender ? "male" : "female";
+  const categories = gender ? maleCategories : femaleCategories;
 
   const handleCategoryClick = (route: string) => {
-    navigate(`/headbeauty-${route}/${selectedGender}`);
+    navigate(`/headbeauty-${route}/${selectedGender}`, {
+      state: { gender, img_url: imgUrl }
+    });
   };
 
   return (
     <div className="relative w-full mx-auto h-screen overflow-hidden bg-[#FFE9EF]">
       <img
-        src="https://placehold.co/375x789"
+        src={imgUrl || "https://placehold.co/375x789"}
         alt="background"
         className="absolute inset-0 w-full h-full object-cover"
       />
-      <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-8">
+      <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
         <h3 className="text-[24px] font-['Aclonica'] text-black text-center mb-4" style={{ fontFamily: "Aclonica, sans-serif" }}>
           headbeauty AI
         </h3>
-        <div className="flex justify-center flex-nowrap gap-2 px-2 pb-4">
+        <div className="flex justify-center flex-nowrap gap-2 px-2 pb-4 min-h-[120px]">
           {categories.map((cat, idx) => (
             <div
               key={idx}
               onClick={() => handleCategoryClick(cat.route)}
-              className="relative bg-[#FFE9EF] rounded-[10px] p-2 shadow-md flex-1 flex flex-col items-center cursor-pointer active:scale-95 transition-transform"
+              className="relative bg-[#FFE9EF] rounded-[10px] p-2 shadow-md flex-1 flex flex-col items-center cursor-pointer active:scale-95 transition-transform h-28"
               style={{
-                minHeight: "100px",
                 boxShadow:
                   "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05), 36px 38px 21px rgba(0,0,0,0.01), 57px 60px 23px rgba(0,0,0,0.00)",
                 border: "0.5px solid rgba(0,0,0,0.00)",
