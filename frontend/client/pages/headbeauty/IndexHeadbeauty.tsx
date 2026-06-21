@@ -5,17 +5,15 @@ import backIconSrc from "@/assets/back_icon.svg";
 import { toast } from "sonner";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-const STATIC_CHAT_ID = 980609742; // замени на реальный chat_id
+const STATIC_CHAT_ID = 980609742;
 
-// Тип для сессии
 interface Session {
   id: string;
-  gender: boolean; // true = мужской, false = женский
-  img_url: string; // object_key
+  gender: boolean;
+  img_url: string;
   created_at: string;
 }
 
-// Функция загрузки файла в S3 (как в других модулях)
 async function uploadFile(file: File): Promise<string> {
   const res = await fetch(`${baseUrl}/media/upload-url`, {
     method: "POST",
@@ -35,7 +33,6 @@ async function uploadFile(file: File): Promise<string> {
   return file_key;
 }
 
-// Форматирование даты
 const formatDate = (dateStr: string) => {
   const d = new Date(dateStr);
   return `${d.getDate().toString().padStart(2, "0")}.${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getFullYear()}`;
@@ -50,7 +47,6 @@ export default function AIStylePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showGenderModal, setShowGenderModal] = useState(false);
 
-  // Загрузка сессий
   useEffect(() => {
     const fetchSessions = async () => {
       try {
@@ -69,7 +65,6 @@ export default function AIStylePage() {
     fetchSessions();
   }, []);
 
-  // Обработка выбора файла
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -79,37 +74,57 @@ export default function AIStylePage() {
     }
   };
 
-  // Отправка сессии (после выбора пола)
   const handleSend = async (gender: boolean) => {
     if (!selectedFile) return;
     try {
-      // 1. Загружаем изображение в S3
       const objectKey = await uploadFile(selectedFile);
-      // 2. Создаём сессию на бэкенде
-      const res = await fetch(`${baseUrl}/headbeauty/make_new_session?chat_id=${STATIC_CHAT_ID}`, {
+      // 1. Создаём сессию
+      const createRes = await fetch(`${baseUrl}/headbeauty/make_new_session?chat_id=${STATIC_CHAT_ID}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gender, img_url: objectKey }),
       });
-      if (!res.ok) {
-        const err = await res.json();
+      if (!createRes.ok) {
+        const err = await createRes.json();
         throw new Error(err.detail || "Ошибка создания сессии");
       }
-      const data = await res.json();
-      if (data.status !== "success") throw new Error(data.status);
-      toast.success("Сессия создана");
-      // 3. Обновляем список сессий
+      const createData = await createRes.json();
+      if (createData.status !== "success") throw new Error(createData.status);
+
+      // 2. Получаем обновлённый список сессий, чтобы взять id новой сессии
       const updatedRes = await fetch(`${baseUrl}/headbeauty/?chat_id=${STATIC_CHAT_ID}`);
-      if (updatedRes.ok) {
-        const updatedData = await updatedRes.json();
-        if (updatedData.status === "success") {
-          setSessions(updatedData.sessions || []);
-        }
-      }
-      // 4. Переходим на страницу с результатами
-      navigate(`/headbeauty-category/${gender ? "male" : "female"}`, {
-        state: { gender, img_url: objectKey }
+      if (!updatedRes.ok) throw new Error("Ошибка получения списка сессий");
+      const updatedData = await updatedRes.json();
+      if (updatedData.status !== "success") throw new Error(updatedData.status);
+      const newSessions = updatedData.sessions || [];
+      setSessions(newSessions);
+
+      // Берём последнюю созданную сессию (предполагаем, что она последняя по времени)
+      const lastSession = newSessions.length > 0 ? newSessions[newSessions.length - 1] : null;
+      if (!lastSession) throw new Error("Не удалось найти созданную сессию");
+      const sessionId = lastSession.id;
+
+      // 3. Запускаем анализ лица
+      const analysisRes = await fetch(`${baseUrl}/headbeauty/session/start_face_analysis?session_id=${sessionId}`, {
+        method: "POST",
       });
+      if (!analysisRes.ok) {
+        const err = await analysisRes.json();
+        throw new Error(err.detail || "Ошибка запуска анализа");
+      }
+      const analysisData = await analysisRes.json();
+      if (analysisData.status !== "processing") throw new Error("Ошибка запуска анализа");
+
+      // 4. Переходим на страницу категорий, передавая session_id и task (если есть)
+      navigate(`/headbeauty-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
+        state: {
+          gender,
+          img_url: `https://42ec6f95-d4a7-485e-81ab-1d151bffc8af.selstorage.ru/${objectKey}`,
+          session_id: sessionId,
+          task_id: analysisData.task || null,
+        },
+      });
+      toast.success("Сессия создана, анализ запущен");
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка создания сессии");
@@ -118,7 +133,6 @@ export default function AIStylePage() {
     }
   };
 
-  // Клик по кнопке "Отправить"
   const onSendClick = () => {
     if (!selectedFile) {
       toast.warning("Сначала выберите фото");
@@ -127,10 +141,14 @@ export default function AIStylePage() {
     setShowGenderModal(true);
   };
 
-  // Выбор существующей сессии
   const selectSession = (session: Session) => {
-  navigate(`/headbeauty-category/${session.gender ? "male" : "female"}?session_id=${session.id}`, {
-      state: { gender: session.gender, img_url: session.img_url }
+    navigate(`/headbeauty-category/${session.gender ? "female" : "male"}?session_id=${session.id}`, {
+      state: {
+        gender: session.gender,
+        img_url: session.img_url,
+        session_id: session.id,
+        task_id: "atomic_operation", // анализ уже запущен при создании
+      },
     });
   };
 
@@ -147,7 +165,6 @@ export default function AIStylePage() {
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
-        {/* Кнопка Back */}
         <button
           onClick={() => navigate(-1)}
           className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
@@ -156,7 +173,6 @@ export default function AIStylePage() {
           <img src={backIconSrc} alt="back" className="w-6 h-6 relative z-10" />
         </button>
 
-        {/* Header */}
         <div className="pt-8 pb-2">
           <h1
             className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
@@ -167,7 +183,6 @@ export default function AIStylePage() {
         </div>
 
         {!hasSessions ? (
-          // ---------- НЕТ СЕССИЙ ----------
           <>
             <div className="mt-8 text-center">
               <p className="text-[36px] tracking-[-1.8px] font-['Sofia_Sans'] text-black leading-tight">
@@ -230,7 +245,6 @@ export default function AIStylePage() {
             </div>
           </>
         ) : (
-          // ---------- ЕСТЬ СЕССИИ ----------
           <>
             <div className="mt-8 text-center">
               <p className="text-[36px] tracking-[-1.8px] font-['Sofia_Sans'] text-black leading-tight">
@@ -239,20 +253,20 @@ export default function AIStylePage() {
               </p>
             </div>
 
-            {/* Список сессий (горизонтальный скролл) */}
             <div className="mt-6 rounded-[10px] p-2"
-            style={{
-                        boxShadow:
-                          "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                        border: "0.5px solid rgba(0,0,0,0.00)",
-                      }}>
+              style={{
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                border: "0.5px solid rgba(0,0,0,0.00)",
+              }}
+            >
               <div className="overflow-x-auto no-scrollbar">
                 <div className="flex gap-4 pb-0">
                   {sessions.map((session) => (
                     <div
                       key={session.id}
                       onClick={() => selectSession(session)}
-                      className="flex-shrink-0 w-40 bg-[#FFE9EF]  p-2 shadow-md cursor-pointer"
+                      className="flex-shrink-0 w-40 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
                       style={{
                         boxShadow:
                           "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
@@ -279,8 +293,8 @@ export default function AIStylePage() {
                           </p>
                         </div>
                         <div
-                          className={`w-4 h-4 rounded-full ${session.gender ? "bg-blue-400" : "bg-pink-400"}`}
-                          title={session.gender ? "Мужской" : "Женский"}
+                          className={`w-4 h-4 rounded-full ${session.gender ? "bg-pink-400" : "bg-blue-400"}`}
+                          title={session.gender ? "Женский" : "Мужской"}
                         />
                       </div>
                     </div>
@@ -289,7 +303,6 @@ export default function AIStylePage() {
               </div>
             </div>
 
-            {/* Кнопка добавления новой сессии (остаётся, но без превью) */}
             <div className="mt-6 flex flex-col items-center">
               <label
                 className="relative bg-[#FFE9EF] rounded-[10px] w-64 h-44 shadow-md flex flex-col items-center justify-center cursor-pointer"
@@ -341,7 +354,6 @@ export default function AIStylePage() {
         )}
       </div>
 
-      {/* Модальное окно выбора пола (без изменений) */}
       {showGenderModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -356,7 +368,7 @@ export default function AIStylePage() {
 
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => handleSend(true)} // мужской
+                onClick={() => handleSend(false)}
                 className="relative bg-[#6A92FF] rounded-[10px] h-11 shadow w-full"
                 style={{
                   border: "0.5px solid rgba(0,0,0,0.00)",
@@ -369,7 +381,7 @@ export default function AIStylePage() {
                 </span>
               </button>
               <button
-                onClick={() => handleSend(false)} // женский
+                onClick={() => handleSend(true)}
                 className="relative bg-[#FF6A92] rounded-[10px] h-11 shadow w-full"
                 style={{
                   border: "0.5px solid rgba(0,0,0,0.00)",

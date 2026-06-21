@@ -3,7 +3,8 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.headbeauty import hb_session
-from backend.database import HeadbeautySessionModel, FaceParametersModel, HaircutTemplateModel
+from backend.database import HeadbeautySessionModel, FaceParametersModel, HaircutTemplateModel, \
+    HaircutRecommendationModel
 from backend.database.obj_storage import s3_domain
 
 
@@ -32,3 +33,26 @@ async def get_session_image(session_id: uuid.UUID, session: AsyncSession):
 
 async def create_cut_template(data: dict, session: AsyncSession):
     return await HaircutTemplateModel.create(session=session, data=data)
+
+async def update_hair(data: dict, session_id: uuid.UUID, session: AsyncSession):
+    params = await FaceParametersModel.get_by_session_id(session=session, session_id=session_id)
+    return await FaceParametersModel.update(param_id=params.id, update_data=data, session=session)
+
+async def get_haircuts(session_id: uuid.UUID, session: AsyncSession):
+    working_session = await HeadbeautySessionModel.get_by_id(session_id=session_id, session=session)
+    return await HaircutTemplateModel.get_all_by_gender(gender=working_session.gender, session=session)
+
+def create_or_update_recommendations_hair(session_id: uuid.UUID, data: dict, session):
+    rec = HaircutRecommendationModel.get_by_session_id_sync(session_id=session_id, session=session)
+    data["session_id"] = session_id
+    if rec == None:
+        HaircutRecommendationModel.create(session=session, data=data)
+        return "success"
+    HaircutRecommendationModel.update(session=session, update_data=data, rec_id=rec.id)
+    return "success"
+
+async def get_recs(session_id: uuid.UUID, session: AsyncSession):
+    return await HaircutRecommendationModel.get_by_session_id(session_id=session_id, session=session)
+
+async def get_haircut_by_id(haircut_id: uuid.UUID, session: AsyncSession):
+    return await HaircutTemplateModel.get_by_id(template_id=haircut_id, session=session)

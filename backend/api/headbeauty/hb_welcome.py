@@ -21,6 +21,9 @@ class SessionCreateRequest(BaseModel):
     img_url: str
 
 #Response
+class SessionCreateResponse(StatusResponse):
+    img_url: str
+
 class SessionResponse(BaseModel):
     id: uuid.UUID
     gender: bool
@@ -47,10 +50,11 @@ async def get_page(chat_id: int,
         return {"status": "success",
                 "sessions": sessions}
 
-@router.post("/make_new_session", response_model=StatusResponse)
+@router.post("/make_new_session", response_model=SessionCreateResponse)
 async def create_hb_session(chat_id: int,
                             hb_session: SessionCreateRequest,
                             session: AsyncSession = Depends(get_db_session)):
-    await miniapp_db_fcn.create_session(chat_id=chat_id, gender=hb_session.gender, img_url=hb_session.img_url, session=session)
-    return {"status": "success"}
+    id = await miniapp_db_fcn.create_session(chat_id=chat_id, gender=hb_session.gender, img_url=hb_session.img_url, session=session)
+    return {"status": "success",
+            "img_url": f"{s3_domain}{hb_session.img_url}"}
 

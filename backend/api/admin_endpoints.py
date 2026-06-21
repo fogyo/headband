@@ -23,14 +23,17 @@ async def set_amba(
     return {"status": status}
 
 @router.get("/task")
-async def get_task_price_list(task_id: str):
-    task_result = AsyncResult(task_id, app=task_manager.app)
-
-    if not task_result.ready():
-        return {"status": "pending"}
-    if task_result.successful():
+async def get_task(task_id: str):
+    if task_id == "atomic_operation":
         return {"status": "success"}
     else:
-        # failed
-        error = str(task_result.result) if task_result.result else "Unknown error"
-        return {"status": "failed", "error": error}
+        task_result = AsyncResult(task_id, app=task_manager.app)
+
+        if not task_result.ready():
+            return {"status": "pending"}
+        if task_result.successful():
+            return {"status": "success"}
+        else:
+            # failed
+            error = str(task_result.result) if task_result.result else "Unknown error"
+            return {"status": "failed", "error": error}

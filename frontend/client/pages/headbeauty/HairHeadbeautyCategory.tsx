@@ -7,34 +7,42 @@ import coloringIcon from "@/assets/ai_hair_coloring_icon.svg";
 import permIcon from "@/assets/ai_hair_styling_icon.svg";
 
 const femaleHairCategories = [
-  { label: "Стрижки", image: haircutIcon, route: "haircut" },
+  { label: "Стрижки", image: haircutIcon, route: "hair" },
   { label: "Окраска", image: coloringIcon, route: "coloring" },
   { label: "Завивка", image: permIcon, route: "perm" },
 ];
 
 const maleHairCategories = [
-  { label: "Стрижки", image: haircutIcon, route: "haircut" },
+  { label: "Стрижки", image: haircutIcon, route: "hair" },
   { label: "Окраска", image: coloringIcon, route: "coloring" },
   { label: "Завивка", image: permIcon, route: "perm" },
   { label: "Борода и усы", image: beardIcon, route: "beard" },
 ];
 
-export default function AIHairPage() {
+export default function AIHairCatsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { gender: urlGender } = useParams<{ gender: string }>();
+  const searchParams = new URLSearchParams(location.search);
+  const sessionId = searchParams.get("session_id");
 
-  const state = location.state as { gender?: boolean; img_url?: string } | null;
-  const gender = state?.gender !== undefined ? state.gender : (urlGender === "male" ? true : false);
+  const state = location.state as { gender?: boolean; img_url?: string; session_id?: string; task_id?: string } | null;
+  const gender = state?.gender !== undefined ? state.gender : (urlGender === "female" ? true : false);
   const imgUrl = state?.img_url || "";
+  const effectiveSessionId = sessionId || state?.session_id || "";
 
   const selectedGender = gender ? "male" : "female";
-  const categories = gender ? maleHairCategories : femaleHairCategories;
+  const categories = gender ? femaleHairCategories : maleHairCategories;
 
   const handleCategoryClick = (route: string) => {
-    // Здесь будет переход к записи на услугу
-    alert(`Выбрана категория: ${route}`);
-    // Например: navigate(`/headbeauty-result/${selectedGender}?category=${route}`, { state: { gender, img_url: imgUrl } });
+    navigate(`/headbeauty-${route}/${selectedGender}?session_id=${effectiveSessionId}`, {
+      state: {
+        gender,
+        img_url: imgUrl,
+        session_id: effectiveSessionId,
+        task_id: state?.task_id,
+      },
+    });
   };
 
   return (

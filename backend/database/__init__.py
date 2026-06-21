@@ -1591,6 +1591,13 @@ class HeadbeautySessionModel(Base):
         passive_deletes=True,
         uselist=False  # один-к-одному
     )
+    recommendation: Mapped[Optional["HaircutRecommendationModel"]] = relationship(
+        "HaircutRecommendationModel",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False
+    )
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
@@ -1658,9 +1665,9 @@ class HaircutTemplateModel(Base):
         return result.scalars().first()
 
     @classmethod
-    async def get_all(cls, session: AsyncSession) -> List["HaircutTemplateModel"]:
+    async def get_all_by_gender(cls, gender: bool, session: AsyncSession) -> List["HaircutTemplateModel"]:
         """Получает все шаблоны"""
-        query = select(cls)
+        query = select(cls).where(gender == cls.gender)
         result = await session.execute(query)
         return result.scalars().all()
 
@@ -1709,7 +1716,7 @@ class FaceParametersModel(Base):
     )
 
     @classmethod
-    async def create(cls, session, data: dict) -> uuid.UUID:
+    def create(cls, session, data: dict) -> uuid.UUID:
         """Создаёт запись параметров лица"""
         obj = cls(**data)
         session.add(obj)
@@ -1749,3 +1756,71 @@ class FaceParametersModel(Base):
             await session.delete(obj)
             return "success"
         return "no such face parameters"
+
+class HaircutRecommendationModel(Base):
+    __tablename__ = "haircut_recommendations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("headbeauty_sessions.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    recommended_haircuts: Mapped[str] = mapped_column(String, nullable=False)  # список рекомендаций
+
+    # Связь с сессией
+    session: Mapped["HeadbeautySessionModel"] = relationship(
+        "HeadbeautySessionModel",
+        back_populates="recommendation"
+    )
+
+    @classmethod
+    def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Создаёт запись рекомендаций"""
+        obj = cls(**data)
+        session.add(obj)
+        session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_session_id(
+        cls, session: AsyncSession, session_id: uuid.UUID
+    ) -> Optional["HaircutRecommendationModel"]:
+        """Получает рекомендации по ID сессии"""
+        query = select(cls).where(cls.session_id == session_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    def get_by_session_id_sync(
+            cls, session: AsyncSession, session_id: uuid.UUID
+    ) -> Optional["HaircutRecommendationModel"]:
+        """Получает рекомендации по ID сессии"""
+        query = select(cls).where(cls.session_id == session_id)
+        result = session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_id(
+        cls, session: AsyncSession, rec_id: uuid.UUID
+    ) -> Optional["HaircutRecommendationModel"]:
+        """Получает рекомендации по ID записи"""
+        query = select(cls).where(cls.id == rec_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    def update(cls, session: AsyncSession, rec_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет рекомендации"""
+        query = update(cls).where(cls.id == rec_id).values(**update_data)
+        session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, rec_id: uuid.UUID) -> str:
+        """Удаляет запись рекомендаций"""
+        obj = await session.get(cls, rec_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such recommendation"

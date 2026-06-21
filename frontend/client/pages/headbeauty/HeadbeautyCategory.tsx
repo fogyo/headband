@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import homeIconSrc from "@/assets/home.svg";
 import backIconSrc from "@/assets/back_icon.svg";
@@ -5,6 +6,9 @@ import aiHair from "@/assets/ai_hair_icon.svg";
 import aiCosmetology from "@/assets/ai_cosmetology_icon.svg";
 import aiBrows from "@/assets/ai_brows_icon.svg";
 import aiTan from "@/assets/ai_tan_icon.svg";
+import { toast } from "sonner";
+
+const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
 const femaleCategories = [
   { label: "Волосы", image: aiHair, route: "hair" },
@@ -23,17 +27,46 @@ export default function AICategoryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { gender: urlGender } = useParams<{ gender: string }>();
+  const searchParams = new URLSearchParams(location.search);
+  const sessionId = searchParams.get("session_id");
 
-  const state = location.state as { gender?: boolean; img_url?: string } | null;
-  const gender = state?.gender !== undefined ? state.gender : (urlGender === "male" ? true : false);
-  const imgUrl = state?.img_url || "";
+  const state = location.state as { gender?: boolean; img_url?: string; session_id?: string; task_id?: string } | null;
+  const gender = state?.gender !== undefined ? state.gender : (urlGender === "female" ? true : false);
+  const [imgUrl, setImgUrl] = useState<string>(state?.img_url || "");
 
-  const selectedGender = gender ? "male" : "female";
-  const categories = gender ? maleCategories : femaleCategories;
+  const selectedGender = gender ? "female" : "male";
+  const categories = gender ? femaleCategories : maleCategories;
+
+  // Загрузка фонового изображения по session_id, если его нет в state
+  useEffect(() => {
+    const fetchBg = async () => {
+      const effectiveSessionId = sessionId || state?.session_id;
+      if (!effectiveSessionId) return;
+      try {
+        const res = await fetch(`${baseUrl}/headbeauty/session/get_bg?session_id=${effectiveSessionId}`);
+        if (!res.ok) throw new Error("Ошибка загрузки фона");
+        const data = await res.json();
+        if (data.status === "success") {
+          setImgUrl(data.img_url);
+        }
+      } catch (err) {
+        console.error(err);
+        // Не показываем ошибку пользователю, т.к. будет fallback
+      }
+    };
+    if (!state?.img_url) {
+      fetchBg();
+    }
+  }, [sessionId, state]);
 
   const handleCategoryClick = (route: string) => {
-    navigate(`/headbeauty-${route}/${selectedGender}`, {
-      state: { gender, img_url: imgUrl }
+    navigate(`/headbeauty-${route}-category/${selectedGender}`, {
+      state: {
+        gender,
+        img_url: imgUrl,
+        session_id: sessionId || state?.session_id,
+        task_id: state?.task_id,
+      },
     });
   };
 

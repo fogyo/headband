@@ -29,7 +29,8 @@ import MasterPriceListPage from "./pages/client/MasterPriceListPage";
 import BookAppointmentPage from "./pages/client/BookAppointmentsPage";
 import HeadbeautyIndexPage from "./pages/headbeauty/IndexHeadbeauty"
 import AICategoryPage from "./pages/headbeauty/HeadbeautyCategory";
-import AIHairPage from "./pages/headbeauty/HairHeadbeautyCategory";
+import AIHairCatsPage from "./pages/headbeauty/HairHeadbeautyCategory";
+import AIHairPage from "./pages/headbeauty/HairHeadbeauty";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ const App = () => (
             <Route path="/booking/:masterId/:serviceId" element={<BookAppointmentPage />} />
             <Route path="/headbeauty" element={<HeadbeautyIndexPage />} />
             <Route path="/headbeauty-category/:gender" element={<AICategoryPage />} />
+            <Route path="/headbeauty-hair-category/:gender" element={<AIHairCatsPage />} />
             <Route path="/headbeauty-hair/:gender" element={<AIHairPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

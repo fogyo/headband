@@ -19,6 +19,7 @@ def run_sync(request: dict):
         session.commit()
         return {"status": "success"}
 
+
 def get_analyze_sync(file_url: str):
     prompt = """Ты — профессиональный визажист и дерматолог-эксперт. Проанализируй загруженное фото лица человека (анфас, при естественном освещении) и выполни следующие задачи.
         1. ОПРЕДЕЛИ ФОРМУ ЛИЦА (face_type).
@@ -30,18 +31,18 @@ def get_analyze_sync(file_url: str):
         - diamond (ромбовидное)
         - oblong (вытянутое/прямоугольное)
         - triangle (треугольное)
-        
+
         Если форма неочевидна из-за ракурса, прически или мимики — выбери наиболее вероятную.
-        
+
         2. ПРОАНАЛИЗИРУЙ КОЖУ (для резюме).
         Оцени:
         - тон и текстуру (гладкость, шелушения, поры)
         - наличие акне, покраснений, пигментации, купероза
         - степень увлажненности, жирности или сухости
         - наличие морщин / мимических заломов (если возраст позволяет)
-        
+
         На основе этого напиши КРАТКОЕ РЕЗЮМЕ (resume) на русском языке, объёмом 2–4 предложения. Укажи потенциальные проблемы (например: «склонность к сухости и шелушению», «расширенные поры в Т-зоне», «признаки купероза на щеках», «гиперпигментация», «первые мимические морщины»). Если проблем нет — напиши «видимых проблем не обнаружено».
-        
+
         3. ОПРЕДЕЛИ ТИП ГЛАЗ (eye_type) по форме и посадке.
         Выбери ОДИН из вариантов:
         - almond (миндалевидные)
@@ -50,9 +51,9 @@ def get_analyze_sync(file_url: str):
         - downturned (с опущенным внешним уголком)
         - upturned (с приподнятым внешним уголком)
         - monolid (без складки)
-        
+
         Если сложно — выбери наиболее близкий.
-        
+
         4. ОПРЕДЕЛИ ЦВЕТ КОЖИ (skin_color) по шкале Фитцпатрика или общему визуальному тону.
         Выбери ОДИН из вариантов:
         - очень светлый (очень бледный, веснушки)
@@ -61,15 +62,15 @@ def get_analyze_sync(file_url: str):
         - смуглый (карамельный, золотисто-коричневый)
         - темный (темно-коричневый)
         - очень темный (эбеновый, темно-шоколадный)
-        
+
         Не используй субъективные эпитеты вроде «красивый» — только объективные характеристики.
-        
+
         ВАЖНО: 
         - Ответ выдай строго в формате JSON без пояснений, markdown-разметки и дополнительного текста.
         - Поля должны быть именно такие: face_type, resume, eye_type, skin_color.
         - Все поля — строки (str).
         - Если какой-то параметр невозможно определить уверенно, укажи наиболее вероятное значение и добавь пометку в resume.
-        
+
         Пример ожидаемого ответа:
         {
         "face_type": "oval",
@@ -98,34 +99,74 @@ def get_analyze_sync(file_url: str):
         "Authorization": f"Bearer {api_key}"
     }
     url = "https://api.gen-api.ru/api/v1/networks/gemini-2-5-flash-lite"
+
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=120)
         if response.status_code != 200:
             logging.error(f"HTTP {response.status_code}: {response.text}")
             return {}
-        data = response.json()
-        clean = re.sub(r'```json\s*|\s*```', '', data).strip()
 
+        response_data = response.json()
+        logging.debug(f"Полный ответ API: {response_data}")  # для отладки
+
+        # --- Извлечение текстового содержимого ---
+        content = None
+
+        # 1. Структура gen-api.ru с ключом 'response'
+        if 'response' in response_data and isinstance(response_data['response'], list):
+            if response_data['response']:
+                first = response_data['response'][0]
+                if 'message' in first and 'content' in first['message']:
+                    content = first['message']['content']
+
+        # 2. Стандартный формат OpenAI
+        if not content and 'choices' in response_data and isinstance(response_data['choices'], list):
+            if response_data['choices']:
+                choice = response_data['choices'][0]
+                if 'message' in choice and 'content' in choice['message']:
+                    content = choice['message']['content']
+                elif 'text' in choice:
+                    content = choice['text']
+
+        # 3. Другие распространённые ключи верхнего уровня
+        if not content:
+            for key in ('result', 'output', 'data', 'text', 'content', 'message'):
+                if key in response_data and isinstance(response_data[key], str):
+                    content = response_data[key]
+                    break
+
+        # 4. Если сам ответ — строка
+        if not content and isinstance(response_data, str):
+            content = response_data
+
+        if not content:
+            logging.error(f"Не удалось извлечь текст из ответа: {response_data}")
+            return {}
+
+        # --- Очистка от маркеров и парсинг JSON ---
+        clean = re.sub(r'```json\s*|\s*```', '', content).strip()
         match = re.search(r'\{.*\}', clean, re.DOTALL)
+
         if not match:
-            logging.error("Не найден JSON-объект в ответе")
-            return None
+            logging.error(f"JSON не найден. Очищенный текст: {clean}")
+            return {}
 
         json_str = match.group(0)
-        data = json.loads(json_str)
+        parsed = json.loads(json_str)
 
         required_fields = {'face_type', 'resume', 'eye_type', 'skin_color'}
-        if not required_fields.issubset(data.keys()):
-            missing = required_fields - data.keys()
-            logging.error(f"Отсутствуют обязательные поля: {missing}")
-            return None
+        if not required_fields.issubset(parsed.keys()):
+            missing = required_fields - parsed.keys()
+            logging.error(f"Отсутствуют поля: {missing}. Получено: {parsed}")
+            return {}
 
         return {
-            "face_type": data["face_type"],
-            "resume": data["resume"],
-            "eye_type": data["eye_type"],
-            "skin_color": data["skin_color"]
+            "face_type": parsed["face_type"],
+            "resume": parsed["resume"],
+            "eye_type": parsed["eye_type"],
+            "skin_color": parsed["skin_color"]
         }
+
     except Exception as e:
         logging.error(f"Ошибка при обработке LLM: {e}", exc_info=True)
         return {}
