@@ -2,8 +2,9 @@ import os
 from enum import Enum
 
 from celery import Celery
+from celery.bin.result import result
 
-from backend.model import pricelist
+from backend.model import pricelist, analyzer
 
 broker = os.getenv("BROKER")
 
@@ -18,7 +19,8 @@ factory.conf.update(
 )
 
 class TaskType(Enum):
-    PRICELIST_MANAGING =1
+    PRICELIST_MANAGING = 1
+    FACE_PARAMS_ANALYZE = 2
 
 @factory.task(bind=True, max_retries=5)
 def task_manager(self, data: dict):
@@ -26,7 +28,8 @@ def task_manager(self, data: dict):
         ai_task = data["ai_task"]
         if ai_task == TaskType.PRICELIST_MANAGING.value:
             result = pricelist.run_sync(request=data["data"])
-        
+        elif ai_task == TaskType.FACE_PARAMS_ANALYZE.value:
+            result = analyzer.run_sync(request=data["data"])
         return result
     except Exception as e:
         raise self.retry(exc=e, countdown=5)

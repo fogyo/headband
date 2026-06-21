@@ -41,6 +41,28 @@ class S3Client:
         self.bucket_name = bucket_name
         self.session = get_session()
 
+    async def upload_file(
+            self,
+            object_key: str,
+            file_path: str,
+            content_type: Optional[str] = None,
+            extra_args: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Загружает файл из локальной файловой системы в S3."""
+        with open(file_path, "rb") as f:
+            file_data = f.read()
+        extra = extra_args or {}
+        if content_type:
+            extra["ContentType"] = content_type
+        async with self.get_client() as client:
+            await client.put_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+                Body=file_data,
+                **extra
+            )
+
+
     @asynccontextmanager
     async def get_client(self):
         aws_config = Config(
@@ -113,3 +135,14 @@ async def get_upload_url(request: PresignedUrlRequest):
                 "file_key": object_key}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+async def upload_folder(local_folder: str, s3_prefix: str = ""):
+    for root, dirs, files in os.walk(local_folder):
+        for file in files:
+            local_path = os.path.join(root, file)
+            relative_path = os.path.relpath(local_path, local_folder)
+            object_key = os.path.join(s3_prefix, relative_path).replace("\\", "/")
+            import mimetypes
+            content_type, _ = mimetypes.guess_type(local_path)
+            await s3_client.upload_file(object_key, local_path, content_type=content_type)
+            print(f"Загружено: {object_key} \n Файл по пути {local_path}")

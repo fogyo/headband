@@ -47,9 +47,10 @@ async def get_page(chat_id: int,
         return {"status": "success",
                 "sessions": sessions}
 
-@router.post("/make_new_session", response_model=SessionResponse)
+@router.post("/make_new_session", response_model=StatusResponse)
 async def create_hb_session(chat_id: int,
                             hb_session: SessionCreateRequest,
                             session: AsyncSession = Depends(get_db_session)):
     await miniapp_db_fcn.create_session(chat_id=chat_id, gender=hb_session.gender, img_url=hb_session.img_url, session=session)
     return {"status": "success"}
+

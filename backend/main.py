@@ -9,10 +9,11 @@ import uvicorn
 from dotenv import load_dotenv
 import database as db
 from backend import app
-from backend.api import create_categories
-from backend.api.headbeauty import hb_welcome
+from backend.api import create_categories, create_haircut_template
+from backend.api.headbeauty import hb_welcome, hb_session
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 from backend.api.user import welcome_user, price, masters, booking
+from backend.database.obj_storage import s3_client
 from backend.model.bg_factory import factory
 
 load_dotenv()
@@ -40,6 +41,7 @@ app.include_router(telegram_middleware.router)
 app.include_router(obj_storage.router)
 app.include_router(admin_endpoints.router)
 app.include_router(hb_welcome.router)
+app.include_router(hb_session.router)
 
 """@asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -73,6 +75,11 @@ def run_server_process():
     async def start_server():
         if await db.setup_database():
             #await create_categories()
+            """await obj_storage.upload_folder(
+                local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\women_haircuts", s3_prefix="woman\\")
+            await obj_storage.upload_folder(
+                local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\men_haircuts", s3_prefix="man\\")"""
+            #await create_haircut_template()
             logging.info("База данных инициализирована")
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
         server = uvicorn.Server(config)

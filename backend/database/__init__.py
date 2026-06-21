@@ -32,10 +32,10 @@ AsyncSessionLocal = async_sessionmaker(
 async def setup_database():
     try:
         async with engine.begin() as conn:
-            tables_result = await conn.execute(
+            """tables_result = await conn.execute(
                 text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
             )
-            """
+            
             tables = [row[0] for row in tables_result.fetchall()]
              
             await conn.execute(text("SET CONSTRAINTS ALL DEFERRED"))
@@ -1584,6 +1584,14 @@ class HeadbeautySessionModel(Base):
     img_url: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[date] = mapped_column(Date, default=date.today)  # дата создания сессии
 
+    face_parameters: Mapped[Optional["FaceParametersModel"]] = relationship(
+        "FaceParametersModel",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False  # один-к-одному
+    )
+
     @classmethod
     async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
         """Создаёт новую запись сессии"""
@@ -1622,3 +1630,122 @@ class HeadbeautySessionModel(Base):
             await session.delete(obj)
             return "success"
         return "no such session"
+
+class HaircutTemplateModel(Base):
+    __tablename__ = "haircut_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gender: Mapped[bool] = mapped_column(Boolean, nullable=False)          # False – мужской, True – женский
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False)
+    face_type_recommendations: Mapped[str] = mapped_column(String, nullable=False)     # рекомендация по типу лица
+    hair_type_recommendations: Mapped[str] = mapped_column(String, nullable=False)     # рекомендация по типу волос
+    img_url: Mapped[str] = mapped_column(String, nullable=False)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Создаёт новый шаблон стрижки"""
+        template = cls(**data)
+        session.add(template)
+        await session.flush()
+        return template.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, template_id: uuid.UUID) -> Optional["HaircutTemplateModel"]:
+        """Получает шаблон по ID"""
+        query = select(cls).where(cls.id == template_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["HaircutTemplateModel"]:
+        """Получает все шаблоны"""
+        query = select(cls)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_by_gender(cls, session: AsyncSession, gender: bool) -> List["HaircutTemplateModel"]:
+        """Получает шаблоны по полу (False – мужские, True – женские)"""
+        query = select(cls).where(cls.gender == gender)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, template_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет данные шаблона"""
+        query = update(cls).where(cls.id == template_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, template_id: uuid.UUID) -> str:
+        """Удаляет шаблон по ID"""
+        obj = await session.get(cls, template_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such template"
+
+class FaceParametersModel(Base):
+    __tablename__ = "face_parameters"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("headbeauty_sessions.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    face_type: Mapped[str] = mapped_column(String, nullable=False)
+    hair_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resume: Mapped[str] = mapped_column(String, nullable=False)
+    eye_type: Mapped[str] = mapped_column(String, nullable=False)
+    skin_color: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # Связь с сессией (обратная)
+    session: Mapped["HeadbeautySessionModel"] = relationship(
+        "HeadbeautySessionModel",
+        back_populates="face_parameters"
+    )
+
+    @classmethod
+    async def create(cls, session, data: dict) -> uuid.UUID:
+        """Создаёт запись параметров лица"""
+        obj = cls(**data)
+        session.add(obj)
+        session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_session_id(
+        cls, session: AsyncSession, session_id: uuid.UUID
+    ) -> Optional["FaceParametersModel"]:
+        """Получает параметры по ID сессии (предполагается одна запись)"""
+        query = select(cls).where(cls.session_id == session_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_id(
+        cls, session: AsyncSession, param_id: uuid.UUID
+    ) -> Optional["FaceParametersModel"]:
+        """Получает параметры по ID записи"""
+        query = select(cls).where(cls.id == param_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, param_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет параметры лица"""
+        query = update(cls).where(cls.id == param_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, param_id: uuid.UUID) -> str:
+        """Удаляет запись параметров"""
+        obj = await session.get(cls, param_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such face parameters"
