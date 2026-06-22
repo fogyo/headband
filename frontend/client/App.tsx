@@ -30,7 +30,7 @@ import BookAppointmentPage from "./pages/client/BookAppointmentsPage";
 import HeadbeautyIndexPage from "./pages/headbeauty/IndexHeadbeauty"
 import AICategoryPage from "./pages/headbeauty/HeadbeautyCategory";
 import AIHairCatsPage from "./pages/headbeauty/HairHeadbeautyCategory";
-import AIHairPage from "./pages/headbeauty/HairHeadbeauty";
+import AIHairPage from "./pages/headbeauty/HaircutHeadbeauty";
 
 const queryClient = new QueryClient();
 

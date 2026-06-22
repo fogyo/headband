@@ -17,7 +17,7 @@ router = APIRouter(
 
 class ParametersResponse(StatusResponse):
     face_type: str
-    hair_type: str
+    hair_type: Optional[str] = "None"
 
 class HairUpdateRequest(BaseModel):
     hair_type: str
@@ -78,7 +78,7 @@ async def get_haircuts(session_id: uuid.UUID,
                           "name": h.name,
                           "img_url": f"{s3_domain}{h.img_url}"} for h in haircuts]}
 
-@router.get("/hair_recommends", response_model=HaircutResponse)
+@router.get("/hair_recommends")
 async def get_hair_recommends(session_id: uuid.UUID,
                           session: AsyncSession = Depends(get_db_session)):
     parameters = await miniapp_db_fcn.get_parameters(session_id=session_id, session=session)
@@ -93,8 +93,8 @@ async def get_hair_recommends(session_id: uuid.UUID,
                               },
                         "haircuts":
                              [{"id": h.id,
-                            "face_type": h.face_type,
-                            "hair_type": h.hair_type} for h in haircuts]
+                            "face_type": h.face_type_recommendations,
+                            "hair_type": h.hair_type_recommendations} for h in haircuts]
                         },
                     }
     task = task_manager.delay(task_request)
@@ -104,8 +104,8 @@ async def get_hair_recommends(session_id: uuid.UUID,
 @router.get("/ready_hair_recommendations", response_model=RecommendationResponse)
 async def get_ready_hair_recommendations(session_id: uuid.UUID,
                           session: AsyncSession = Depends(get_db_session)):
-    ids = await miniapp_db_fcn.get_recs(session_id=session_id, session=session)
-    id_array = ids.split(" ")
+    recs = await miniapp_db_fcn.get_recs(session_id=session_id, session=session)
+    id_array = recs.recommended_haircuts.split(" ")
     haircuts = []
     for id in id_array:
         haircut = await miniapp_db_fcn.get_haircut_by_id(haircut_id=id, session=session)
