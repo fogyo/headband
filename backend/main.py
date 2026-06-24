@@ -74,12 +74,14 @@ def run_celery_process():
 def run_server_process():
     async def start_server():
         if await db.setup_database():
-            '''await create_categories()
+            #await create_categories()
+            '''
             await obj_storage.upload_folder(
                 local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\women_haircuts", s3_prefix="woman\\")
             await obj_storage.upload_folder(
                 local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\men_haircuts", s3_prefix="man\\")
-            await create_haircut_template()'''
+                '''
+            #await create_haircut_template()
             logging.info("База данных инициализирована")
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
         server = uvicorn.Server(config)

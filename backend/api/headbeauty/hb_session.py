@@ -18,6 +18,10 @@ router = APIRouter(
 class ParametersResponse(StatusResponse):
     face_type: str
     hair_type: Optional[str] = "None"
+    jawline: str
+    forehead_height: str
+    cheekbones: str
+    neck_length: str
 
 class HairUpdateRequest(BaseModel):
     hair_type: str
@@ -42,7 +46,12 @@ async def get_parameters(session_id: uuid.UUID,
     parameters = await miniapp_db_fcn.get_parameters(session_id=session_id, session=session)
     return {"status": "success",
             "face_type": parameters.face_type,
-            "hair_type": parameters.hair_type}
+            "hair_type": parameters.hair_type,
+            "jawline": parameters.jawline,
+            "forehead_height": parameters.forehead_height,
+            "cheekbones": parameters.cheekbones,
+            "neck_length": parameters.neck_length
+            }
 
 
 
@@ -89,12 +98,21 @@ async def get_hair_recommends(session_id: uuid.UUID,
                         "session_id": session_id,
                         "user":
                              {"face_type": parameters.face_type,
-                              "hair_type": parameters.hair_type
+                              "hair_type": parameters.hair_type,
+                              "jawline": parameters.jawline,
+                              "forehead_height": parameters.forehead_height,
+                              "cheekbones": parameters.cheekbones,
+                              "neck_length": parameters.neck_length
                               },
                         "haircuts":
                              [{"id": h.id,
-                            "face_type": h.face_type_recommendations,
-                            "hair_type": h.hair_type_recommendations} for h in haircuts]
+                                "face_type": h.face_type_recommendations,
+                                "hair_type": h.hair_type_recommendations,
+                                "jawline": h.jawline,
+                                "forehead_height": h.forehead_height,
+                                "cheekbones": h.cheekbones,
+                                "neck_length": h.neck_length
+                               } for h in haircuts]
                         },
                     }
     task = task_manager.delay(task_request)
