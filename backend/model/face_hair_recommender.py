@@ -1,0 +1,149 @@
+import os
+import re
+import json
+import logging
+import requests
+from typing import List
+
+from backend.database import miniapp_db_fcn
+from backend.model import SyncSessionLocal
+
+api_key = os.getenv("API_GENAI")
+
+
+def run_sync(request: dict):
+    with SyncSessionLocal() as session:
+        data = get_recommendations_sync(user=request["user"], beards=request["beards"])
+        if not data:
+            return {"status": "failed", "error": "No data received from AI"}
+
+        created = miniapp_db_fcn.create_or_update_recommendations_hair(data=data, session_id=request["session_id"],
+                                                                       session=session)
+        session.commit()
+        return {"status": "success"}
+
+
+def get_recommendations_sync(user: dict, beards: List[dict]):
+    prompt = f"""
+    Ты — профессиональный стилист-эксперт по подбору бород. Твоя задача — на основе данных о пользователе и каталога бород выбрать 5 наиболее подходящих вариантов.
+    Входные данные:    
+    "user" — объект с полями:
+    "face_type" (строка, обязательное) — форма лица пользователя.
+    "hair_color" (строка, опциональное) — цвет волос пользователя. Может отсутствовать или быть null.
+    "facial_features" (строка) — особенности лица (например, скулы, подбородок и т.п.).
+    
+    "beards" — массив объектов, каждый из которых содержит:
+    "id" (строка) — уникальный идентификатор бороды.
+    "face_type" (строка) — форма лица, для которой борода рекомендуется.
+    "hair_color" (строка) — цвет волос, для которого борода рекомендуется.
+    "facial_features" (строка) — рекомендуемые особенности лица.
+    
+    Важно: любое из перечисленных полей у бороды может иметь значение "any" — это означает, что борода подходит для любого значения этого параметра у пользователя (параметр игнорируется при сравнении).
+    
+    Правила отбора и ранжирования:
+    Основной критерий — совпадение face_type. Бороды, у которых face_type совпадает с пользовательским (или face_type = "any"), получают наивысший приоритет.
+    Дополнительные бонусы (учитываются только для бород, уже прошедших первый критерий, или при недостатке таковых):
+    Совпадение по hair_color (если у пользователя он указан и не null).
+    Совпадение по facial_features (если значение не "any").
+    Итоговый приоритет:
+    
+    
+    Группа A: бороды с совпадением face_type. Сортируются по убыванию общего количества совпадений по всем остальным параметрам (hair_color, facial_features). Чем больше совпадений, тем выше.
+    Группа B: если после отбора по face_type набралось меньше 5 бород, дополнить список бородами, у которых face_type не совпадает, но есть хотя бы одно совпадение по другим параметрам. Их сортировать по количеству совпадений (по убыванию).
+    Бороды, не имеющие ни одного совпадения ни по одному параметру, исключаются.
+    Верни ровно 5 наиболее релевантных id (если доступно меньше — верни все подходящие).
+    
+    Формат ответа:
+    Выдайте строго JSON-объект с ключом "recommended_beards", значением которого является строка (id бород через пробел) в порядке убывания релевантности. Не добавляйте никаких пояснений, комментариев или markdown-разметки.
+    
+    Теперь обработай следующие данные:
+    user: {user}
+    beards: {beards}"""
+
+    payload = {
+        "is_sync": True,
+        "temperature": 0.2,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                ]
+            }
+        ]
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    url = "https://api.gen-api.ru/api/v1/networks/gemini-2-5-flash-lite"
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=120)
+        if response.status_code != 200:
+            logging.error(f"HTTP {response.status_code}: {response.text}")
+            return {}
+
+        response_data = response.json()
+        logging.debug(f"Полный ответ API: {response_data}")
+
+        # --- Извлечение текстового содержимого ---
+        content = None
+
+        # 1. Структура gen-api.ru с ключом 'response'
+        if 'response' in response_data and isinstance(response_data['response'], list):
+            if response_data['response']:
+                first = response_data['response'][0]
+                if 'message' in first and 'content' in first['message']:
+                    content = first['message']['content']
+
+        # 2. Стандартный формат OpenAI
+        if not content and 'choices' in response_data and isinstance(response_data['choices'], list):
+            if response_data['choices']:
+                choice = response_data['choices'][0]
+                if 'message' in choice and 'content' in choice['message']:
+                    content = choice['message']['content']
+                elif 'text' in choice:
+                    content = choice['text']
+
+        # 3. Другие распространённые ключи верхнего уровня
+        if not content:
+            for key in ('result', 'output', 'data', 'text', 'content', 'message'):
+                if key in response_data and isinstance(response_data[key], str):
+                    content = response_data[key]
+                    break
+
+        # 4. Если сам ответ — строка
+        if not content and isinstance(response_data, str):
+            content = response_data
+
+        if not content:
+            logging.error(f"Не удалось извлечь текст из ответа: {response_data}")
+            return {}
+
+        # --- Очистка от маркеров и парсинг JSON ---
+        clean = re.sub(r'```json\s*|\s*```', '', content).strip()
+        match = re.search(r'\{.*\}', clean, re.DOTALL)
+
+        if not match:
+            logging.error(f"JSON не найден. Очищенный текст: {clean}")
+            return {}
+
+        json_str = match.group(0)
+        parsed = json.loads(json_str)
+
+        required_fields = {'recommended_beards'}
+        if not required_fields.issubset(parsed.keys()):
+            missing = required_fields - parsed.keys()
+            logging.error(f"Отсутствуют поля: {missing}. Получено: {parsed}")
+            return {}
+
+        return {
+            "recommended_beards": parsed["recommended_beards"],
+        }
+
+    except Exception as e:
+        logging.error(f"Ошибка при обработке LLM: {e}", exc_info=True)
+        return {}

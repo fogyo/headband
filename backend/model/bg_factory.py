@@ -4,7 +4,7 @@ from enum import Enum
 from celery import Celery
 from celery.bin.result import result
 
-from backend.model import pricelist, analyzer, hair_recommender
+from backend.model import pricelist, analyzer, hair_recommender, face_hair_recommender, color_recommender
 
 broker = os.getenv("BROKER")
 
@@ -22,6 +22,8 @@ class TaskType(Enum):
     PRICELIST_MANAGING = 1
     FACE_PARAMS_ANALYZE = 2
     HAIR_RECOMMENDATIONS = 3
+    FACE_HAIR_RECOMMENDATIONS = 4
+    COLOR_RECOMMENDATIONS = 5
 
 @factory.task(bind=True, max_retries=5)
 def task_manager(self, data: dict):
@@ -33,6 +35,10 @@ def task_manager(self, data: dict):
             result = analyzer.run_sync(request=data["data"])
         elif ai_task == TaskType.HAIR_RECOMMENDATIONS.value:
             result = hair_recommender.run_sync(request=data["data"])
+        elif ai_task == TaskType.FACE_HAIR_RECOMMENDATIONS.value:
+            result = face_hair_recommender.run_sync(request=data["data"])
+        elif ai_task == TaskType.COLOR_RECOMMENDATIONS.value:
+            result = color_recommender.run_sync(request=data["data"])
         return result
     except Exception as e:
         raise self.retry(exc=e, countdown=5)

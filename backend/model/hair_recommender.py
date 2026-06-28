@@ -1,12 +1,13 @@
-import json
-import logging
 import os
 import re
+import json
+import logging
+import requests
 from typing import List
 
 from backend.database import miniapp_db_fcn
 from backend.model import SyncSessionLocal
-import requests
+
 
 api_key = os.getenv("API_GENAI")
 
@@ -22,12 +23,6 @@ def run_sync(request: dict):
         session.commit()
         return {"status": "success"}
 
-
-import re
-import json
-import logging
-import requests
-from typing import List
 
 
 def get_recommendations_sync(user: dict, haircuts: List[dict]):

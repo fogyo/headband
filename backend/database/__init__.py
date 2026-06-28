@@ -1717,6 +1717,9 @@ class FaceParametersModel(Base):
     cheekbones: Mapped[str] = mapped_column(String, nullable=False)
     neck_length: Mapped[str] = mapped_column(String, nullable=False)
     beard_facial_features: Mapped[str] = mapped_column(String, nullable=False)
+    skin_temperature: Mapped[str] = mapped_column(String, nullable=False)
+    contrast: Mapped[str] = mapped_column(String, nullable=False)
+    eye_color: Mapped[str] = mapped_column(String, nullable=False)
     hair_color: Mapped[str] = mapped_column(String, nullable=False)
 
     # Связь с сессией (обратная)
@@ -1778,6 +1781,7 @@ class HaircutRecommendationModel(Base):
     )
     recommended_haircuts: Mapped[str] = mapped_column(String, nullable=True)  # список рекомендаций
     recommended_beards: Mapped[str] = mapped_column(String, nullable=True)
+    recommended_colors: Mapped[str] = mapped_column(String, nullable=True)
 
     # Связь с сессией
     session: Mapped["HeadbeautySessionModel"] = relationship(
@@ -1871,6 +1875,62 @@ class FaceHairTemplateModel(Base):
 
     @classmethod
     async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["FaceHairTemplateModel"]:
+        """Ищет шаблон по названию"""
+        query = select(cls).where(cls.name == name)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, template_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет данные шаблона"""
+        query = update(cls).where(cls.id == template_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, template_id: uuid.UUID) -> str:
+        """Удаляет шаблон по ID"""
+        obj = await session.get(cls, template_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such template"
+
+class ColorTemplateModel(Base):
+    __tablename__ = "color_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    hex: Mapped[str] = mapped_column(String, nullable=False)
+    skin_temperature: Mapped[str] = mapped_column(String, nullable=False)
+    contrast: Mapped[str] = mapped_column(String, nullable=False)
+    eye_color: Mapped[str] = mapped_column(String, nullable=False)
+    skin_condition: Mapped[str] = mapped_column(String, nullable=False)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Создаёт новый шаблон цвета"""
+        obj = cls(**data)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, template_id: uuid.UUID) -> Optional["ColorTemplateModel"]:
+        """Получает шаблон по ID"""
+        query = select(cls).where(cls.id == template_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["ColorTemplateModel"]:
+        """Получает все шаблоны"""
+        query = select(cls)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["ColorTemplateModel"]:
         """Ищет шаблон по названию"""
         query = select(cls).where(cls.name == name)
         result = await session.execute(query)
