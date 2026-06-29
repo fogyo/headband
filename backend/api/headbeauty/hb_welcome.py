@@ -22,6 +22,7 @@ class SessionCreateRequest(BaseModel):
 
 #Response
 class SessionCreateResponse(StatusResponse):
+    id: uuid.UUID
     img_url: str
 
 class SessionResponse(BaseModel):
@@ -56,5 +57,12 @@ async def create_hb_session(chat_id: int,
                             session: AsyncSession = Depends(get_db_session)):
     id = await miniapp_db_fcn.create_session(chat_id=chat_id, gender=hb_session.gender, img_url=hb_session.img_url, session=session)
     return {"status": "success",
+            "id": id,
             "img_url": f"{s3_domain}{hb_session.img_url}"}
+
+@router.delete("/delete_session", response_model=StatusResponse)
+async def delete_session(session_id: uuid.UUID,
+                            session: AsyncSession = Depends(get_db_session)):
+    status = await miniapp_db_fcn.delete_session(session_id=session_id, session=session)
+    return {"status": status}
 

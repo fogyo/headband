@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.headbeauty import hb_session
 from backend.database import HeadbeautySessionModel, FaceParametersModel, HaircutTemplateModel, \
-    HaircutRecommendationModel, FaceHairTemplateModel, ColorTemplateModel
+    HaircutRecommendationModel, FaceHairTemplateModel, ColorTemplateModel, PermsTemplateModel
 from backend.database.obj_storage import s3_domain
 
 
@@ -19,6 +19,9 @@ async def create_session(chat_id: int,
             "gender": gender,
             "img_url": img_url}
     return await HeadbeautySessionModel.create(data=data, session=session)
+
+async def delete_session(session_id: uuid.UUID, session: AsyncSession):
+    return await HeadbeautySessionModel.delete(session_id=session_id, session=session)
 
 async def get_parameters(session_id: uuid.UUID, session: AsyncSession):
     return await FaceParametersModel.get_by_session_id(session=session, session_id=session_id)
@@ -40,6 +43,9 @@ async def create_face_hair_template(data: dict, session: AsyncSession):
 async def create_color_template(data: dict, session: AsyncSession):
     return await ColorTemplateModel.create(session=session, data=data)
 
+async def create_perm_template(data: dict, session: AsyncSession):
+    return await PermsTemplateModel.create(session=session, data=data)
+
 async def update_hair(data: dict, session_id: uuid.UUID, session: AsyncSession):
     params = await FaceParametersModel.get_by_session_id(session=session, session_id=session_id)
     return await FaceParametersModel.update(param_id=params.id, update_data=data, session=session)
@@ -53,6 +59,9 @@ async def get_beards(session: AsyncSession):
 
 async def get_colors(session: AsyncSession):
     return await ColorTemplateModel.get_all(session=session)
+
+async def get_perms(session: AsyncSession):
+    return await PermsTemplateModel.get_all(session=session)
 
 def create_or_update_recommendations_hair(session_id: uuid.UUID, data: dict, session):
     rec = HaircutRecommendationModel.get_by_session_id_sync(session_id=session_id, session=session)

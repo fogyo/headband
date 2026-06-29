@@ -1951,3 +1951,56 @@ class ColorTemplateModel(Base):
             await session.delete(obj)
             return "success"
         return "no such template"
+
+class PermsTemplateModel(Base):
+    __tablename__ = "perms_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    img_url: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Создаёт новый шаблон причёски/образа"""
+        obj = cls(**data)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, template_id: uuid.UUID) -> Optional["PermsTemplate"]:
+        """Получает шаблон по ID"""
+        query = select(cls).where(cls.id == template_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["PermsTemplate"]:
+        """Получает все шаблоны"""
+        query = select(cls)
+        result = await session.execute(query)
+        return result.scalars().all()
+
+    @classmethod
+    async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["PermsTemplate"]:
+        """Ищет шаблон по названию"""
+        query = select(cls).where(cls.name == name)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, template_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет данные шаблона"""
+        query = update(cls).where(cls.id == template_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, template_id: uuid.UUID) -> str:
+        """Удаляет шаблон по ID"""
+        obj = await session.get(cls, template_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such template"

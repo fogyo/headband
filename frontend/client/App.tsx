@@ -33,6 +33,7 @@ import AIHairCatsPage from "./pages/headbeauty/HairHeadbeautyCategory";
 import AIHairPage from "./pages/headbeauty/HaircutHeadbeauty";
 import AIBeardPage from "./pages/headbeauty/BeardHeadbeauty";
 import AIColorPage from "./pages/headbeauty/ColorHeadbeauty";
+import AIPermPage from "./pages/headbeauty/PermHeadbeauty";
 
 const queryClient = new QueryClient();
 
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/headbeauty-hair/:gender" element={<AIHairPage />} />
             <Route path="/headbeauty-beard/:gender" element={<AIBeardPage />} />
             <Route path="/headbeauty-coloring/:gender" element={<AIColorPage />} />
+            <Route path="/headbeauty-perm/:gender" element={<AIPermPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TelegramAuthProvider>

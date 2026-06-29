@@ -46,24 +46,30 @@ export default function AIStylePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showGenderModal, setShowGenderModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchSessions = async () => {
+    try {
+      const res = await fetch(`${baseUrl}/headbeauty/?chat_id=${STATIC_CHAT_ID}`);
+      if (!res.ok) throw new Error("Ошибка загрузки сессий");
+      const data = await res.json();
+      if (data.status !== "success") throw new Error(data.status);
+      setSessions(data.sessions || []);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Не удалось загрузить историю");
+    }
+  };
 
   useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        const res = await fetch(`${baseUrl}/headbeauty/?chat_id=${STATIC_CHAT_ID}`);
-        if (!res.ok) throw new Error("Ошибка загрузки сессий");
-        const data = await res.json();
-        if (data.status !== "success") throw new Error(data.status);
-        setSessions(data.sessions || []);
-      } catch (err: any) {
-        console.error(err);
-        toast.error("Не удалось загрузить историю");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchSessions();
   }, []);
+
+  useEffect(() => {
+    if (sessions.length >= 0) {
+      setLoading(false);
+    }
+  }, [sessions]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -75,10 +81,10 @@ export default function AIStylePage() {
   };
 
   const handleSend = async (gender: boolean) => {
-    if (!selectedFile) return;
+    if (!selectedFile || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const objectKey = await uploadFile(selectedFile);
-      // 1. Создаём сессию
       const createRes = await fetch(`${baseUrl}/headbeauty/make_new_session?chat_id=${STATIC_CHAT_ID}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,21 +96,9 @@ export default function AIStylePage() {
       }
       const createData = await createRes.json();
       if (createData.status !== "success") throw new Error(createData.status);
+      const sessionId = createData.id;
+      const sessionImgUrl = createData.img_url || `https://42ec6f95-d4a7-485e-81ab-1d151bffc8af.selstorage.ru/${objectKey}`;
 
-      // 2. Получаем обновлённый список сессий, чтобы взять id новой сессии
-      const updatedRes = await fetch(`${baseUrl}/headbeauty/?chat_id=${STATIC_CHAT_ID}`);
-      if (!updatedRes.ok) throw new Error("Ошибка получения списка сессий");
-      const updatedData = await updatedRes.json();
-      if (updatedData.status !== "success") throw new Error(updatedData.status);
-      const newSessions = updatedData.sessions || [];
-      setSessions(newSessions);
-
-      // Берём последнюю созданную сессию (предполагаем, что она последняя по времени)
-      const lastSession = newSessions.length > 0 ? newSessions[newSessions.length - 1] : null;
-      if (!lastSession) throw new Error("Не удалось найти созданную сессию");
-      const sessionId = lastSession.id;
-
-      // 3. Запускаем анализ лица
       const analysisRes = await fetch(`${baseUrl}/headbeauty/session/start_face_analysis?session_id=${sessionId}`, {
         method: "POST",
       });
@@ -114,14 +108,17 @@ export default function AIStylePage() {
       }
       const analysisData = await analysisRes.json();
       if (analysisData.status !== "processing") throw new Error("Ошибка запуска анализа");
+      const taskId = analysisData.task || null;
 
-      // 4. Переходим на страницу категорий, передавая session_id и task (если есть)
+      // Обновляем список сессий (но не ждём, чтобы не блокировать переход)
+      fetchSessions();
+
       navigate(`/headbeauty-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
         state: {
           gender,
-          img_url: `https://42ec6f95-d4a7-485e-81ab-1d151bffc8af.selstorage.ru/${objectKey}`,
+          img_url: sessionImgUrl,
           session_id: sessionId,
-          task_id: analysisData.task || null,
+          task_id: taskId,
         },
       });
       toast.success("Сессия создана, анализ запущен");
@@ -129,6 +126,7 @@ export default function AIStylePage() {
       console.error(err);
       toast.error(err.message || "Ошибка создания сессии");
     } finally {
+      setIsSubmitting(false);
       setShowGenderModal(false);
     }
   };
@@ -147,9 +145,30 @@ export default function AIStylePage() {
         gender: session.gender,
         img_url: session.img_url,
         session_id: session.id,
-        task_id: "atomic_operation", // анализ уже запущен при создании
+        task_id: "atomic_operation",
       },
     });
+  };
+
+  const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Удалить эту сессию?")) return;
+    try {
+      const res = await fetch(`${baseUrl}/headbeauty/delete_session?session_id=${sessionId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Ошибка удаления");
+      }
+      const data = await res.json();
+      if (data.status !== "success") throw new Error(data.status);
+      toast.success("Сессия удалена");
+      await fetchSessions();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Ошибка удаления");
+    }
   };
 
   if (loading) {
@@ -229,7 +248,7 @@ export default function AIStylePage() {
 
               <button
                 onClick={onSendClick}
-                disabled={!selectedFile}
+                disabled={!selectedFile || isSubmitting}
                 className="mt-6 relative bg-[#FFE9EF] rounded-[10px] w-64 h-11 flex items-center justify-center disabled:opacity-50"
                 style={{
                   boxShadow:
@@ -265,14 +284,20 @@ export default function AIStylePage() {
                   {sessions.map((session) => (
                     <div
                       key={session.id}
-                      onClick={() => selectSession(session)}
-                      className="flex-shrink-0 w-40 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
+                      className="flex-shrink-0 w-40 bg-[#FFE9EF] p-2 shadow-md cursor-pointer relative"
                       style={{
                         boxShadow:
                           "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
                         border: "0.5px solid rgba(0,0,0,0.00)",
                       }}
+                      onClick={() => selectSession(session)}
                     >
+                      <button
+                        onClick={(e) => deleteSession(session.id, e)}
+                        className="absolute top-1 right-1 z-10 w-5 h-5 bg-black/20 rounded-full flex items-center justify-center hover:bg-black/40 transition-colors"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
                       <div className="w-full h-24 rounded-[5px] overflow-hidden">
                         <img
                           src={session.img_url}
@@ -336,7 +361,7 @@ export default function AIStylePage() {
 
               <button
                 onClick={onSendClick}
-                disabled={!selectedFile}
+                disabled={!selectedFile || isSubmitting}
                 className="mt-6 relative bg-[#FFE9EF] rounded-[10px] w-64 h-11 flex items-center justify-center disabled:opacity-50"
                 style={{
                   boxShadow:

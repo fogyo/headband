@@ -1,4 +1,4 @@
-from backend.api.headbeauty import haircuts, face_hair, hair_colors
+from backend.api.headbeauty import haircuts, face_hair, hair_colors, perms
 from backend.database import miniapp_db_fcn, AsyncSessionLocal
 
 CategoryList = ["Стрижки", "Борода и усы", "Окрашивание", "Косметология и Skincare", "Маникюр", "Педикюр", "Брови", "Ресницы", "Депиляция", "Эпиляция", "Makeup", "Солярий", "Массажи и SPA", "Консультации", "Другое"]
@@ -39,3 +39,9 @@ async def create_hair_colors_template():
         async with session.begin():
             for color in hair_colors:
                 await miniapp_db_fcn.create_color_template(data=color, session=session)
+
+async def create_hair_perms_template():
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            for perm in perms:
+                await miniapp_db_fcn.create_perm_template(data=perm, session=session)

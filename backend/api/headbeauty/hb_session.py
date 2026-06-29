@@ -34,6 +34,14 @@ class Color(BaseModel):
 class ColorResponse(StatusResponse):
     colors: List[Color]
 
+class Perm(BaseModel):
+    id: uuid.UUID
+    name: str
+    img_url: str
+
+class PermResponse(StatusResponse):
+    perms: List[Perm]
+
 class Haircut(BaseModel):
     id: uuid.UUID
     name: str
@@ -246,3 +254,11 @@ async def get_ready_color_recommendations(session_id: uuid.UUID,
                          "hex": color.hex})
     return {"status": "success",
             "recommended": colors}
+
+@router.get("/perms", response_model=PermResponse)
+async def get_perms(session: AsyncSession = Depends(get_db_session)):
+    perms = await miniapp_db_fcn.get_perms(session=session)
+    return {"status": "success",
+            "perms": [{"id": p.id,
+                          "name": p.name,
+                          "img_url": f"{s3_domain}{p.img_url}"} for p in perms]}

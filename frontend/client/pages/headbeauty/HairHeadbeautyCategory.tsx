@@ -69,7 +69,7 @@ export default function AIHairCatsPage() {
               }}
             >
               <img src={cat.image} alt={cat.label} className="w-12 h-12 object-cover rounded" />
-              <span className="text-[10px] tracking-[-0.5px] font-['Sofia_Sans'] text-black text-center leading-tight mt-4 whitespace-normal break-words px-1">
+              <span className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black text-center leading-tight mt-4 whitespace-normal break-words px-1">
                 {cat.label}
               </span>
             </div>

@@ -116,7 +116,9 @@ export default function AIBeardPage() {
   };
 
   useEffect(() => {
-    if (faceTaskId && !faceAnalysisDone) {
+    if (faceTaskId === "atomic_operation") {
+      setFaceAnalysisDone(true);
+    } else if (faceTaskId && !faceAnalysisDone) {
       startPolling(faceTaskId);
     }
     return () => stopPolling();
@@ -163,7 +165,6 @@ export default function AIBeardPage() {
       const readyData = await readyRes.json();
       if (readyData.status === "success") {
         setRecommendedBeards(readyData.recommended);
-        toast.success("Рекомендации получены");
       } else {
         throw new Error(readyData.status);
       }
@@ -244,7 +245,7 @@ export default function AIBeardPage() {
                           />
                         </div>
                         <div className="mt-1 text-center flex items-center justify-center h-6">
-                          <p className="text-[12px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
+                          <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
                             {item.name}
                           </p>
                         </div>
@@ -310,7 +311,7 @@ export default function AIBeardPage() {
                           />
                         </div>
                         <div className="mt-1 text-center flex items-center justify-center h-6">
-                          <p className="text-[12px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
+                          <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
                             {item.name}
                           </p>
                         </div>

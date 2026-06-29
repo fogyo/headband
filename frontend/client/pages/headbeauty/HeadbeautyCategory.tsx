@@ -12,14 +12,13 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
 const femaleCategories = [
   { label: "Волосы", image: aiHair, route: "hair" },
-  { label: "Кожа", image: aiCosmetology, route: "skin" },
-  { label: "Брови и ресницы", image: aiBrows, route: "brows" },
+  { label: "Косметология", image: aiCosmetology, route: "cosmetology" },
   { label: "Загар", image: aiTan, route: "tan" },
 ];
 
 const maleCategories = [
   { label: "Волосы", image: aiHair, route: "hair" },
-  { label: "Кожа", image: aiCosmetology, route: "skin" },
+  { label: "Косметология", image: aiCosmetology, route: "cosmetology" },
   { label: "Загар", image: aiTan, route: "tan" },
 ];
 
@@ -94,7 +93,7 @@ export default function AICategoryPage() {
               }}
             >
               <img src={cat.image} alt={cat.label} className="w-12 h-12 object-cover rounded" />
-              <span className="text-[10px] tracking-[-0.5px] font-['Sofia_Sans'] text-black text-center leading-tight mt-4 whitespace-normal break-words px-1">
+              <span className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black text-center leading-tight mt-4 whitespace-normal break-words px-1">
                 {cat.label}
               </span>
             </div>

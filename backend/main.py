@@ -9,7 +9,8 @@ import uvicorn
 from dotenv import load_dotenv
 import database as db
 from backend import app
-from backend.api import create_categories, create_haircut_template, create_beards_template, create_hair_colors_template
+from backend.api import create_categories, create_haircut_template, create_beards_template, create_hair_colors_template, \
+    create_hair_perms_template
 from backend.api.headbeauty import hb_welcome, hb_session
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 from backend.api.user import welcome_user, price, masters, booking
@@ -68,24 +69,31 @@ async def lifespan(app: FastAPI):
     finally:
         await db.close_connection()"""
 
+async def init_db():
+    await create_categories()
+    await create_haircut_template()
+    await create_beards_template()
+    await create_hair_colors_template()
+    await create_hair_perms_template()
+
 def run_celery_process():
     subprocess.run(["celery", "-A", "backend.model.bg_factory.factory", "worker", "--pool=threads", "--concurrency=4", "--loglevel=info"], check=True)
 
 def run_server_process():
     async def start_server():
         if await db.setup_database():
-            #await create_categories()
+
 
             """await obj_storage.upload_folder(
                 local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\women_haircuts", s3_prefix="woman\\")
             await obj_storage.upload_folder(
                 local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\men_haircuts", s3_prefix="man\\")
             await obj_storage.upload_folder(
-                local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\beards", s3_prefix="beards\\")"""
+                local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\beards", s3_prefix="beards\\")
+            await obj_storage.upload_folder(
+                local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\perms", s3_prefix="perms\\")"""
 
-            #await create_haircut_template()
-            #await create_beards_template()
-            #await create_hair_colors_template()
+            #await init_db()
             logging.info("База данных инициализирована")
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
         server = uvicorn.Server(config)

@@ -119,7 +119,9 @@ export default function AIColorPage() {
   };
 
   useEffect(() => {
-    if (faceTaskId && !faceAnalysisDone) {
+    if (faceTaskId === "atomic_operation") {
+      setFaceAnalysisDone(true);
+    } else if (faceTaskId && !faceAnalysisDone) {
       startPolling(faceTaskId);
     }
     return () => stopPolling();
@@ -166,7 +168,6 @@ export default function AIColorPage() {
       const readyData = await readyRes.json();
       if (readyData.status === "success") {
         setRecommendedColors(readyData.recommended || []);
-        toast.success("Рекомендации получены");
       } else {
         throw new Error(readyData.status);
       }
@@ -241,11 +242,15 @@ export default function AIColorPage() {
                         <div className="w-full h-20 rounded-[5px] overflow-hidden flex items-center justify-center">
                           <div
                             className="w-16 h-16 rounded-full border border-black/10"
-                            style={{ backgroundColor: item.hex }}
+                            style={{ backgroundColor: item.hex ,
+                                boxShadow: "inset 2px 2px 2px 0px rgba(0,0,0,0.25)",
+                                border: "0.5px solid rgba(0,0,0,0.00)",
+
+                            }}
                           />
                         </div>
                         <div className="mt-1 text-center flex items-center justify-center h-6">
-                          <p className="text-[12px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
+                          <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
                             {item.name}
                           </p>
                         </div>
@@ -312,7 +317,7 @@ export default function AIColorPage() {
                           />
                         </div>
                         <div className="mt-1 text-center flex items-center justify-center h-6">
-                          <p className="text-[12px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
+                          <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
                             {item.name}
                           </p>
                         </div>
