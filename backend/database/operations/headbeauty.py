@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.headbeauty import hb_session
 from backend.database import HeadbeautySessionModel, FaceParametersModel, HaircutTemplateModel, \
-    HaircutRecommendationModel, FaceHairTemplateModel, ColorTemplateModel, PermsTemplateModel
+    HaircutRecommendationModel, FaceHairTemplateModel, ColorTemplateModel, PermsTemplateModel, TokenModel, PreviewModel
 from backend.database.obj_storage import s3_domain
 
 
@@ -33,6 +33,10 @@ def create_face_parameters_sync(data: dict, session_id: uuid.UUID, session):
 async def get_session_image(session_id: uuid.UUID, session: AsyncSession):
     user_session = await HeadbeautySessionModel.get_by_id(session_id=session_id, session=session)
     return f"{s3_domain}{user_session.img_url}"
+
+async def get_session_chat_id(session_id: uuid.UUID, session: AsyncSession):
+    user_session = await HeadbeautySessionModel.get_by_id(session_id=session_id, session=session)
+    return user_session.chat_id
 
 async def create_cut_template(data: dict, session: AsyncSession):
     return await HaircutTemplateModel.create(session=session, data=data)
@@ -83,3 +87,42 @@ async def get_beard_by_id(beard_id: uuid.UUID, session: AsyncSession):
 
 async def get_color_by_id(color_id: uuid.UUID, session: AsyncSession):
     return await ColorTemplateModel.get_by_id(template_id=color_id, session=session)
+
+async def check_token_model(chat_id: int, session: AsyncSession):
+    if await TokenModel.get_by_chat_id(chat_id=chat_id, session=session) == None:
+        await TokenModel.create(chat_id=chat_id, session=session)
+    return "success"
+
+async def get_tokens_amount(chat_id: int, session: AsyncSession):
+    token_by_id = await TokenModel.get_by_chat_id(session=session, chat_id=chat_id)
+    return token_by_id.tokens, token_by_id.super_tokens
+
+def get_haircut_by_id_sync(obj_id: uuid.UUID, session):
+    return HaircutTemplateModel.get_by_id_sync(session=session, template_id=obj_id)
+
+def get_beard_by_id_sync(obj_id: uuid.UUID, session):
+    return FaceHairTemplateModel.get_by_id_sync(session=session, template_id=obj_id)
+
+def get_perm_by_id_sync(obj_id: uuid.UUID, session):
+    return PermsTemplateModel.get_by_id_sync(session=session, template_id=obj_id)
+
+def get_color_by_id_sync(obj_id: uuid.UUID, session):
+    return ColorTemplateModel.get_by_id_sync(session=session, template_id=obj_id)
+
+def create_preview_sync(session_id: uuid.UUID, img_url: str, session, model: str):
+    return PreviewModel.create_sync(session_id=session_id, img_url=img_url, model=model, session=session)
+
+def decrease_tokens(session, chat_id: int):
+    TokenModel.decrease_tokens(session=session, chat_id=chat_id)
+
+def decrease_super_tokens(session, chat_id: int):
+    TokenModel.decrease_super_tokens(session=session, chat_id=chat_id)
+
+async def get_preview_by_id(session: AsyncSession, preview_id: uuid.UUID):
+    return await PreviewModel.get_by_id(session=session, preview_id=preview_id)
+
+async def update_preview_url(session: AsyncSession, preview_id: uuid.UUID, img_url: str):
+    return await PreviewModel.update(preview_id=preview_id, new_img_url=img_url, session=session)
+
+async def get_all_previews(session: AsyncSession, session_id: uuid.UUID):
+    return await PreviewModel.get_by_session_id(session_id=session_id, session=session)

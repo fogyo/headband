@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import UserModel, MasterConstantUsersModel
+from backend.database.operations import headbeauty
 
 
 async def check_user(chat_id: int,
@@ -19,6 +20,7 @@ async def create_user(
     user = {"chat_id": chat_id,
             "username": username}
     created = await UserModel.create(session=session, data=user)
+    await headbeauty.check_token_model(chat_id=chat_id, session=session)
     if created:
         return "success"
     return "unable to create"

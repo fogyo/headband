@@ -1,12 +1,13 @@
 import uuid
+from enum import Enum
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db_session, miniapp_db_fcn
-from backend.database.obj_storage import s3_domain
+from backend.database import get_db_session, miniapp_db_fcn, obj_storage
+from backend.database.obj_storage import s3_domain, UploadFromUrlRequest
 from backend.database.responses import StatusResponse
 from backend.model.bg_factory import TaskType, task_manager
 
@@ -14,6 +15,22 @@ router = APIRouter(
     prefix="/headbeauty/session",
     tags=["Headbeauty.Session"]
 )
+
+class GenerationType(Enum):
+    HAIRCUT = 1
+    BEARD = 2
+    COLORING = 3
+    PERM = 4
+
+class ModelType(Enum):
+    BASE = 1
+    IMPROVED = 2
+
+class PreviewRequest(BaseModel):
+    session_id: uuid.UUID
+    generation_type: GenerationType
+    model_type: ModelType
+    style_id: uuid.UUID
 
 class ParametersResponse(StatusResponse):
     face_type: str
@@ -58,6 +75,17 @@ class RecommendationResponse(StatusResponse):
 
 class RecommendationColorResponse(StatusResponse):
     recommended: List[Color]
+
+class TokenResponse(StatusResponse):
+    token: int
+    super_token: int
+
+class PreviewResponse(StatusResponse):
+    preview_id: uuid.UUID
+    img_url: int
+
+class HistoryPreviewsResponse(StatusResponse):
+    previews: List[PreviewResponse]
 
 @router.get("/face_parameters", response_model=ParametersResponse)
 async def get_parameters(session_id: uuid.UUID,
@@ -262,3 +290,63 @@ async def get_perms(session: AsyncSession = Depends(get_db_session)):
             "perms": [{"id": p.id,
                           "name": p.name,
                           "img_url": f"{s3_domain}{p.img_url}"} for p in perms]}
+
+@router.get("/tokens_amount", response_model=TokenResponse)
+async def get_tokens(
+        session_id: uuid.UUID,
+        session: AsyncSession = Depends(get_db_session)):
+    chat_id = await miniapp_db_fcn.get_session_chat_id(session_id=session_id, session=session)
+    tokens, super_tokens = await miniapp_db_fcn.get_tokens_amount(chat_id=chat_id, session=session)
+    return {"status": "success",
+            "token": tokens,
+            "super_tokens": super_tokens}
+
+@router.get("/preview_style")
+async def start_previewing_task(
+        request: PreviewRequest,
+        session: AsyncSession = Depends(get_db_session)):
+    img_url = await miniapp_db_fcn.get_session_image(session_id=request.session_id, session=session)
+    chat_id = await miniapp_db_fcn.get_session_chat_id(session_id=request.session_id, session=session)
+    task_request = {"ai_task": TaskType.PREVIEWING.value,
+                    "config_data": {
+                        "model": PreviewRequest.model_type.value,
+                        "generation": PreviewRequest.generation_type.value
+                    },
+                    "data":
+                        {
+                            "session_id": request.session_id,
+                            "img_url": img_url,
+                            "style_id": request.style_id,
+                            "chat_id": chat_id
+                        },
+                    }
+    task = task_manager.delay(task_request)
+    return {"status": "processing",
+            "task": task.id}
+
+@router.get("/ready_preview", response_model=PreviewResponse)
+async def get_preview(preview_id: uuid.UUID,
+                      session: AsyncSession = Depends(get_db_session)):
+    preview = await miniapp_db_fcn.get_preview_by_id(session=session, preview_id=preview_id)
+    request = UploadFromUrlRequest.model_validate({"photo_url": preview.img_url})
+    result = await obj_storage.upload_from_url(request=request)
+    if result["status"] == "success":
+        await miniapp_db_fcn.update_preview_url(preview_id=preview_id, img_url=result["file_key"], session=session)
+        return {"status": "success",
+                "preview_id": preview_id,
+                "img_url": f"{s3_domain}{result["file_key"]}"}
+    return {"status": "error",
+            "preview_id": preview_id,
+            "img_url": ""}
+
+@router.get("/history_previews", response_model=HistoryPreviewsResponse)
+async def get_previews(
+        session_id: uuid.UUID,
+        session: AsyncSession = Depends(get_db_session)):
+    previews = await miniapp_db_fcn.get_all_previews(session=session, session_id=session_id)
+    return {"status": "success",
+            "previews": [{"status": "success",
+                          "preview_id": p.id,
+                          "img_url": f"{s3_domain}{p.img_url}"} for p in previews]}
+
+

@@ -1669,6 +1669,13 @@ class HaircutTemplateModel(Base):
         return result.scalars().first()
 
     @classmethod
+    def get_by_id_sync(cls, session, template_id: uuid.UUID) -> Optional["HaircutTemplateModel"]:
+        """Получает шаблон по ID"""
+        query = select(cls).where(cls.id == template_id)
+        result = session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
     async def get_all_by_gender(cls, gender: bool, session: AsyncSession) -> List["HaircutTemplateModel"]:
         """Получает все шаблоны"""
         query = select(cls).where(gender == cls.gender)
@@ -1867,6 +1874,13 @@ class FaceHairTemplateModel(Base):
         return result.scalars().first()
 
     @classmethod
+    def get_by_id_sync(cls, session, template_id: uuid.UUID) -> Optional["FaceHairTemplateModel"]:
+        """Получает шаблон по ID"""
+        query = select(cls).where(cls.id == template_id)
+        result = session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
     async def get_all(cls, session: AsyncSession) -> List["FaceHairTemplateModel"]:
         """Получает все шаблоны"""
         query = select(cls)
@@ -1923,6 +1937,13 @@ class ColorTemplateModel(Base):
         return result.scalars().first()
 
     @classmethod
+    def get_by_id_sync(cls, session: AsyncSession, template_id: uuid.UUID) -> Optional["ColorTemplateModel"]:
+        """Получает шаблон по ID"""
+        query = select(cls).where(cls.id == template_id)
+        result = session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
     async def get_all(cls, session: AsyncSession) -> List["ColorTemplateModel"]:
         """Получает все шаблоны"""
         query = select(cls)
@@ -1969,21 +1990,28 @@ class PermsTemplateModel(Base):
         return obj.id
 
     @classmethod
-    async def get_by_id(cls, session: AsyncSession, template_id: uuid.UUID) -> Optional["PermsTemplate"]:
+    async def get_by_id(cls, session: AsyncSession, template_id: uuid.UUID) -> Optional["PermsTemplateModel"]:
         """Получает шаблон по ID"""
         query = select(cls).where(cls.id == template_id)
         result = await session.execute(query)
         return result.scalars().first()
 
     @classmethod
-    async def get_all(cls, session: AsyncSession) -> List["PermsTemplate"]:
+    def get_by_id_sync(cls, session, template_id: uuid.UUID) -> Optional["PermsTemplateModel"]:
+        """Получает шаблон по ID"""
+        query = select(cls).where(cls.id == template_id)
+        result = session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["PermsTemplateModel"]:
         """Получает все шаблоны"""
         query = select(cls)
         result = await session.execute(query)
         return result.scalars().all()
 
     @classmethod
-    async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["PermsTemplate"]:
+    async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["PermsTemplateModel"]:
         """Ищет шаблон по названию"""
         query = select(cls).where(cls.name == name)
         result = await session.execute(query)
@@ -2004,3 +2032,153 @@ class PermsTemplateModel(Base):
             await session.delete(obj)
             return "success"
         return "no such template"
+
+class TokenModel(Base):
+    __tablename__ = "tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)  # уникальность для одного пользователя
+    tokens: Mapped[int] = mapped_column(BigInteger, default=1)
+    super_tokens: Mapped[int] = mapped_column(BigInteger, default=1)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, chat_id: int) -> uuid.UUID:
+        """Создаёт запись баланса токенов для пользователя"""
+        obj = cls(chat_id=chat_id)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_chat_id(cls, session: AsyncSession, chat_id: int) -> Optional["TokenModel"]:
+        """Получает запись по chat_id"""
+        query = select(cls).where(cls.chat_id == chat_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, token_id: uuid.UUID) -> Optional["TokenModel"]:
+        """Получает запись по id"""
+        query = select(cls).where(cls.id == token_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, token_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет произвольные поля (использовать с осторожностью)"""
+        query = update(cls).where(cls.id == token_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def add_tokens(cls, session: AsyncSession, chat_id: int, amount: int) -> str:
+        """Добавляет указанное количество обычных токенов"""
+        query = update(cls).where(cls.chat_id == chat_id).values(
+            tokens=cls.tokens + amount
+        )
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    def decrease_tokens(cls, session, chat_id: int) -> str:
+        """Добавляет указанное количество обычных токенов"""
+        query = update(cls).where(cls.chat_id == chat_id).values(
+            tokens=cls.tokens - 1
+        )
+        session.execute(query)
+        return "success"
+
+    @classmethod
+    async def add_super_tokens(cls, session: AsyncSession, chat_id: int, amount: int) -> str:
+        """Добавляет указанное количество супертокенов"""
+        query = update(cls).where(cls.chat_id == chat_id).values(
+            super_tokens=cls.super_tokens + amount
+        )
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    def decrease_super_tokens(cls, session: AsyncSession, chat_id: int) -> str:
+        """Добавляет указанное количество супертокенов"""
+        query = update(cls).where(cls.chat_id == chat_id).values(
+            super_tokens=cls.super_tokens - 1
+        )
+        session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, token_id: uuid.UUID) -> str:
+        """Удаляет запись по id"""
+        obj = await session.get(cls, token_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such token record"
+
+class PreviewModel(Base):
+    __tablename__ = "previews"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("headbeauty_sessions.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    img_url: Mapped[str] = mapped_column(String, nullable=False)
+    model: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Связь с сессией (без back_populates, чтобы не менять HeadbeautySessionModel)
+    session: Mapped["HeadbeautySessionModel"] = relationship("HeadbeautySessionModel")
+
+    @classmethod
+    async def create(cls, session: AsyncSession, session_id: uuid.UUID, img_url: str) -> uuid.UUID:
+        """Создаёт запись превью для сессии"""
+        obj = cls(session_id=session_id, img_url=img_url)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    def create_sync(cls, session: AsyncSession, session_id: uuid.UUID, img_url: str, model: str) -> uuid.UUID:
+        """Создаёт запись превью для сессии"""
+        obj = cls(session_id=session_id, img_url=img_url, model=model)
+        session.add(obj)
+        session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, preview_id: uuid.UUID) -> Optional["PreviewModel"]:
+        """Получает превью по ID"""
+        query = select(cls).where(cls.id == preview_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_session_id(cls, session: AsyncSession, session_id: uuid.UUID) -> List["PreviewModel"]:
+        """Получает все превью для указанной сессии"""
+        query = select(cls).where(cls.session_id == session_id)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def update(cls, session: AsyncSession, preview_id: uuid.UUID, new_img_url: str) -> str:
+        """Обновляет URL изображения превью"""
+        query = update(cls).where(cls.id == preview_id).values(img_url=new_img_url)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, preview_id: uuid.UUID) -> str:
+        """Удаляет превью по ID"""
+        obj = await session.get(cls, preview_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such preview"
+
+    @classmethod
+    async def delete_by_session_id(cls, session: AsyncSession, session_id: uuid.UUID) -> str:
+        """Удаляет все превью для сессии (опционально)"""
+        query = delete(cls).where(cls.session_id == session_id)
+        await session.execute(query)
+        return "success"

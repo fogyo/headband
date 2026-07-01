@@ -32,7 +32,7 @@ async def get_task(task_id: str):
         if not task_result.ready():
             return {"status": "pending"}
         if task_result.successful():
-            return {"status": "success"}
+            return task_result.get()
         else:
             # failed
             error = str(task_result.result) if task_result.result else "Unknown error"

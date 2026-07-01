@@ -4,7 +4,9 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import MasterModel, MasterReferralModel, MasterNotificationModel, MasterConstantUsersModel
+from backend.database import MasterModel, MasterReferralModel, MasterNotificationModel, MasterConstantUsersModel, \
+    TokenModel
+from backend.database.operations import headbeauty
 from backend.database.requests import MasterCreateRequestTG
 
 
@@ -19,6 +21,8 @@ async def update_master(master_id: uuid.UUID, update_data: dict, session: AsyncS
 
 async def check_master(chat_id: int, session: AsyncSession):
     return await MasterModel.get_by_chat_id_tg(session=session, chat_id=chat_id) == None
+
+
 
 async def create_master_tg(
         chat_id: int,
@@ -49,6 +53,8 @@ async def create_master_tg(
         await MasterNotificationModel.create(session=session, master_id=master_id)
 
         await MasterReferralModel.create(session=session, master_id=master_id)
+
+        await headbeauty.check_token_model(chat_id=chat_id, session=session)
 
         return "success", master_id
     except Exception as e:
