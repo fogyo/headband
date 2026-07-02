@@ -255,7 +255,14 @@ export default function AIHairPage() {
   };
 
   const handleHaircutClick = (haircut: Haircut) => {
-    console.log("Выбрана стрижка:", haircut);
+     navigate(`/headbeauty-preview?session_id=${effectiveSessionId}&style_id=${haircut.id}&generation_type=1`, {
+    state: {
+      session_id: effectiveSessionId,
+      style_id: haircut.id,
+      generation_type: 1,   
+      img_url: imgUrl,      
+    },
+  });
   };
 
   // ---------- Обработка типа волос ----------

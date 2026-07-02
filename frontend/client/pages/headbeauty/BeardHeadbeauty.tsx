@@ -177,7 +177,14 @@ export default function AIBeardPage() {
   };
 
   const handleBeardClick = (beard: Beard) => {
-    console.log("Выбрана борода:", beard);
+    navigate(`/headbeauty-preview?session_id=${effectiveSessionId}&style_id=${beard.id}&generation_type=2`, {
+    state: {
+      session_id: effectiveSessionId,
+      style_id: beard.id,
+      generation_type: 2,   
+      img_url: imgUrl,      
+    },
+  });
   };
 
   const recommendedIds = new Set(recommendedBeards.map(b => b.id));

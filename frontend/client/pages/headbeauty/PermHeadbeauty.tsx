@@ -71,8 +71,14 @@ export default function AIPermPage() {
   }, [sessionId, state, effectiveSessionId]);
 
   const handlePermClick = (perm: Perm) => {
-    console.log("Выбрана завивка:", perm);
-    // Здесь позже переход к деталям
+   navigate(`/headbeauty-preview?session_id=${effectiveSessionId}&style_id=${perm.id}&generation_type=4`, {
+    state: {
+      session_id: effectiveSessionId,
+      style_id: perm.id,
+      generation_type: 4,   
+      img_url: imgUrl,      
+    },
+  });
   };
 
   if (loading) {

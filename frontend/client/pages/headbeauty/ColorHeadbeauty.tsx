@@ -180,7 +180,14 @@ export default function AIColorPage() {
   };
 
   const handleColorClick = (color: Color) => {
-    console.log("Выбран цвет:", color);
+    navigate(`/headbeauty-preview?session_id=${effectiveSessionId}&style_id=${color.id}&generation_type=3`, {
+    state: {
+     session_id: effectiveSessionId,
+      style_id: color.id,
+      generation_type: 3,   
+      img_url: imgUrl,      
+    },
+  });
   };
 
   const safeAllColors = allColors || [];

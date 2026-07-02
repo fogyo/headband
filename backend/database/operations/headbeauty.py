@@ -20,6 +20,11 @@ async def create_session(chat_id: int,
             "img_url": img_url}
     return await HeadbeautySessionModel.create(data=data, session=session)
 
+async def update_session(session_id: uuid.UUID,
+                         upd_data: dict,
+                         session: AsyncSession):
+    await HeadbeautySessionModel.update(session_id=session_id, session=session, update_data=upd_data)
+
 async def delete_session(session_id: uuid.UUID, session: AsyncSession):
     return await HeadbeautySessionModel.delete(session_id=session_id, session=session)
 

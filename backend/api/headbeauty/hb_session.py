@@ -28,8 +28,8 @@ class ModelType(Enum):
 
 class PreviewRequest(BaseModel):
     session_id: uuid.UUID
-    generation_type: GenerationType
-    model_type: ModelType
+    generation_type: int
+    model_type: int
     style_id: uuid.UUID
 
 class ParametersResponse(StatusResponse):
@@ -82,7 +82,7 @@ class TokenResponse(StatusResponse):
 
 class PreviewResponse(StatusResponse):
     preview_id: uuid.UUID
-    img_url: int
+    img_url: str
 
 class HistoryPreviewsResponse(StatusResponse):
     previews: List[PreviewResponse]
@@ -299,9 +299,9 @@ async def get_tokens(
     tokens, super_tokens = await miniapp_db_fcn.get_tokens_amount(chat_id=chat_id, session=session)
     return {"status": "success",
             "token": tokens,
-            "super_tokens": super_tokens}
+            "super_token": super_tokens}
 
-@router.get("/preview_style")
+@router.post("/preview_style")
 async def start_previewing_task(
         request: PreviewRequest,
         session: AsyncSession = Depends(get_db_session)):
@@ -309,8 +309,8 @@ async def start_previewing_task(
     chat_id = await miniapp_db_fcn.get_session_chat_id(session_id=request.session_id, session=session)
     task_request = {"ai_task": TaskType.PREVIEWING.value,
                     "config_data": {
-                        "model": PreviewRequest.model_type.value,
-                        "generation": PreviewRequest.generation_type.value
+                        "model": request.model_type,
+                        "generation": request.generation_type
                     },
                     "data":
                         {
@@ -348,5 +348,17 @@ async def get_previews(
             "previews": [{"status": "success",
                           "preview_id": p.id,
                           "img_url": f"{s3_domain}{p.img_url}"} for p in previews]}
+
+@router.patch("/set_img_to_session", response_model=StatusResponse)
+async def set_img(
+        preview_id: uuid.UUID,
+        session: AsyncSession = Depends(get_db_session)):
+    preview = await miniapp_db_fcn.get_preview_by_id(session=session, preview_id=preview_id)
+    upd_data = {"img_url": preview.img_url}
+    await miniapp_db_fcn.update_session(session_id=preview.session_id, session=session, upd_data=upd_data)
+    return {"status": "success"}
+
+
+
 
 
