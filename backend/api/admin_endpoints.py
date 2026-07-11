@@ -37,3 +37,9 @@ async def get_task(task_id: str):
             # failed
             error = str(task_result.result) if task_result.result else "Unknown error"
             return {"status": "failed", "error": error}
+
+@router.patch("/increase_tokens", response_model=StatusResponse)
+async def increase_tokens(chat_id: int,
+                   session: AsyncSession = Depends(get_db_session)):
+    await miniapp_db_fcn.increase_tokens(session=session, chat_id=chat_id, amount=1)
+    return {"status": "success"}

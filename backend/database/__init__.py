@@ -8,10 +8,10 @@ from typing import List, Optional, AsyncGenerator
 from dotenv import load_dotenv
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func, UniqueConstraint, \
-    or_, Boolean
+    or_, Boolean, Time, DateTime
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
-from datetime import time, date
+from datetime import time, date, datetime
 from sqlalchemy import inspect
 import os
 
@@ -2080,12 +2080,12 @@ class TokenModel(Base):
         return "success"
 
     @classmethod
-    def decrease_tokens(cls, session, chat_id: int) -> str:
+    async def decrease_tokens(cls, session, chat_id: int) -> str:
         """Добавляет указанное количество обычных токенов"""
         query = update(cls).where(cls.chat_id == chat_id).values(
             tokens=cls.tokens - 1
         )
-        session.execute(query)
+        await session.execute(query)
         return "success"
 
     @classmethod
@@ -2098,12 +2098,12 @@ class TokenModel(Base):
         return "success"
 
     @classmethod
-    def decrease_super_tokens(cls, session: AsyncSession, chat_id: int) -> str:
+    async def decrease_super_tokens(cls, session: AsyncSession, chat_id: int) -> str:
         """Добавляет указанное количество супертокенов"""
         query = update(cls).where(cls.chat_id == chat_id).values(
             super_tokens=cls.super_tokens - 1
         )
-        session.execute(query)
+        await session.execute(query)
         return "success"
 
     @classmethod
@@ -2114,6 +2114,7 @@ class TokenModel(Base):
             await session.delete(obj)
             return "success"
         return "no such token record"
+
 
 class PreviewModel(Base):
     __tablename__ = "previews"
@@ -2126,6 +2127,13 @@ class PreviewModel(Base):
     )
     img_url: Mapped[str] = mapped_column(String, nullable=False)
     model: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Новое поле: дата и время создания (с часовым поясом, автоматически проставляется на стороне БД)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
 
     # Связь с сессией (без back_populates, чтобы не менять HeadbeautySessionModel)
     session: Mapped["HeadbeautySessionModel"] = relationship("HeadbeautySessionModel")
@@ -2140,7 +2148,7 @@ class PreviewModel(Base):
 
     @classmethod
     def create_sync(cls, session: AsyncSession, session_id: uuid.UUID, img_url: str, model: str) -> uuid.UUID:
-        """Создаёт запись превью для сессии"""
+        """Создаёт запись превью для сессии (синхронный flush)"""
         obj = cls(session_id=session_id, img_url=img_url, model=model)
         session.add(obj)
         session.flush()
@@ -2156,7 +2164,7 @@ class PreviewModel(Base):
     @classmethod
     async def get_by_session_id(cls, session: AsyncSession, session_id: uuid.UUID) -> List["PreviewModel"]:
         """Получает все превью для указанной сессии"""
-        query = select(cls).where(cls.session_id == session_id)
+        query = select(cls).where(cls.session_id == session_id).order_by(cls.created_at.desc())
         result = await session.execute(query)
         return list(result.scalars().all())
 

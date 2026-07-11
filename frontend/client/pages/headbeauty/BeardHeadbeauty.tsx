@@ -182,7 +182,8 @@ export default function AIBeardPage() {
       session_id: effectiveSessionId,
       style_id: beard.id,
       generation_type: 2,   
-      img_url: imgUrl,      
+      img_url: imgUrl, 
+      gender: gender,     
     },
   });
   };

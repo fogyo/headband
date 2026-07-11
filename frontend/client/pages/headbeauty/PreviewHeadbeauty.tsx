@@ -11,6 +11,8 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 type GenerationType = 1 | 2 | 3 | 4;
 type ModelType = 1 | 2;
 
+const TASK_STORAGE_KEY = "headbeauty_active_task";
+
 export default function AIPreviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,6 +23,7 @@ export default function AIPreviewPage() {
   const generationType = parseInt(
     searchParams.get("generation_type") || (location.state as any)?.generation_type || "1"
   ) as GenerationType;
+  const gender = (location.state as any)?.gender ?? null;
 
   const [mode, setMode] = useState<ModelType>(1);
   const [tokens, setTokens] = useState<{ token: number; super_tokens: number } | null>(null);
@@ -30,7 +33,35 @@ export default function AIPreviewPage() {
   const [historyPreviews, setHistoryPreviews] = useState<any[]>([]);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Загрузка токенов
+  const getStoredTaskId = (): string | null => {
+    try {
+      const data = JSON.parse(localStorage.getItem(TASK_STORAGE_KEY) || "{}");
+      return data[sessionId] || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const storeTaskId = (taskId: string) => {
+    try {
+      const data = JSON.parse(localStorage.getItem(TASK_STORAGE_KEY) || "{}");
+      data[sessionId] = taskId;
+      localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("Failed to store task id", e);
+    }
+  };
+
+  const removeStoredTaskId = () => {
+    try {
+      const data = JSON.parse(localStorage.getItem(TASK_STORAGE_KEY) || "{}");
+      delete data[sessionId];
+      localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("Failed to remove task id", e);
+    }
+  };
+
   const fetchTokens = async () => {
     if (!sessionId) return;
     try {
@@ -46,7 +77,6 @@ export default function AIPreviewPage() {
     }
   };
 
-  // Загрузка истории (только для проверки наличия)
   const fetchHistory = async () => {
     if (!sessionId) return;
     try {
@@ -58,7 +88,6 @@ export default function AIPreviewPage() {
       }
     } catch (err: any) {
       console.error(err);
-      // Не показываем ошибку, чтобы не мешать пользователю
     }
   };
 
@@ -67,14 +96,12 @@ export default function AIPreviewPage() {
     fetchHistory();
   }, [sessionId]);
 
-  // Остановка опроса
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     };
   }, []);
 
-  // Опрос статуса задачи
   const pollTaskStatus = async (taskId: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const interval = setInterval(async () => {
@@ -101,7 +128,6 @@ export default function AIPreviewPage() {
     });
   };
 
-  // Получение готового превью
   const fetchReadyPreview = async (previewId: string): Promise<string> => {
     const res = await fetch(`${baseUrl}/headbeauty/session/ready_preview?preview_id=${previewId}`);
     if (!res.ok) throw new Error("Ошибка получения превью");
@@ -110,26 +136,36 @@ export default function AIPreviewPage() {
     return data.img_url;
   };
 
-  // Запуск генерации
-  const handleGenerate = async () => {
-    if (!sessionId || !styleId) {
-      toast.warning("Отсутствуют параметры сессии или стиля");
-      return;
+  const moveImageToS3 = async (previewId: string): Promise<void> => {
+    const res = await fetch(`${baseUrl}/headbeauty/session/move_to_s3_storage?preview_id=${previewId}`, {
+      method: "PATCH",
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Ошибка перемещения изображения");
     }
-    if (!tokens) {
-      toast.warning("Баланс токенов не загружен");
-      return;
-    }
-    // Проверка токенов для выбранного режима
-    if (mode === 1 && tokens.token <= 0) {
-      toast.warning("Недостаточно обычных токенов");
-      return;
-    }
-    if (mode === 2 && tokens.super_tokens <= 0) {
-      toast.warning("Недостаточно супертокенов");
-      return;
-    }
+    const data = await res.json();
+    if (data.status !== "success") throw new Error(data.status);
+  };
 
+  const finishGeneration = (previewId?: string, imgUrl?: string) => {
+    removeStoredTaskId();
+    setIsGenerating(false);
+    if (previewId && imgUrl) {
+      // Переход в историю генераций
+      navigate(`/headbeauty-history?session_id=${sessionId}`, {
+        state: {
+          session_id: sessionId,
+          img_url: imgUrl,
+          preview_id: previewId,
+          gender: gender,
+        },
+        replace: true,
+      });
+    }
+  };
+
+  const startGenerationProcess = async () => {
     setIsGenerating(true);
     try {
       const genRes = await fetch(`${baseUrl}/headbeauty/session/preview_style`, {
@@ -151,27 +187,68 @@ export default function AIPreviewPage() {
         throw new Error("Не удалось запустить задачу");
       }
       const taskId = genData.task;
+      storeTaskId(taskId);
 
       const previewId = await pollTaskStatus(taskId);
+      await moveImageToS3(previewId);
       const imgUrl = await fetchReadyPreview(previewId);
 
-      setCurrentPreviewUrl(imgUrl);
-      setSelectedPreviewId(previewId);
-      toast.success("Генерация завершена!");
-
-      // Обновить историю (чтобы активировать кнопку "Мои генерации")
-      await fetchHistory();
+      // Не сохраняем в состоянии, а сразу переходим в историю
+      finishGeneration(previewId, imgUrl);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка генерации");
-    } finally {
-      setIsGenerating(false);
+      finishGeneration();
     }
   };
 
-  const backgroundImage = currentPreviewUrl || (location.state as any)?.img_url || "https://placehold.co/375x789";
+  const handleGenerate = async () => {
+    if (!sessionId || !styleId) {
+      toast.warning("Отсутствуют параметры сессии или стиля");
+      return;
+    }
+    if (!tokens) {
+      toast.warning("Баланс токенов не загружен");
+      return;
+    }
+    if (mode === 1 && tokens.token <= 0) {
+      toast.warning("Недостаточно обычных токенов");
+      return;
+    }
+    if (mode === 2 && tokens.super_tokens <= 0) {
+      toast.warning("Недостаточно супертокенов");
+      return;
+    }
+    const storedTaskId = getStoredTaskId();
+    if (storedTaskId) {
+      toast.info("Генерация уже выполняется, дождитесь завершения");
+      return;
+    }
+    await startGenerationProcess();
+  };
 
-  // Вычисляем, доступна ли кнопка "Получить результат"
+  // Проверка активной задачи при монтировании
+  useEffect(() => {
+    const storedTaskId = getStoredTaskId();
+    if (storedTaskId) {
+      setIsGenerating(true);
+      const resumePolling = async () => {
+        try {
+          const previewId = await pollTaskStatus(storedTaskId);
+          await moveImageToS3(previewId);
+          const imgUrl = await fetchReadyPreview(previewId);
+          finishGeneration(previewId, imgUrl);
+        } catch (err: any) {
+          console.error("Ошибка при восстановлении генерации", err);
+          toast.error("Не удалось завершить генерацию, попробуйте снова");
+          finishGeneration();
+        }
+      };
+      resumePolling();
+    }
+  }, [sessionId]);
+
+  const backgroundImage = (location.state as any)?.img_url || "https://placehold.co/375x789";
   const isGenerateDisabled = isGenerating || !tokens || (mode === 1 && tokens.token <= 0) || (mode === 2 && tokens.super_tokens <= 0);
 
   return (
@@ -183,115 +260,68 @@ export default function AIPreviewPage() {
           headbeauty AI
         </h3>
 
-        {!currentPreviewUrl ? (
-          <div className="flex flex-col items-center gap-4 mt-4">
-            <div className="flex bg-[#FFE9EF] rounded-[10px] p-1 shadow-md gap-2 w-full">
-              <div className="flex flex-col items-center flex-1">
-                <button
-                  onClick={() => setMode(1)}
-                  className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
-                    mode === 1 ? "bg-black text-white" : "text-black/60 hover:text-black"
-                  }`}
-                >
-                  Обычная
-                </button>
-                {tokens && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <img src={tokenIcon} alt="токены" className="w-4 h-4" />
-                    <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.token}</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col items-center flex-1">
-                <button
-                  onClick={() => setMode(2)}
-                  className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
-                    mode === 2 ? "bg-black text-white" : "text-black/60 hover:text-black"
-                  }`}
-                >
-                  Улучшенная
-                </button>
-                {tokens && (
-                  <div className="flex items-center gap-1 mt-1">
-                    <img src={superTokenIcon} alt="супертокены" className="w-4 h-4" />
-                    <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.super_tokens}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3 w-full">
+        <div className="flex flex-col items-center gap-4 mt-4">
+          <div className="flex bg-[#FFE9EF] rounded-[10px] p-1 shadow-md gap-2 w-full">
+            <div className="flex flex-col items-center flex-1">
               <button
-                onClick={handleGenerate}
-                disabled={isGenerateDisabled}
-                className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  border: "0.5px solid rgba(0,0,0,0.00)",
-                  boxShadow:
-                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                }}
+                onClick={() => setMode(1)}
+                className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
+                  mode === 1 ? "bg-black text-white" : "text-black/60 hover:text-black"
+                }`}
               >
-                {isGenerating ? "Выполняется генерация..." : "Получить результат"}
+                Обычная
               </button>
-              <button
-                onClick={() =>
-                  navigate(`/headbeauty-history?session_id=${sessionId}`, {
-                    state: {
-                      session_id: sessionId,
-                      img_url: currentPreviewUrl,
-                      preview_id: selectedPreviewId,
-                    },
-                  })
-                }
-                disabled={historyPreviews.length === 0}
-                className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  border: "0.5px solid rgba(0,0,0,0.00)",
-                  boxShadow:
-                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                }}
-              >
-                История генераций
-              </button>
+              {tokens && (
+                <div className="flex items-center gap-1 mt-1">
+                  <img src={tokenIcon} alt="токены" className="w-4 h-4" />
+                  <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.token}</span>
+                </div>
+              )}
             </div>
-
-            {isGenerating && (
-              <div className="flex items-center gap-2 text-[14px] font-['Sofia_Sans'] text-black/70">
-                <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                <span>выполняется генерация...</span>
-              </div>
-            )}
+            <div className="flex flex-col items-center flex-1">
+              <button
+                onClick={() => setMode(2)}
+                className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
+                  mode === 2 ? "bg-black text-white" : "text-black/60 hover:text-black"
+                }`}
+              >
+                Улучшенная
+              </button>
+              {tokens && (
+                <div className="flex items-center gap-1 mt-1">
+                  <img src={superTokenIcon} alt="супертокены" className="w-4 h-4" />
+                  <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.super_tokens}</span>
+                </div>
+              )}
+            </div>
           </div>
-        ) : (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-[14px] font-['Sofia_Sans'] text-black/70">Результат генерации</span>
-              <button
-                onClick={() => {
-                  toast.info("Чтобы установить это изображение, перейдите в историю генераций");
-                }}
-                className="bg-[#FFE9EF] rounded-[10px] py-1.5 px-4 shadow-sm text-[12px] font-['Sofia_Sans'] text-black"
-                style={{
-                  border: "0.5px solid rgba(0,0,0,0.00)",
-                  boxShadow:
-                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                }}
-              >
-                Установить эту картинку
-              </button>
-            </div>
+
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerateDisabled}
+              className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
+              {isGenerating ? "Выполняется генерация..." : "Получить результат"}
+            </button>
             <button
               onClick={() =>
                 navigate(`/headbeauty-history?session_id=${sessionId}`, {
                   state: {
                     session_id: sessionId,
-                    img_url: currentPreviewUrl,
-                    preview_id: selectedPreviewId,
+                    img_url: "",
+                    preview_id: null,
+                    gender: gender,
                   },
                 })
               }
               disabled={historyPreviews.length === 0}
-              className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-6 shadow-sm text-[14px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 border: "0.5px solid rgba(0,0,0,0.00)",
                 boxShadow:
@@ -301,7 +331,14 @@ export default function AIPreviewPage() {
               История генераций
             </button>
           </div>
-        )}
+
+          {isGenerating && (
+            <div className="flex items-center gap-2 text-[14px] font-['Sofia_Sans'] text-black/70">
+              <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              <span>выполняется генерация...</span>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => navigate("/")}

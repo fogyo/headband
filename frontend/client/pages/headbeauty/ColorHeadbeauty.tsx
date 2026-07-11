@@ -185,7 +185,8 @@ export default function AIColorPage() {
      session_id: effectiveSessionId,
       style_id: color.id,
       generation_type: 3,   
-      img_url: imgUrl,      
+      img_url: imgUrl,     
+      gender: gender, 
     },
   });
   };

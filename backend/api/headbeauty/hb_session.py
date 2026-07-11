@@ -307,6 +307,11 @@ async def start_previewing_task(
         session: AsyncSession = Depends(get_db_session)):
     img_url = await miniapp_db_fcn.get_session_image(session_id=request.session_id, session=session)
     chat_id = await miniapp_db_fcn.get_session_chat_id(session_id=request.session_id, session=session)
+
+    if request.model_type == 1:
+        await miniapp_db_fcn.decrease_tokens(chat_id=chat_id, session=session)
+    else:
+        await miniapp_db_fcn.decrease_super_tokens(chat_id=chat_id, session=session)
     task_request = {"ai_task": TaskType.PREVIEWING.value,
                     "config_data": {
                         "model": request.model_type,
@@ -324,20 +329,25 @@ async def start_previewing_task(
     return {"status": "processing",
             "task": task.id}
 
-@router.get("/ready_preview", response_model=PreviewResponse)
-async def get_preview(preview_id: uuid.UUID,
-                      session: AsyncSession = Depends(get_db_session)):
+@router.patch("/move_to_s3_storage", response_model=StatusResponse)
+async def move_image(preview_id: uuid.UUID,
+                     session: AsyncSession = Depends(get_db_session)):
     preview = await miniapp_db_fcn.get_preview_by_id(session=session, preview_id=preview_id)
     request = UploadFromUrlRequest.model_validate({"photo_url": preview.img_url})
     result = await obj_storage.upload_from_url(request=request)
     if result["status"] == "success":
         await miniapp_db_fcn.update_preview_url(preview_id=preview_id, img_url=result["file_key"], session=session)
-        return {"status": "success",
-                "preview_id": preview_id,
-                "img_url": f"{s3_domain}{result["file_key"]}"}
-    return {"status": "error",
+        return {"status": "success"}
+    return {"status": "error"}
+
+@router.get("/ready_preview", response_model=PreviewResponse)
+async def get_preview(preview_id: uuid.UUID,
+                      session: AsyncSession = Depends(get_db_session)):
+    preview = await miniapp_db_fcn.get_preview_by_id(session=session, preview_id=preview_id)
+    return {"status": "success",
             "preview_id": preview_id,
-            "img_url": ""}
+            "img_url": f"{s3_domain}{preview.img_url}"}
+
 
 @router.get("/history_previews", response_model=HistoryPreviewsResponse)
 async def get_previews(

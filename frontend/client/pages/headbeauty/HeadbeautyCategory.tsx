@@ -104,7 +104,10 @@ export default function AICategoryPage() {
           <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />
           <img src={homeIconSrc} alt="home" className="w-6 h-6 relative z-10" />
         </button>
-        <button onClick={() => navigate(-1)} className="absolute top-6 left-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]">
+        <button
+          onClick={() => navigate("/headbeauty")}
+          className="absolute top-6 left-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
+        >
           <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />
           <img src={backIconSrc} alt="back" className="w-6 h-6 relative z-10" />
         </button>

@@ -260,7 +260,8 @@ export default function AIHairPage() {
       session_id: effectiveSessionId,
       style_id: haircut.id,
       generation_type: 1,   
-      img_url: imgUrl,      
+      img_url: imgUrl,
+      gender: gender,      
     },
   });
   };

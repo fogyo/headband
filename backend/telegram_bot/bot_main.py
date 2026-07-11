@@ -22,8 +22,6 @@ storage = MemoryStorage()
 bot = None
 dp = Dispatcher()
 
-
-
 class UserState(StatesGroup):
     role = State()
 
@@ -38,14 +36,13 @@ def get_main_keyboard(role: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Сменить роль", callback_data="switch_role")]
     ])
 
-
 def get_role_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Клиент", callback_data="role_client")],
         [InlineKeyboardButton(text="Мастер", callback_data="role_master")]
     ])
 
-@dp.message(CommandStart())
+@dp.message(CommandStart(deep_link=False))
 async def cmd_start_simple(message: types.Message, state: FSMContext):
     # логика для /start без аргументов
     user_data = await state.get_data()
@@ -61,7 +58,6 @@ async def cmd_start_simple(message: types.Message, state: FSMContext):
             f"✅ Ваша роль: {role_text}",
             reply_markup=get_main_keyboard(role)
         )
-
 
 @dp.message(CommandStart(deep_link=True, magic=F.args))
 async def cmd_start(message: types.Message, command: CommandStart, state: FSMContext):
@@ -86,6 +82,43 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         f"Для получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
                         reply_markup=get_main_keyboard(role)
                     )
+                elif invited_role=="master":
+                    if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                        await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
+                        await state.update_data(role="master")
+                        logging.info("Master created by deeplink")
+                        await message.answer(
+                        f"✅ Отлично! Вы зашли по реферальной ссылке мастера. Ваша учетная запись была создана.\n"
+                        f"Оформите подписку для получения полного доступа ко всему функционалу. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
+                        reply_markup=get_main_keyboard(role)
+                    )
+                    else:
+                        new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                        active, end_date, status = await miniapp_db_fcn.get_subscription_level(master_id=new_master.id, session=session)
+
+                        if (status == "no sub") and (new_master.referrer_id == None):
+                            upd_data = {"referrer_id": master_id}
+                            await miniapp_db_fcn.update_master(master_id=new_master.id, update_data=upd_data, session=session)
+                            await state.update_data(role="master")
+                            logging.info("Master info added by deeplink")
+                            await message.answer(
+                            f"✅ Отлично! Вы зашли по реферальной ссылке мастера.\n"
+                            f"Оформите подписку для получения полного доступа ко всему функционалу. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
+                            reply_markup=get_main_keyboard(role))
+                        elif (active):
+                            await state.update_data(role="master")
+                            logging.info("Master has subscription")
+                            await message.answer(
+                            f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
+                            f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
+                            reply_markup=get_main_keyboard(role))
+                        else:
+                            await state.update_data(role="master")
+                            logging.info("Master has activated")
+                            await message.answer(
+                            f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
+                            f"Надеемся на Ваше понимание! Оформите подписку для получения полного доступа ко всему функционалу \n",
+                            reply_markup=get_main_keyboard(role))
 
 
 @dp.callback_query(F.data == "switch_role")
@@ -121,7 +154,6 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
             )
             await callback.answer()
 
-
 @dp.callback_query(F.data.in_(["role_client", "role_master"]))
 async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext):
     async with AsyncSessionLocal() as session:
@@ -145,13 +177,6 @@ async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext
             )
             await callback.answer()
 
-async def send_notification(chat_id: int, text: str):
-    try:
-        await bot.send_message(chat_id=chat_id, text=text)
-        logging.info(f"Уведомление отправлено пользователю {chat_id}")
-    except Exception as e:
-        logging.error(f"Не удалось отправить сообщение {chat_id}: {e}")
-
 async def test_proxy(bot: Bot) -> bool:
     """Проверяет, работает ли прокси, запрашивая информацию о боте"""
     try:
@@ -161,7 +186,6 @@ async def test_proxy(bot: Bot) -> bool:
     except Exception as e:
         logging.error(f"❌ Ошибка через прокси: {e}")
         return False
-
 
 async def start_bot():
     global bot
@@ -197,3 +221,14 @@ async def stop_bot():
     if bot and hasattr(bot, 'session') and bot.session:
         await bot.session.close()
     logging.info("Остановка бота завершена.")
+
+async def send_notification(chat_id: int, text: str):
+    global bot
+    if bot is None:
+        logging.error("Бот не инициализирован, сообщение не отправлено")
+        return
+    try:
+        await bot.send_message(chat_id=chat_id, text=text)
+        logging.info(f"Уведомление отправлено пользователю {chat_id}")
+    except Exception as e:
+        logging.error(f"Не удалось отправить сообщение {chat_id}: {e}")

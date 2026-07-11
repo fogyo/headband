@@ -71,14 +71,15 @@ export default function AIPermPage() {
   }, [sessionId, state, effectiveSessionId]);
 
   const handlePermClick = (perm: Perm) => {
-   navigate(`/headbeauty-preview?session_id=${effectiveSessionId}&style_id=${perm.id}&generation_type=4`, {
-    state: {
-      session_id: effectiveSessionId,
-      style_id: perm.id,
-      generation_type: 4,   
-      img_url: imgUrl,      
-    },
-  });
+    navigate(`/headbeauty-preview?session_id=${effectiveSessionId}&style_id=${perm.id}&generation_type=4`, {
+      state: {
+        session_id: effectiveSessionId,
+        style_id: perm.id,
+        generation_type: 4,
+        img_url: imgUrl,
+        gender: gender, // ✅ добавляем гендер
+      },
+    });
   };
 
   if (loading) {
@@ -102,7 +103,6 @@ export default function AIPermPage() {
           headbeauty AI
         </h3>
 
-        {/* Горизонтальный скролл с карточками завивок */}
         <div className="mt-2 rounded-[10px] p-2 overflow-hidden"
           style={{
             boxShadow:
@@ -147,7 +147,6 @@ export default function AIPermPage() {
           </div>
         </div>
 
-        {/* Кнопки Home и Back */}
         <button
           onClick={() => navigate("/")}
           className="absolute top-6 right-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"

@@ -75,11 +75,10 @@ def run_sync(request: dict, cfg: dict):
             return {"status": "failed", "error": "No data received from AI"}
         if cfg["model"] == 1:
             preview_id = miniapp_db_fcn.create_preview_sync(session_id=request["session_id"], img_url=image_url, model="base", session=session)
-            miniapp_db_fcn.decrease_tokens(chat_id=request["chat_id"], session=session)
+
         else:
             preview_id = miniapp_db_fcn.create_preview_sync(session_id=request["session_id"], img_url=image_url, model="improve",
                                                session=session)
-            miniapp_db_fcn.decrease_super_tokens(chat_id=request["chat_id"], session=session)
         session.commit()
         return {"status": "success",
                 "id": preview_id}
@@ -95,7 +94,7 @@ def get_preview(model: int, prompt: str, img_url: str) -> str:
     :return: строка с URL сгенерированного изображения или пустая строка при ошибке
     """
     # Определяем URL эндпоинта
-    if model == ModelType.BASE:
+    if model == ModelType.BASE.value:
         url = "https://api.gen-api.ru/api/v1/networks/grok-imagine-image"
     else:
         url = "https://api.gen-api.ru/api/v1/networks/nano-banana-2"
@@ -108,13 +107,11 @@ def get_preview(model: int, prompt: str, img_url: str) -> str:
         "aspect_ratio": "9:16",
     }
 
-    if model == ModelType.BASE:
-        if img_url:
-            payload["image_url"] = img_url
+    if model == ModelType.BASE.value:
+        payload["image_url"] = img_url
         payload["output_format"] = "png"
     else:
-        if img_url:
-            payload["image_urls"] = [img_url]   # массив URL
+        payload["image_urls"] = [img_url]   # массив URL
         payload["output_format"] = "png"
         payload["resolution"] = "0.5K"
         payload["enable_web_search"] = True

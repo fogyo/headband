@@ -117,11 +117,12 @@ def get_color_by_id_sync(obj_id: uuid.UUID, session):
 def create_preview_sync(session_id: uuid.UUID, img_url: str, session, model: str):
     return PreviewModel.create_sync(session_id=session_id, img_url=img_url, model=model, session=session)
 
-def decrease_tokens(session, chat_id: int):
-    TokenModel.decrease_tokens(session=session, chat_id=chat_id)
 
-def decrease_super_tokens(session, chat_id: int):
-    TokenModel.decrease_super_tokens(session=session, chat_id=chat_id)
+async def decrease_tokens(session, chat_id: int):
+    await TokenModel.decrease_tokens(session=session, chat_id=chat_id)
+
+async def decrease_super_tokens(session, chat_id: int):
+    await TokenModel.decrease_super_tokens(session=session, chat_id=chat_id)
 
 async def get_preview_by_id(session: AsyncSession, preview_id: uuid.UUID):
     return await PreviewModel.get_by_id(session=session, preview_id=preview_id)
@@ -131,3 +132,6 @@ async def update_preview_url(session: AsyncSession, preview_id: uuid.UUID, img_u
 
 async def get_all_previews(session: AsyncSession, session_id: uuid.UUID):
     return await PreviewModel.get_by_session_id(session_id=session_id, session=session)
+
+async def increase_tokens(session: AsyncSession, chat_id: int, amount: int):
+    await TokenModel.add_tokens(session=session, chat_id=chat_id, amount=amount)

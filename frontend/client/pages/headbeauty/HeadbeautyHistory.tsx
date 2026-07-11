@@ -16,23 +16,12 @@ export default function AIHistoryPage() {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const sessionId = searchParams.get("session_id") || (location.state as any)?.session_id || "";
+  const gender = (location.state as any)?.gender; // получаем пол из state
 
-  // Состояния
   const [historyPreviews, setHistoryPreviews] = useState<Preview[]>([]);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string>("");
   const [selectedPreviewId, setSelectedPreviewId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // При загрузке получаем данные из location.state (если переданы)
-  useEffect(() => {
-    const state = location.state as any;
-    if (state?.img_url) {
-      setCurrentPreviewUrl(state.img_url);
-      if (state?.preview_id) {
-        setSelectedPreviewId(state.preview_id);
-      }
-    }
-  }, [location.state]);
 
   const fetchHistory = async () => {
     if (!sessionId) {
@@ -45,8 +34,7 @@ export default function AIHistoryPage() {
       const data = await res.json();
       if (data.status === "success") {
         setHistoryPreviews(data.previews || []);
-        // Если ещё не установлено превью из state, и есть история – берём первое
-        if (!currentPreviewUrl && data.previews && data.previews.length > 0) {
+        if (data.previews && data.previews.length > 0) {
           const first = data.previews[0];
           setCurrentPreviewUrl(first.img_url);
           setSelectedPreviewId(first.preview_id);
@@ -94,7 +82,22 @@ export default function AIHistoryPage() {
       }
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status);
-      toast.success("Изображение установлено для дальнейшей работы");
+
+      // ✅ Переход на страницу категорий
+      if (gender !== undefined && gender !== null) {
+        navigate(`/headbeauty-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
+          state: {
+            gender,
+            img_url: currentPreviewUrl, // обновлённая картинка
+            session_id: sessionId,
+            task_id: "atomic_operation",
+          },
+          replace: true,
+        });
+      } else {
+        // Если пол не известен – возвращаемся на главную headbeauty
+        navigate(`/headbeauty?session_id=${sessionId}`, { replace: true });
+      }
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка установки");
