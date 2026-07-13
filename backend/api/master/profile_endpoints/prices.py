@@ -130,7 +130,7 @@ async def get_master_prices(
     """Получение всех позиций прайса мастера"""
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
-    prices = await miniapp_db_fcn.get_prices_by_master(
+    prices = await miniapp_db_fcn.get_prices_by_master_vm(
         master_id=master_id,
         session=session
     )

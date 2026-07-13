@@ -39,11 +39,13 @@ def get_all_categories_sync(session):
 async def create_category(
         name: str,
         parental: str,
+        eng_name: str,
         session: AsyncSession
 ):
     """Создание категории"""
     data = {"name": name,
-            "parental_name": parental}
+            "parental_name": parental,
+            "eng_name": eng_name}
     return await CategoryModel.create(session=session, data=data)
 
 async def check_category(category_ids: List[uuid.UUID],

@@ -28,7 +28,7 @@ class PricePageResponse(StatusResponse):
 @router.get("/", response_model=PricePageResponse)
 async def get_price(master_id: uuid.UUID,
                     session: AsyncSession = Depends(get_db_session)):
-    prices = await miniapp_db_fcn.get_prices_by_master(master_id=master_id, session=session)
+    prices = await miniapp_db_fcn.get_prices_by_master_vu(master_id=master_id, session=session)
     cats = []
     for p in prices:
         cats.append(p["category"])

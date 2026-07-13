@@ -161,6 +161,7 @@ class CategoryModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String)
     parental_name: Mapped[str] = mapped_column(String)
+    eng_name: Mapped[str] = mapped_column(String)
 
     # Relationships
     master_categories: Mapped[List["MasterCategoryModel"]] = relationship(
@@ -197,8 +198,14 @@ class CategoryModel(Base):
         return result.scalars().all()
 
     @classmethod
-    async def get_by_id(cls, session: AsyncSession, category_id: uuid.UUID):
+    async def get_by_id_name(cls, session: AsyncSession, category_id: uuid.UUID):
         query = select(cls.name).where(cls.id == category_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_id_eng_name(cls, session: AsyncSession, category_id: uuid.UUID):
+        query = select(cls.eng_name).where(cls.id == category_id)
         result = await session.execute(query)
         return result.scalars().first()
 
@@ -708,7 +715,7 @@ class PriceModel(Base):
         return result.scalars().first()
 
     @classmethod
-    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):
+    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID) -> List[PriceModel]:
         query = select(cls).where(cls.master_id == master_id)
         result = await session.execute(query)
         return result.scalars().all()

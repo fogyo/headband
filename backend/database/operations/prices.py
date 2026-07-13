@@ -51,13 +51,25 @@ async def delete_price(
     return await PriceModel.delete(session=session, price_id=price_id)
 
 
-async def get_prices_by_master(master_id: uuid.UUID, session: AsyncSession):
+async def get_prices_by_master_vm(master_id: uuid.UUID, session: AsyncSession):
     prices = await PriceModel.get_by_master_id(session=session, master_id=master_id)
     resp = [{
         "id": p.id,
         "name": p.name,
         "price": p.price,
-        "category": await CategoryModel.get_by_id(session=session, category_id=p.category_id),
+        "category": await CategoryModel.get_by_id_name(session=session, category_id=p.category_id),
+        "approximate_time": p.approximate_time,
+        "master_id": p.master_id
+    } for p in prices]
+    return resp
+
+async def get_prices_by_master_vu(master_id: uuid.UUID, session: AsyncSession):
+    prices = await PriceModel.get_by_master_id(session=session, master_id=master_id)
+    resp = [{
+        "id": p.id,
+        "name": p.name,
+        "price": p.price,
+        "category": await CategoryModel.get_by_id_eng_name(session=session, category_id=p.category_id),
         "approximate_time": p.approximate_time,
         "master_id": p.master_id
     } for p in prices]

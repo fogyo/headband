@@ -3,41 +3,59 @@ from backend.database import miniapp_db_fcn, AsyncSessionLocal
 
 
 CategoryList = [{"name": "Стрижки",
-                    "parental_name": "hairdressing"},
+                    "parental_name": "hairdressing",
+                 "eng_name": "haircut"},
                 {"name": "Борода и усы",
-                    "parental_name": "hairdressing"},
+                    "parental_name": "hairdressing",
+                 "eng_name": "barber"},
                 {"name": "Окрашивание",
-                    "parental_name": "hairdressing"},
+                    "parental_name": "hairdressing",
+                 "eng_name": "coloring"},
+                {"name": "Завивки",
+                    "parental_name": "hairdressing",
+                 "eng_name": "perms"},
                 {"name": "Косметология и Skincare",
-                    "parental_name": "cosmetology"},
+                    "parental_name": "cosmetology",
+                 "eng_name": "cosmetology & skincare"},
                 {"name": "Маникюр",
-                    "parental_name": "nails"},
+                    "parental_name": "nails",
+                 "eng_name": "manicure"},
                 {"name": "Педикюр",
-                    "parental_name": "nails"},
+                    "parental_name": "nails",
+                 "eng_name": "pedicure"},
                 {"name": "Брови",
-                    "parental_name": "brows-lashes"},
+                    "parental_name": "brows-lashes",
+                 "eng_name": "brows"},
                 {"name": "Ресницы",
-                    "parental_name": "brows-lashes"},
+                    "parental_name": "brows-lashes",
+                 "eng_name": "lashes"},
                 {"name": "Депиляция",
-                    "parental_name": "epilation"},
+                    "parental_name": "epilation",
+                 "eng_name": "depilation"},
                 {"name": "Эпиляция",
-                    "parental_name": "epilation"},
+                    "parental_name": "epilation",
+                 "eng_name": "epilation"},
                 {"name": "Makeup",
-                    "parental_name": "makeup"},
+                    "parental_name": "makeup",
+                 "eng_name": "makeup"},
                 {"name":  "Солярий",
-                    "parental_name": "solarium"},
+                    "parental_name": "solarium",
+                 "eng_name": "solarium"},
                 {"name": "Массажи и SPA",
-                    "parental_name": "massage-spa"},
+                    "parental_name": "massage-spa",
+                 "eng_name": "massage & SPA"},
                 {"name": "Консультации",
-                    "parental_name": "consultations"},
+                    "parental_name": "consultations",
+                 "eng_name": "consultation"},
                 {"name": "Другое",
-                    "parental_name": "other"}]
+                    "parental_name": "other",
+                 "eng_name": "other"}]
 
 async def create_categories():
     async with AsyncSessionLocal() as session:
         async with session.begin():
             for cat in CategoryList:
-                await miniapp_db_fcn.create_category(name=cat["name"], parental=cat["parental_name"], session=session)
+                await miniapp_db_fcn.create_category(name=cat["name"], parental=cat["parental_name"], eng_name=cat["eng_name"], session=session)
 
 async def delete_all_categories():
     async with AsyncSessionLocal() as session:
