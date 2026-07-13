@@ -160,6 +160,7 @@ class CategoryModel(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String)
+    parental_name: Mapped[str] = mapped_column(String)
 
     # Relationships
     master_categories: Mapped[List["MasterCategoryModel"]] = relationship(
@@ -202,6 +203,12 @@ class CategoryModel(Base):
         return result.scalars().first()
 
     @classmethod
+    async def get_by_parental(cls, session: AsyncSession, parental_name: str):
+        query = select(cls.id).where(cls.parental_name == parental_name)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
     async def create(cls, session: AsyncSession, data: dict):
         category = cls(**data)
         session.add(category)
@@ -222,13 +229,14 @@ class MasterModel(Base):
     chat_id_tg: Mapped[int] = mapped_column(BigInteger, nullable=True)
     username_tg: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     full_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    avatar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     master_link_id: Mapped[uuid.UUID]
     user_link_id: Mapped[uuid.UUID]
     referrer_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)  # Кто пригласил
     referral_counted: Mapped[bool] = mapped_column(default=False)  # Засчитан ли реферал
-    ambassador: Mapped[bool] = mapped_column(default=False)
+    moderation: Mapped[bool] = mapped_column(default=False)
 
     # Relationships
     appointments: Mapped[List["AppointmentModel"]] = relationship(
@@ -357,10 +365,10 @@ class MasterModel(Base):
         return result.scalars().first()
 
     @classmethod
-    async def get_ambassadors(cls, session: AsyncSession):
-        query = select(cls).where(cls.ambassador == True)
+    async def get_partners(cls, session: AsyncSession):
+        query = select(cls).where(and_(cls.subscription.level == 2, cls.subscription.end_date <= date.today()))
         result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def get_by_chat_id_tg(cls, session: AsyncSession, chat_id: int):
@@ -1305,6 +1313,7 @@ class SubscriptionModel(Base):
         session.add(subscription)
         await session.flush()
         return subscription.id
+
 
     @classmethod
     async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):

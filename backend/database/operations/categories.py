@@ -1,4 +1,5 @@
 import uuid
+from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,12 @@ async def get_all_categories(session: AsyncSession):
         for cat in categories
     ]
 
+async def get_all_categories_parental(parental_name: str,
+                                      session: AsyncSession):
+    """Получение всех категорий"""
+    return await CategoryModel.get_by_parental(session=session, parental_name=parental_name)
+
+
 def get_all_categories_sync(session):
     """Получение всех категорий"""
     categories = CategoryModel.get_all_sync(session=session)
@@ -29,18 +36,21 @@ def get_all_categories_sync(session):
 
 async def create_category(
         name: str,
+        parental: str,
         session: AsyncSession
 ):
     """Создание категории"""
-    data = {"name": name}
+    data = {"name": name,
+            "parental_name": parental}
     return await CategoryModel.create(session=session, data=data)
 
-async def check_category(category_id: uuid.UUID,
+async def check_category(category_ids: List[uuid.UUID],
                          master_id: uuid.UUID,
                          session: AsyncSession):
     cats = await MasterCategoryModel.get_categories_by_master(id=master_id, session=session)
-    if category_id in cats:
-        return True
+    for category_id in category_ids:
+        if category_id in cats:
+            return True
     return False
 
 async def delete_category(category_id: uuid.UUID,

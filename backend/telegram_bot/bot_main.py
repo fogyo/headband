@@ -19,7 +19,8 @@ MINI_APP_URL_CLIENT = os.getenv("MINI_APP_URL_CLIENT")
 MINI_APP_URL_MASTER = os.getenv("MINI_APP_URL_MASTER")
 
 storage = MemoryStorage()
-bot = None
+session = AiohttpSession(proxy=PROXY_URL)
+bot = Bot(token=BOT_TOKEN, session=session)
 dp = Dispatcher()
 
 class UserState(StatesGroup):
@@ -53,7 +54,7 @@ async def cmd_start_simple(message: types.Message, state: FSMContext):
             reply_markup=get_role_keyboard()
         )
     else:
-        role_text = "Клиент" if role == "user" else "Мастер"
+        role_text = "Клиент" if role == "client" else "Мастер"
         await message.answer(
             f"✅ Ваша роль: {role_text}",
             reply_markup=get_main_keyboard(role)
@@ -131,7 +132,7 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
             if current_role is None:
                 await callback.message.edit_text(
                     "Сначала выберите роль:",
-                    reply_markup=get_main_keyboard(current_role)
+                    reply_markup=get_role_keyboard()
                 )
                 await callback.answer()
                 return
@@ -191,14 +192,6 @@ async def start_bot():
     global bot
     session = None
     try:
-        if PROXY_URL:
-            logging.info(f"Попытка подключения через прокси: {PROXY_URL}")
-            session = AiohttpSession(proxy=PROXY_URL)
-            bot = Bot(token=BOT_TOKEN, session=session)
-        else:
-            bot = Bot(token=BOT_TOKEN)
-            logging.warning("Прокси не настроен, работаем напрямую")
-
         if not await test_proxy(bot):
             logging.error("Прокси не работает, останов.")
             await bot.session.close()
@@ -222,8 +215,7 @@ async def stop_bot():
         await bot.session.close()
     logging.info("Остановка бота завершена.")
 
-async def send_notification(chat_id: int, text: str):
-    global bot
+async def send_notification(bot: Bot, chat_id: int, text: str):
     if bot is None:
         logging.error("Бот не инициализирован, сообщение не отправлено")
         return

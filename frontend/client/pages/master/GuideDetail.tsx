@@ -5,19 +5,19 @@ import beardIcon from "@/assets/beard_icon_category.svg";
 import colorIcon from "@/assets/color_icon_category.svg";
 import creamIcon from "@/assets/cream_icon_category.svg";
 import nailsIcon from "@/assets/nails_icon_category.svg";
-import lashesIcon from "@/assets/lashes_icon_category.svg"
-import epilationIcon from "@/assets/epilation_icon_category.svg"
-import makeupIcon from "@/assets/makeup_icon_category.svg"
-import tanIcon from "@/assets/tan_icon_category.svg"
-import lotusIcon from "@/assets/lotus_icon_category.svg"
-import consultationIcon from "@/assets/consultation_icon_category.svg"
-import plantIcon from "@/assets/plant_icon_category.svg"
+import lashesIcon from "@/assets/lashes_icon_category.svg";
+import epilationIcon from "@/assets/epilation_icon_category.svg";
+import makeupIcon from "@/assets/makeup_icon_category.svg";
+import tanIcon from "@/assets/tan_icon_category.svg";
+import lotusIcon from "@/assets/lotus_icon_category.svg";
+import consultationIcon from "@/assets/consultation_icon_category.svg";
+import plantIcon from "@/assets/plant_icon_category.svg";
 import backIcon from "@/assets/back_icon.svg";
 import starLikedIcon from "@/assets/starLiked.svg";
 import starUnlikedIcon from "@/assets/starUnliked.svg";
 import arrowForwardIcon from "@/assets/arrow_forward.svg";
 import educationIcon from "@/assets/education.svg";
-import { Check, X } from "lucide-react";
+import { Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
@@ -25,29 +25,30 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 // ---------- Типы ответов бэкенда ----------
 interface TextStepApi {
   step_id: string;
-  name: string;        // <-- добавить
+  name: string;
   text: string;
   step_num: number;
-  img_url?: string;
+  img_urls?: string[];
 }
 
 interface VideoStepApi {
   status: string;
-  step_id?: string;       // опционально
-  video_name: string;     // добавить
+  step_id?: string;
+  video_name: string;
   description: string;
   video_url: string;
   preview: string | null;
 }
+
 interface UnifiedStep {
   type: "text" | "video";
-  name?: string;           // for text step title
+  name?: string;
   text?: string;
   description?: string;
   step_num: number;
-  imgUrl?: string;
+  imgUrls?: string[];
   videoUrl?: string;
-  preview?: string;        // for video poster
+  preview?: string;
 }
 
 const categoryIconMap: Record<string, string> = {
@@ -92,6 +93,10 @@ export default function GuideDetailPage() {
   const [rejectComment, setRejectComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Состояния для галереи
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
   const [categoriesMap, setCategoriesMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -131,12 +136,10 @@ export default function GuideDetailPage() {
     const fetchGuide = async () => {
       try {
         await fetch(`${baseUrl}/master/guides/view?chat_id=${STATIC_CHAT_ID}&guide_id=${id}`, { method: "POST" });
-        
-        // Пробуем загрузить текстовые шаги
+
         const textRes = await fetch(`${baseUrl}/master/guides/step_text?guide_id=${id}`);
         if (textRes.ok) {
           const textData = await textRes.json();
-          // Проверяем, что статус success и есть хотя бы один шаг
           if (textData.status === "success" && textData.steps && textData.steps.length > 0) {
             const sortedSteps = textData.steps.sort((a: TextStepApi, b: TextStepApi) => a.step_num - b.step_num);
             const unified: UnifiedStep[] = sortedSteps.map((step) => ({
@@ -144,7 +147,7 @@ export default function GuideDetailPage() {
               name: step.name,
               text: step.text,
               step_num: step.step_num,
-              imgUrl: step.img_url,
+              imgUrls: step.img_urls || [],
             }));
             setSteps(unified);
             setGuideType("text");
@@ -153,8 +156,7 @@ export default function GuideDetailPage() {
             return;
           }
         }
-        
-        // Если сюда дошли – текстовых шагов нет или их ноль, пробуем видео
+
         const videoRes = await fetch(`${baseUrl}/master/guides/step_video?guide_id=${id}`);
         if (videoRes.ok) {
           const videoData: VideoStepApi = await videoRes.json();
@@ -175,7 +177,7 @@ export default function GuideDetailPage() {
             return;
           }
         }
-        
+
         throw new Error("Гайд не найден");
       } catch (err: any) {
         console.error(err);
@@ -200,7 +202,7 @@ export default function GuideDetailPage() {
     if (!id) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${baseUrl}/master/profile/guides/ambassador/approve?guide_id=${id}`, { method: "PATCH" });
+      const res = await fetch(`${baseUrl}/master/profile/guides/moderation/approve?guide_id=${id}`, { method: "PATCH" });
       const data = await res.json();
       if (data.status === "success") {
         toast.success("Гайд успешно одобрен");
@@ -227,7 +229,7 @@ export default function GuideDetailPage() {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${baseUrl}/master/profile/guides/ambassador/deny`, {
+      const res = await fetch(`${baseUrl}/master/profile/guides/moderation/deny`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guide_id: id, comment: rejectComment }),
@@ -246,6 +248,34 @@ export default function GuideDetailPage() {
       setIsSubmitting(false);
     }
   };
+
+  const openGallery = (index: number) => {
+    setGalleryIndex(index);
+    setIsGalleryOpen(true);
+  };
+
+  const closeGallery = () => setIsGalleryOpen(false);
+
+  const goToPrev = () => {
+    if (!steps[currentStep]?.imgUrls) return;
+    setGalleryIndex((prev) => (prev > 0 ? prev - 1 : steps[currentStep].imgUrls!.length - 1));
+  };
+
+  const goToNext = () => {
+    if (!steps[currentStep]?.imgUrls) return;
+    setGalleryIndex((prev) => (prev < steps[currentStep].imgUrls!.length - 1 ? prev + 1 : 0));
+  };
+
+  // Закрытие галереи по клавише Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeGallery();
+      if (e.key === "ArrowLeft" && isGalleryOpen) goToPrev();
+      if (e.key === "ArrowRight" && isGalleryOpen) goToNext();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isGalleryOpen]);
 
   if (loading) {
     return (
@@ -301,7 +331,7 @@ export default function GuideDetailPage() {
               <img src={categoryIcon} alt={categoryName || "категория"} className="w-full h-full object-cover" />
             </div>
             <h3 className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black text-center">
-              {categoryName || (isVideoGuide ? "Видео-гайд" : "Текстовый гайд")}
+              {categoryName}
             </h3>
           </div>
           <div className="flex flex-col items-center gap-1">
@@ -331,45 +361,64 @@ export default function GuideDetailPage() {
         {isVideoGuide ? (
           // ВИДЕО-ГАЙД
           <>
-          {videoTitle && (
-            <h3 className="text-[20px] font-['Sofia_Sans'] text-black font-semibold mb-2 text-center">
-              {videoTitle}
-            </h3>
-          )}
-          <div className="bg-white rounded-xl overflow-hidden shadow-md mb-6">
-            <video controls className="w-full h-auto" src={currentStepData.videoUrl} poster={currentStepData.preview}>
-              Ваш браузер не поддерживает видео.
-            </video>
-          </div>
-          <div className="text-[16px] font-['Sofia_Sans'] text-black leading-normal whitespace-pre-wrap">
-            {currentStepData.description}
-          </div>
-        </>
+            {videoTitle && (
+              <h3 className="text-[20px] font-['Sofia_Sans'] text-black font-semibold mb-2 text-center">
+                {videoTitle}
+              </h3>
+            )}
+            <div className="bg-white rounded-xl overflow-hidden shadow-md mb-6">
+              <video controls className="w-full h-auto" src={currentStepData.videoUrl} poster={currentStepData.preview}>
+                Ваш браузер не поддерживает видео.
+              </video>
+            </div>
+            <div className="text-[16px] font-['Sofia_Sans'] text-black leading-normal whitespace-pre-wrap">
+              {currentStepData.description}
+            </div>
+          </>
         ) : (
-          // ТЕКСТОВЫЙ ГАЙД
+          // ТЕКСТОВЫЙ ГАЙД – с галереей
           <div className="mt-2">
             {currentStepData.name && (
-              <h4 className="text-[20px] font-['Sofia_Sans'] text-black font-semibold mb-2">
+              <h4 className="text-[20px] font-['Sofia_Sans'] text-black font-bold mb-2">
                 {currentStepData.name}
               </h4>
             )}
             <p className="text-[16px] font-['Sofia_Sans'] text-black leading-normal mb-4 whitespace-pre-wrap">
               {currentStepData.text}
             </p>
-            {currentStepData.imgUrl && (
-              <div className="rounded-xl overflow-hidden shadow-md">
-                <img src={currentStepData.imgUrl} alt={`Шаг ${currentStepData.step_num}`} className="w-full h-auto object-cover" />
-              </div>
+
+            {currentStepData.imgUrls && currentStepData.imgUrls.length > 0 && (
+              <>
+                <p className="text-[18px] font-['Sofia_Sans'] text-black font-semibold mb-2">
+                  Приложенные файлы
+                </p>
+                <div
+                  className="relative rounded-xl overflow-hidden shadow-md cursor-pointer"
+                  onClick={() => openGallery(0)}
+                >
+                  <img
+                    src={currentStepData.imgUrls[0]}
+                    alt={`Шаг ${currentStepData.step_num} - 1`}
+                    className="w-full h-auto object-cover"
+                  />
+                  {currentStepData.imgUrls.length > 1 && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <span className="text-white text-4xl font-bold font-['Sofia_Sans']">
+                        +{currentStepData.imgUrls.length}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
 
         {/* Навигационные кнопки / Кнопки модерации */}
         <div className="mt-8">
-         {reviewMode ? (
+          {reviewMode ? (
             // Режим ревью
             <>
-              {/* Для текстового гайда: до последнего шага – обычная навигация */}
               {!isVideoGuide && currentStep !== totalSteps - 1 && (
                 <div className="flex justify-between mt-8">
                   {currentStep !== 0 && (
@@ -393,7 +442,6 @@ export default function GuideDetailPage() {
                 </div>
               )}
 
-              {/* Для текстового гайда: последний шаг – два ряда */}
               {!isVideoGuide && currentStep === totalSteps - 1 && (
                 <div className="flex flex-col gap-4 mt-8">
                   <div className="flex justify-between">
@@ -436,7 +484,6 @@ export default function GuideDetailPage() {
                 </div>
               )}
 
-              {/* Для видео-гайда (всегда один шаг) – сразу два ряда */}
               {isVideoGuide && (
                 <div className="flex flex-col gap-4 mt-8">
                   <div className="flex justify-end">
@@ -470,30 +517,42 @@ export default function GuideDetailPage() {
               )}
             </>
           ) : (
-            // Обычный режим (без ревью)
+            // Обычный режим
             <>
-            {!isVideoGuide && (
-              <div className="flex justify-between mt-8">
-                {currentStep !== 0 && (
-                  <button
-                    onClick={handlePrev}
-                    className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1"
-                    style={buttonShadowStyle}
-                  >
-                    <img src={arrowForwardIcon} alt="prev" className="w-4 h-4 rotate-180" />
-                    <span className="text-[14px] font-['Sofia_Sans'] text-black">Предыдущий шаг</span>
-                  </button>
-                )}
-                {currentStep !== totalSteps - 1 ? (
-                  <button
-                    onClick={handleNext}
-                    className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1 ml-auto"
-                    style={buttonShadowStyle}
-                  >
-                    <span className="text-[14px] font-['Sofia_Sans'] text-black">Следующий шаг</span>
-                    <img src={arrowForwardIcon} alt="next" className="w-4 h-4" />
-                  </button>
-                ) : (
+              {!isVideoGuide && (
+                <div className="flex justify-between mt-8">
+                  {currentStep !== 0 && (
+                    <button
+                      onClick={handlePrev}
+                      className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1"
+                      style={buttonShadowStyle}
+                    >
+                      <img src={arrowForwardIcon} alt="prev" className="w-4 h-4 rotate-180" />
+                      <span className="text-[14px] font-['Sofia_Sans'] text-black">Предыдущий шаг</span>
+                    </button>
+                  )}
+                  {currentStep !== totalSteps - 1 ? (
+                    <button
+                      onClick={handleNext}
+                      className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center gap-1 ml-auto"
+                      style={buttonShadowStyle}
+                    >
+                      <span className="text-[14px] font-['Sofia_Sans'] text-black">Следующий шаг</span>
+                      <img src={arrowForwardIcon} alt="next" className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <Link
+                      to={returnPath}
+                      className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center ml-auto"
+                      style={buttonShadowStyle}
+                    >
+                      <span className="text-[14px] font-['Sofia_Sans'] text-black">Вернуться к гайдам</span>
+                    </Link>
+                  )}
+                </div>
+              )}
+              {isVideoGuide && (
+                <div className="flex justify-end mt-8">
                   <Link
                     to={returnPath}
                     className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center ml-auto"
@@ -501,21 +560,9 @@ export default function GuideDetailPage() {
                   >
                     <span className="text-[14px] font-['Sofia_Sans'] text-black">Вернуться к гайдам</span>
                   </Link>
-                )}
-              </div>
-            )}
-            {isVideoGuide && (
-              <div className="flex justify-end mt-8">
-                <Link
-                  to={returnPath}
-                  className="relative w-40 h-10 bg-[#FFE9EF] rounded-[10px] flex items-center justify-center ml-auto"
-                  style={buttonShadowStyle}
-                >
-                  <span className="text-[14px] font-['Sofia_Sans'] text-black">Вернуться к гайдам</span>
-                </Link>
-              </div>
-            )}
-          </>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -546,6 +593,50 @@ export default function GuideDetailPage() {
               >
                 {isSubmitting ? "Отклонение..." : "Отклонить"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Галерея на весь экран */}
+      {isGalleryOpen && steps[currentStep]?.imgUrls && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+          onClick={closeGallery}
+        >
+          <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={closeGallery}
+              className="absolute top-4 right-4 text-white/80 hover:text-white z-10"
+            >
+              <X className="w-8 h-8" />
+            </button>
+
+            {/* Кнопка назад */}
+            <button
+              onClick={goToPrev}
+              className="absolute left-2 text-white/80 hover:text-white z-10 p-2"
+            >
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+
+            <img
+              src={steps[currentStep].imgUrls![galleryIndex]}
+              alt={`Фото ${galleryIndex + 1}`}
+              className="max-h-full max-w-full object-contain"
+            />
+
+            {/* Кнопка вперёд */}
+            <button
+              onClick={goToNext}
+              className="absolute right-2 text-white/80 hover:text-white z-10 p-2"
+            >
+              <ChevronRight className="w-8 h-8" />
+            </button>
+
+            {/* Индикатор текущей картинки */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm font-['Sofia_Sans']">
+              {galleryIndex + 1} / {steps[currentStep].imgUrls!.length}
             </div>
           </div>
         </div>

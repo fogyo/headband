@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -6,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
+from backend.database.obj_storage import s3_domain
 from backend.database.responses import StatusResponse
 
 
@@ -15,6 +15,7 @@ class MasterUpdateRequest(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     description: Optional[str] = None
+    avatar: Optional[str] = None
 
 
 #Response
@@ -23,6 +24,7 @@ class ProfileResponse(StatusResponse):
     tg: str
     phone: Optional[str] = "Пока не задан"
     description: Optional[str] = "Пока не задано"
+    avatar: Optional[str] = None
     tg_users: str
     tg_master: str
     ref_clients: int
@@ -53,6 +55,7 @@ async def get_personal(
             "tg": master.username_tg,
             "phone": master.phone,
             "description": master.description,
+            "avatar": f"{s3_domain}{master.avatar}",
             "tg_users": user_link,
             "tg_master": master_link,
             "ref_clients": ref_clients,

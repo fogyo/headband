@@ -55,7 +55,7 @@ async def get_steps(guide_id: uuid.UUID, session: AsyncSession):
         "name": s.name,
         "step_num": s.step_num,
         "text": s.text,
-        "img_url": f"{s3_domain}{s.image_url}" if s.image_url != None else None
+        "img_urls": [f"{s3_domain}{u}" for u in s.image_url.split(" ")] if s.image_url != "" else None
     } for s in steps]
     return "success", steps_resp
 

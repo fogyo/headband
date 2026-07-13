@@ -6,16 +6,6 @@ from typing import List
 import aiofiles
 from fastapi import Depends, APIRouter, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.database import miniapp_db_fcn, get_db_session
-from backend.database.requests import MasterUpdateRequest, AddressCreateRequest, AddressUpdateRequest, WeekTemplate, \
-    TemplateCreateRequest, TemplateUpdateRequest, WorkingDayUpdateRequest, AbsenceCreateRequest, AbsenceUpdateRequest, \
-    GuideCreateRequest, GuideUpdateRequest, EarningDateRangeRequest, EarningCreateRequest, EarningUpdateRequest, \
-    PrepayCreateRequest, PrepayUpdateRequest, PriceCreateRequest, PriceUpdateRequest, MasterNotificationUpdateRequest, \
-    StepUpdateRequest, StepCreateRequest
-from backend.database.responses import StatusResponse, GuidePageResponse, IDResponse, AddressListResponse, WeekTemplateResponse, \
-    AbsenceCreateResponse, AbsenceListResponse, PriceListResponseFile, EarningListResponse, PrepayListResponse, \
-    PriceListResponse, MasterNotificationGetResponse
 from backend.model import pricelist
 
 UPLOAD_DIR = "temps"

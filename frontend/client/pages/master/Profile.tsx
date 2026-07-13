@@ -20,6 +20,7 @@ interface ProfileResponse {
   tg: string;
   phone: string | null;
   ambassador: boolean;
+  avatar: string; // новое поле
 }
 
 function MenuRow({
@@ -106,7 +107,8 @@ export default function ProfilePage() {
   const fullName = profile.name || "Имя не указано";
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
   const phone = profile.phone ? `+${profile.phone}` : "+7 (___) ___-__-__";
-  const avatarUrl = "https://placehold.co/100x100"; // бэк не отдаёт аватар, оставляем заглушку
+  // Если аватар пришёл, используем его, иначе заглушка
+  const avatarUrl = profile.avatar || "https://placehold.co/100x100";
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">

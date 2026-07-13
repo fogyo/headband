@@ -36,13 +36,13 @@ function GuideCard({ item }: { item: GuideItem }) {
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
           <div className="min-w-0">
             <h4
-              className="text-[12px] font-['Sofia_Sans'] text-black leading-tight truncate"
+              className="text-[12px] font-['Sofia_Sans'] text-black leading-tight break-words"
               style={{ overflowWrap: "normal", wordBreak: "normal" }}
             >
               {item.title}
             </h4>
             <p
-              className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-normal"
+              className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-words"
               style={{ overflowWrap: "normal", wordBreak: "normal" }}
             >
               {item.category}

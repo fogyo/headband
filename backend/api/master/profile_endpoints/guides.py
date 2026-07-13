@@ -12,7 +12,7 @@ from backend import UPLOAD_DIR, MAX_FILE_SIZE, ALLOWED_IMG_EXT, ALLOWED_VID_EXT
 from backend.database import get_db_session, miniapp_db_fcn, obj_storage
 from backend.database.obj_storage import s3_client
 from backend.database.responses import StatusResponse
-from backend.telegram_bot.bot_main import send_notification
+from backend.telegram_bot.bot_main import send_notification, bot
 
 
 #Requests
@@ -24,7 +24,7 @@ class GuideTextRequest(BaseModel):
     name: str
     text: str
     step_num: int
-    image_url: Optional[str] = None
+    image_urls: Optional[str] = None
 
 class GuideUpdateTextRequest(BaseModel):
     step_id: uuid.UUID
@@ -67,7 +67,7 @@ class GuideUpdateVideoRequest(BaseModel):
 class BaseGuideResponse(BaseModel):
     id: uuid.UUID
     name: str
-    category_id: uuid.UUID
+    category: str
     guide_type: int
 
 class ApproveGuideResponse(BaseGuideResponse):
@@ -121,7 +121,7 @@ async def get_guides_page(
         my_guides_resp.append({
             "id": guide.id,
             "name": guide.name,
-            "category_id": guide.category_id,
+            "category": guide.category.name,
             "views": stat["views"],
             "likes": stat["likes"],
             "like": liked_by_me,
@@ -140,7 +140,7 @@ async def get_guides_page(
         liked_guides_resp.append({
             "id": guide.id,
             "name": guide.name,
-            "category_id": guide.category_id,
+            "category": guide.category.name,
             "views": stat["views"],
             "likes": stat["likes"],
             "like": True,   # мы загружали только лайкнутые
@@ -150,8 +150,8 @@ async def get_guides_page(
             "approved": guide.guide_approved,
         })
 
-    # Если мастер амбассадор – добавляем гайды, ожидающие подтверждения
-    if master.ambassador:
+    # Если мастер модератор – добавляем гайды, ожидающие подтверждения
+    if master.moderation:
         pending_guides = await miniapp_db_fcn.pending_guides(session=session)
         amb_resp = []
         for guide in pending_guides:
@@ -159,7 +159,7 @@ async def get_guides_page(
             amb_resp.append({
                 "id": guide.id,
                 "name": guide.name,
-                "category_id": guide.category_id,
+                "category": guide.category.name,
                 "guide_type": guide_type,
                 "created": guide.guide_created,
                 "changed": guide.guide_last_change,
@@ -178,7 +178,7 @@ async def get_guides_page(
     }
 
 
-@router.patch("/ambassador/approve", response_model=StatusResponse)
+@router.patch("/moderation/approve", response_model=StatusResponse)
 async def approve_guide(
         guide_id: uuid.UUID,
         session: AsyncSession = Depends(get_db_session)
@@ -186,10 +186,10 @@ async def approve_guide(
     status = await miniapp_db_fcn.change_status(session=session, guide_id=guide_id, state=1)
     guide = await miniapp_db_fcn.get_guide(guide_id=guide_id, session=session)
     master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
-    await send_notification(chat_id=master.chat_id_tg, text="✅ Ваш гайд был одобрен амбассадором headband. Поздравляем!")
+    await bot.send_message(chat_id=master.chat_id_tg, text="✅ Ваш гайд был одобрен модерацией headband. Поздравляем!")
     return {"status": status}
 
-@router.patch("/ambassador/deny", response_model=StatusResponse)
+@router.patch("/moderation/deny", response_model=StatusResponse)
 async def deny_guide(
         request: DenyRequest,
         session: AsyncSession = Depends(get_db_session)
@@ -197,8 +197,8 @@ async def deny_guide(
     status = await miniapp_db_fcn.change_status(session=session, guide_id=request.guide_id, state=0)
     guide = await miniapp_db_fcn.get_guide(guide_id=request.guide_id, session=session)
     master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
-    await send_notification(chat_id=master.chat_id_tg,
-                            text=f"❌ К сожалению, Ваш гайд пока не был одобрен амбассадором headband по причине: {request.comment}")
+    await bot.send_message(chat_id=master.chat_id_tg,
+                            text=f"❌ К сожалению, Ваш гайд пока не был одобрен модерацией headband по причине: {request.comment}")
     return {"status": status}
 
 @router.post("/create_text", response_model=StatusResponse)
@@ -221,7 +221,7 @@ async def create_guide_text(
              "name": step.name,
              "step_num": step.step_num,
              "text": step.text,
-             "image_url": step.image_url
+             "image_url": step.image_urls
              }
         steps.append(a)
     status = await miniapp_db_fcn.create_step(step_data=steps, session=session)
@@ -246,7 +246,7 @@ async def create_guide_video(
             "step_num": 1,
             "video_name": request.name,
             "video_file_path": request.video.filepath,
-            "preview": request.video.image_url,
+            "preview": request.video.image_urls,
             "description": request.video.text}
     status = await miniapp_db_fcn.create_video_step(step_data=step, session=session)
     return {"status": status}
@@ -276,9 +276,9 @@ async def update_text(
         step_id = upd_step["step_id"]
         del upd_step["step_id"]
         upd_step["step_num"] = step.step_num
-        if step.image_url != None:
+        if step.image_url != "":
             text_step = await miniapp_db_fcn.get_text_step(step_id=step_id, session=session)
-            if text_step.image_url != None:
+            if text_step.image_url != "":
                 await s3_client.delete_object(object_key=text_step.image_url)
         status = await miniapp_db_fcn.update_step(step_id=step.step_id, update_data=upd_step, session=session)
 
@@ -288,7 +288,7 @@ async def update_text(
                  "step_num": step.step_num,
                  "name": step.name,
                  "text": step.text,
-                 "image_url": step.image_url
+                 "image_url": step.image_urls
                  }
             step_data.append(a)
     if len(step_data)>0:
@@ -341,7 +341,7 @@ async def delete_step(
         session: AsyncSession = Depends(get_db_session)
 ):
     text_step = await miniapp_db_fcn.get_text_step(step_id=step_id, session=session)
-    if text_step.image_url != None:
+    if text_step.image_url != "":
         await s3_client.delete_object(object_key=text_step.image_url)
     status = await miniapp_db_fcn.delete_step(step_id=step_id, session=session)
     return {"status": status}

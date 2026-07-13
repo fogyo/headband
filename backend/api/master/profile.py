@@ -2,6 +2,7 @@ from fastapi import Depends, APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
+from backend.database.obj_storage import s3_domain
 from backend.database.responses import StatusResponse
 
 
@@ -11,6 +12,7 @@ class BaseProfileResponse(StatusResponse):
     tg: str
     phone: str | None
     ambassador: bool
+    avatar: str
 
 
 #API
@@ -32,6 +34,7 @@ async def get_profile(
             "name":  master.full_name,
             "tg": master.username_tg,
             "phone": master.phone,
-            "ambassador": master.ambassador}
+            "ambassador": master.moderation,
+            "avatar": f"{s3_domain}{master.avatar}"}
 
 

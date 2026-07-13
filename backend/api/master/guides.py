@@ -35,7 +35,7 @@ class StepResponse(BaseModel):
     name: str
     text: str
     step_num: int
-    img_url: Optional[str] = None
+    img_urls: Optional[list] = None
 
 class VideoResponse(StatusResponse):
     step_id: uuid.UUID

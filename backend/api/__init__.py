@@ -1,13 +1,43 @@
 from backend.api.headbeauty import haircuts, face_hair, hair_colors, perms
 from backend.database import miniapp_db_fcn, AsyncSessionLocal
 
-CategoryList = ["Стрижки", "Борода и усы", "Окрашивание", "Косметология и Skincare", "Маникюр", "Педикюр", "Брови", "Ресницы", "Депиляция", "Эпиляция", "Makeup", "Солярий", "Массажи и SPA", "Консультации", "Другое"]
+
+CategoryList = [{"name": "Стрижки",
+                    "parental_name": "Парикмахерские услуги"},
+                {"name": "Борода и усы",
+                    "parental_name": "Парикмахерские услуги"},
+                {"name": "Окрашивание",
+                    "parental_name": "Парикмахерские услуги"},
+                {"name": "Косметология и Skincare",
+                    "parental_name": "Косметология, Skincare"},
+                {"name": "Маникюр",
+                    "parental_name": "Маникюр, педикюр"},
+                {"name": "Педикюр",
+                    "parental_name": "Маникюр, педикюр"},
+                {"name": "Брови",
+                    "parental_name": "Брови, ресницы"},
+                {"name": "Ресницы",
+                    "parental_name": "Брови, ресницы"},
+                {"name": "Депиляция",
+                    "parental_name": "Депиляция, эпиляция"},
+                {"name": "Эпиляция",
+                    "parental_name": "Депиляция, эпиляция"},
+                {"name": "Makeup",
+                    "parental_name": "Makeup"},
+                {"name":  "Солярий",
+                    "parental_name": "Солярий"},
+                {"name": "Массажи и SPA",
+                    "parental_name": "Массажи, SPA"},
+                {"name": "Консультации",
+                    "parental_name": "Консультации"},
+                {"name": "Другое",
+                    "parental_name": "Другое"}]
 
 async def create_categories():
     async with AsyncSessionLocal() as session:
         async with session.begin():
             for cat in CategoryList:
-                await miniapp_db_fcn.create_category(name=cat, session=session)
+                await miniapp_db_fcn.create_category(name=cat["name"], parental=cat["parental_name"], session=session)
 
 async def delete_all_categories():
     async with AsyncSessionLocal() as session:

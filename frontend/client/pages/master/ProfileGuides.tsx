@@ -68,6 +68,7 @@ function GuideCard({ item }: { item: MyGuide | LikedGuide }) {
   return (
     <Link
       to={`/guide/${item.id}?from=profile`}
+      state={{ categoryName: item.category }}
       className="block w-full h-24 rounded-[20px] overflow-hidden"
       style={{
         border: "0.5px solid rgba(0,0,0,0.00)",
@@ -80,13 +81,13 @@ function GuideCard({ item }: { item: MyGuide | LikedGuide }) {
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
           <div className="min-w-0">
             <h4
-              className="text-[12px] font-['Sofia_Sans'] text-black leading-tight truncate"
+              className="text-[12px] font-['Sofia_Sans'] text-black leading-tight break-words"
               style={{ overflowWrap: "normal", wordBreak: "normal" }}
             >
               {item.title}
             </h4>
             <p
-              className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-normal"
+              className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-words"
               style={{ overflowWrap: "normal", wordBreak: "normal" }}
             >
               {item.category}
@@ -138,13 +139,13 @@ function GuideCardPlain({ item }: { item: ApproveGuide }) {
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
           <div className="min-w-0">
             <h4
-              className="text-[12px] font-['Sofia_Sans'] text-black leading-tight truncate"
+              className="text-[12px] font-['Sofia_Sans'] text-black leading-tight break-words"
               style={{ overflowWrap: "normal", wordBreak: "normal" }}
             >
               {item.name}
             </h4>
             <p
-              className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-normal"
+              className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-words"
               style={{ overflowWrap: "normal", wordBreak: "normal" }}
             >
               {item.category}
