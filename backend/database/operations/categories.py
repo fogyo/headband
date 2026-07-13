@@ -1,9 +1,11 @@
+import logging
 import uuid
 from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import CategoryModel, MasterCategoryModel
+from backend.database import CategoryModel, MasterCategoryModel, PriceModel
+
 
 async def get_all_categories(session: AsyncSession):
     """Получение всех категорий"""
@@ -47,9 +49,11 @@ async def create_category(
 async def check_category(category_ids: List[uuid.UUID],
                          master_id: uuid.UUID,
                          session: AsyncSession):
-    cats = await MasterCategoryModel.get_categories_by_master(id=master_id, session=session)
+    cats = await PriceModel.get_cats_by_master_id(master_id=master_id, session=session)
+    logging.info(cats)
     for category_id in category_ids:
         if category_id in cats:
+            logging.info("Успешная проверка")
             return True
     return False
 

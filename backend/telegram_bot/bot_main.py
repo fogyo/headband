@@ -96,8 +96,14 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     else:
                         new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
                         active, end_date, status = await miniapp_db_fcn.get_subscription_level(master_id=new_master.id, session=session)
-
-                        if (status == "no sub") and (new_master.referrer_id == None):
+                        if new_master.id == master_id:
+                            await state.update_data(role="master")
+                            logging.info("Master info added by deeplink")
+                            await message.answer(
+                                f"❌ К сожалению, по условиям нашей акции, можно использовать только чужие реферальные ссылки.\n"
+                            f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
+                                reply_markup=get_main_keyboard(role))
+                        elif (status == "no sub") and (new_master.referrer_id == None):
                             upd_data = {"referrer_id": master_id}
                             await miniapp_db_fcn.update_master(master_id=new_master.id, update_data=upd_data, session=session)
                             await state.update_data(role="master")

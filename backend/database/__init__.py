@@ -99,8 +99,8 @@ class GuideStatus(Enum):
 
 
 class SubLevel(Enum):
-    HEADBAND_PRO = 1
-    HEADBAND_BASE = 2
+    HEADBAND_BASE = 1
+    HEADBAND_PARTNER = 2
     HEADBEAUTY = 3
 
 class AdminModel(Base):
@@ -366,7 +366,16 @@ class MasterModel(Base):
 
     @classmethod
     async def get_partners(cls, session: AsyncSession):
-        query = select(cls).where(and_(cls.subscription.level == 2, cls.subscription.end_date <= date.today()))
+        query = (
+            select(cls)
+            .join(cls.subscription)  # предполагается, что отношение определено
+            .where(
+                and_(
+                    SubscriptionModel.level == 2,
+                    SubscriptionModel.end_date >= date.today()
+                )
+            )
+        )
         result = await session.execute(query)
         return list(result.scalars().all())
 
@@ -703,6 +712,12 @@ class PriceModel(Base):
         query = select(cls).where(cls.master_id == master_id)
         result = await session.execute(query)
         return result.scalars().all()
+
+    @classmethod
+    async def get_cats_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):
+        query = select(cls.category_id).where(cls.master_id == master_id)
+        result = await session.execute(query)
+        return set(result.scalars().all())
 
     @classmethod
     async def get_by_category(cls, session: AsyncSession, master_id: uuid.UUID, category_id: uuid.UUID):
@@ -1292,7 +1307,6 @@ class MasterNotificationModel(Base):
         await session.execute(query)
         return "success"
 
-    # Добавить в __init__.py после MasterNotificationModel
 
 class SubscriptionModel(Base):
     __tablename__ = "subscriptions"
@@ -1302,7 +1316,7 @@ class SubscriptionModel(Base):
     start_date: Mapped[date]
     end_date: Mapped[date]
     is_first_subscription: Mapped[bool] = mapped_column(default=True)  # Первая ли это подписка
-    level: Mapped[int]
+    level: Mapped[int] = mapped_column(nullable=False)
 
     # Relationships
     master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="subscription", uselist=False)
@@ -1564,9 +1578,9 @@ class MasterConstantUsersModel(Base):
     @classmethod
     async def get_by_user_id(cls, session: AsyncSession, user_id: uuid.UUID):
         """Список мастеров, у которых данный пользователь является постоянным клиентом"""
-        query = select(cls).where(cls.user_id == user_id)
+        query = select(cls.master_id).where(cls.user_id == user_id)
         result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def is_constant(cls, session: AsyncSession, master_id: uuid.UUID, user_id: uuid.UUID) -> bool:

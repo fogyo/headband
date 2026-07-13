@@ -89,7 +89,6 @@ async def get_subscription_level(
         return False, None, "no sub"
 
     if subscription.end_date < date.today():
-        return False, subscription.end_date, SubLevel(subscription.level)
+        return False, subscription.end_date, subscription.level
 
-    return True, subscription.end_date, SubLevel(subscription.level)
-
+    return True, subscription.end_date, subscription.level
