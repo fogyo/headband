@@ -6,9 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import miniapp_db_fcn, get_db_session
-
-
+from backend.database import miniapp_db_fcn, get_db_session, WorkingDayModel, AddressModel, PriceModel
 
 
 # Responses
@@ -43,7 +41,7 @@ async def get_appointments_today(
     """Получение записей мастера на дату"""
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
-    appointments, count, status, addresses, names = await miniapp_db_fcn.get_appointments_by_date(
+    appointments = await miniapp_db_fcn.get_appointments_by_date(
         master_id=master_id,
         app_date=date.today(),
         session=session
@@ -51,13 +49,22 @@ async def get_appointments_today(
 
     a = []
     for i, appointment in enumerate(appointments):
-        aresponse = AppointmentResponse.model_validate(appointment).model_dump()
-        aresponse["address"] = addresses[i] if i < len(addresses) else None
-        aresponse["service_name"] = names[i] if i < len(names) else None
+        working_day = await WorkingDayModel.get_by_id(session=session, id=appointment.working_day_id)
+        address = await AddressModel.get_by_id(session=session, address_id=working_day.address_id)
+        price = await PriceModel.get_by_id(session=session, price_id=appointment.price_id)
+        aresponse = {"id": appointment.id,
+                     "master_id": appointment.master_id,
+                     "date": appointment.date,
+                     "start_time": appointment.start_time,
+                     "end_time": appointment.end_time,
+                     "final_price": appointment.final_price,
+                     "address": address.address,
+                     "service_name": price.name
+                     }
         a.append(aresponse)
 
     return {
-        "status": status,
-        "count": count,
+        "status": "success",
+        "count": len(a),
         "appointments": a
     }

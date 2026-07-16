@@ -9,7 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=logging.INFO)
 
-import database as db
+from backend import database as db
 from backend.telegram_bot.bot_main import stop_bot, start_bot
 
 

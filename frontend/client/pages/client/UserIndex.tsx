@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import appointmentImg from "@/assets/appointment_card.png";
+import appointmentHairdressingImg from "@/assets/appointment_card_hairdressing.png";
+import appointmentCosmetologyImg from "@/assets/appointment_card_cosmetology.png";
+import appointmentNailsImg from "@/assets/appointment_card_nails.png";
+import appointmentBrowsLashesImg from "@/assets/appointment_card_lashes.png";
+import appointmentEpilationImg from "@/assets/appointment_card_epilation.png";
+import appointmentMakeupImg from "@/assets/appointment_card_makeup.png";
+import appointmentSolariumImg from "@/assets/appointment_card_solarium.png";
+import appointmentMassageSpaImg from "@/assets/appointment_card_massage.png";
+import appointmentConsultationsImg from "@/assets/appointment_card_consultation.png";
 import loadingSpinner from "@/assets/loading.svg";
 import { Calendar, Clock, Banknote } from "lucide-react";
 import HeadbeautyAICard from "@/components/HeadbeautyAICard";
@@ -18,24 +26,38 @@ import { Link } from "react-router-dom";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
-// ---------- Типы ----------
-interface Appointment {
-  id: string;
-  service: string;
-  address: string;
-  date: string;        // "дд.мм, день недели"
-  time: string;        // "чч:мм-чч:мм"
-  price: string;       // "1234 ₽"
-}
+const categoryImages: Record<string, string> = {
+  "hairdressing": appointmentHairdressingImg,
+  "cosmetology": appointmentCosmetologyImg,
+  "nails": appointmentNailsImg,
+  "brows-lashes": appointmentBrowsLashesImg,
+  "epilation": appointmentEpilationImg,
+  "makeup": appointmentMakeupImg,
+  "solarium": appointmentSolariumImg,
+  "massage-spa": appointmentMassageSpaImg,
+  "consultations": appointmentConsultationsImg,
+  "other": appointmentHairdressingImg,
+};
 
+// ---------- Типы ----------
 interface AppointmentApi {
   appointment_id: string;
   service_name: string;
   address: string;
-  day: string;         // YYYY-MM-DD
-  start_time: string;  // "HH:MM:SS"
+  day: string;
+  start_time: string;
   end_time: string;
   price: number;
+  parental_category: string; // добавлено
+}
+interface Appointment {
+  id: string;
+  service: string;
+  address: string;
+  date: string;
+  time: string;
+  price: string;
+  parentalCategory: string; // добавлено
 }
 
 // Вспомогательные функции
@@ -45,10 +67,11 @@ const formatDateWithWeekday = (isoDate: string): string => {
   const month = date.getMonth() + 1;
   const weekdays = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
   const weekday = weekdays[date.getDay()];
-  return `${day}.${month} ${weekday}`;
+  return `${day}.${month.toString().padStart(2, "0")} ${weekday}`;
 };
 
 const toHHMM = (timeWithSec: string): string => timeWithSec.slice(0, 5);
+
 
 // Преобразование ответа API в формат UI
 const mapApiToAppointment = (api: AppointmentApi): Appointment => ({
@@ -58,6 +81,7 @@ const mapApiToAppointment = (api: AppointmentApi): Appointment => ({
   date: formatDateWithWeekday(api.day),
   time: `${toHHMM(api.start_time)}-${toHHMM(api.end_time)}`,
   price: `${api.price} ₽`,
+  parentalCategory: api.parental_category,
 });
 
 // ---------- Компонент записей (интегрированный) ----------
@@ -66,7 +90,7 @@ function UserAppointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const defaultImage = appointmentImg;
+  const defaultImage = appointmentHairdressingImg;
 
   const fetchAppointments = async () => {
     try {
@@ -133,17 +157,19 @@ function UserAppointments() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {appointments.map((app) => (
-            <div
-              key={app.id}
-              className="relative bg-[#FFE9EF] rounded-[10px] p-4 shadow-md flex gap-3"
-              style={{
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)",
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                background: "#FFE9EF",
-              }}
-            >
+          {appointments.map((app) => {
+            const image = categoryImages[app.parentalCategory] || appointmentHairdressingImg;
+            return (
+              <div
+                key={app.id}
+                className="relative bg-[#FFE9EF] rounded-[10px] p-4 shadow-md flex gap-3"
+                style={{
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)",
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                  background: "#FFE9EF",
+                }}
+              >
               {/* Левая часть: информация */}
               <div className="flex-1 flex flex-col justify-between min-w-0">
                 <div>
@@ -224,15 +250,16 @@ function UserAppointments() {
               <div
                 className="w-[60%] flex-shrink-0 rounded-[10px] overflow-hidden border border-white"
                 style={{
-                  backgroundImage: `url(${defaultImage})`,
+                  backgroundImage: `url(${image})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   boxShadow: "4px 4px 4px 0 rgba(0, 0, 0, 0.25) inset",
                   aspectRatio: "205 / 190",
                 }}
-              />
-            </div>
-          ))}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -3,10 +3,11 @@ from datetime import date, timedelta
 from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from unicodedata import category
 
 from backend.api.master.schedule import AppointmentResponse
 from backend.database import MasterModel, SubscriptionModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
-    AppointmentModel, MasterAbsenceModel, AddressModel
+    AppointmentModel, MasterAbsenceModel, AddressModel, CategoryModel
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
     _get_week_dates
 
@@ -21,12 +22,12 @@ async def get_possible_start_time(
 
     master = await MasterModel.get_by_id(session=session, master_id=master_id)
     if not master:
-        return None, "master not found"
+        return [], None, "master not found"
     today = date.today()
     is_sub = await SubscriptionModel.is_active(master_id=master_id, session=session, day=today)
 
     if not is_sub:
-        return None, "master not sub"
+        return [], None, "master not sub"
 
     is_absent = await MasterAbsenceModel.is_absent(
         session=session,
@@ -34,7 +35,7 @@ async def get_possible_start_time(
         check_date=app_date
     )
     if is_absent:
-        return None, "master is absent"
+        return [], None, "master is absent"
 
     weekday = app_date.isoweekday()
 
@@ -45,7 +46,7 @@ async def get_possible_start_time(
     )
 
     if not week_template:
-        return None, "day off"
+        return [], None, "day off"
 
     # Получаем working_day для этой даты
     working_day = await WorkingDayModel.get_by_master_and_date(
@@ -63,7 +64,7 @@ async def get_possible_start_time(
             "end_time": week_template.end_time,
             "address_id": week_template.address_id
         }
-        working_day_id = await WorkingDayModel.create(session=session, data=working_day_data)
+        working_day_id = await WorkingDayModel.create(session=session, data=working_day_data, master_id=master_id)
         working_day = await WorkingDayModel.get_by_id(session=session, id=working_day_id)
 
     address = await AddressModel.get_by_id(address_id=working_day.address_id, session=session)
@@ -75,23 +76,22 @@ async def get_possible_start_time(
         app_date=app_date
     )
 
-    day_start = working_day.start_time  # в минутах
-    day_end = working_day.end_time  # в минутах
+    day_start = working_day.start_time  # time
+    day_end = working_day.end_time  # time
 
-    end_times = [day_start]
-    start_times = []
+    end_times = [day_start] #List[time]
+    start_times = [] #List[time]
 
     for appointment in appointments:
-        app_time = _time_to_timedelta(appointment.start_time)
-        app_minutes = _timedelta_to_int_minutes(app_time)
-        price = await PriceModel.get_by_id(session, appointment.price_id)
+        app_time = _time_to_timedelta(appointment.start_time) #timedelta
+        price = await PriceModel.get_by_id(session=session, price_id=appointment.price_id)
         duration = price.approximate_time
-        start_times.append(app_minutes)
-        end_times.append(app_minutes + duration)
+        start_times.append(appointment.start_time)
+        end_times.append(_timedelta_to_time(app_time + timedelta(minutes=duration)))
 
     start_times.append(day_end)
 
-    price_to_app = await PriceModel.get_by_id(session, price_id=price_id)
+    price_to_app = await PriceModel.get_by_id(session=session, price_id=price_id)
     appointment_duration = price_to_app.approximate_time
 
     # Находим свободные слоты
@@ -99,16 +99,16 @@ async def get_possible_start_time(
     ten_minutes = 10  # минут
 
     for i in range(len(start_times)):
-        gap = start_times[i] - end_times[i]
+        gap = _timedelta_to_int_minutes(_time_to_timedelta(start_times[i]) - _time_to_timedelta(end_times[i]))
         if gap >= appointment_duration:
             free_minutes = gap - appointment_duration
             k = free_minutes // ten_minutes
-            for j in range(k + 1):
-                slot_minutes = end_times[i] + ten_minutes * j
-                possible_starts.append(_timedelta_to_time(timedelta(minutes=slot_minutes)))
+            for j in range(k+1):
+                slot_minutes = (_time_to_timedelta(end_times[i]) + timedelta(minutes=(ten_minutes * j)))
+                possible_starts.append(_timedelta_to_time(slot_minutes))
 
     if not possible_starts:
-        return None, "no time for app", ""
+        return [], "no time for app", ""
 
     return possible_starts, "success", address_name
 
@@ -119,33 +119,13 @@ async def get_appointments_by_date(
         session: AsyncSession
 ):
     """Получение записей мастера на дату"""
-    appointments = await AppointmentModel.get_by_master_and_date(
+    return await AppointmentModel.get_by_master_and_date(
         session=session,
         master_id=master_id,
         app_date=app_date
     )
 
-    addresses = []
-    names = []
 
-    for a in appointments:
-        price = await PriceModel.get_by_id(session=session, price_id=a.price_id)
-        if price:
-            names.append(price.name)
-            working_day = await WorkingDayModel.get_by_id(session=session, id=a.working_day_id)
-            if working_day and working_day.address_id:
-                addr = await AddressModel.get_by_id(session=session, address_id=working_day.address_id)
-                addresses.append(addr.address if addr else None)
-            else:
-                addresses.append(None)
-        else:
-            names.append(None)
-            addresses.append(None)
-
-    if appointments:
-        return appointments, len(appointments), "success", addresses, names
-
-    return [], 0, "success", [], []
 
 
 async def get_week_timetable(
@@ -158,19 +138,29 @@ async def get_week_timetable(
     week_appointments = []
 
     for day in week_list:
-        appointments, count, status, addresses, names = await get_appointments_by_date(
+        appointments = await get_appointments_by_date(
             master_id=master_id,
             app_date=day,
             session=session
         )
-        day_appointments = []
-        for i, appointment in enumerate(appointments):
-            aresponse = AppointmentResponse.model_validate(appointment).model_dump()
-            aresponse["address"] = addresses[i] if i < len(addresses) else None
-            aresponse["service_name"] = names[i] if i < len(names) else None
-            day_appointments.append(aresponse)
 
-        week_appointments.append(day_appointments)
+        a = []
+        for i, appointment in enumerate(appointments):
+            working_day = await WorkingDayModel.get_by_id(session=session, id=appointment.working_day_id)
+            address = await AddressModel.get_by_id(session=session, address_id=working_day.address_id)
+            price = await PriceModel.get_by_id(session=session, price_id=appointment.price_id)
+            aresponse = {"id": appointment.id,
+                         "master_id": appointment.master_id,
+                         "date": appointment.date,
+                         "start_time": appointment.start_time,
+                         "end_time": appointment.end_time,
+                         "final_price": appointment.final_price,
+                         "address": address.address,
+                         "service_name": price.name
+                         }
+            a.append(aresponse)
+
+        week_appointments.append(a)
 
     return week_appointments, "success"
 
@@ -197,13 +187,16 @@ async def get_appointments_by_user(
     for a in appointments:
         working_day = await WorkingDayModel.get_by_id(session=session, id=a.working_day_id)
         price = await PriceModel.get_by_id(session=session, price_id=a.price_id)
+        parental_name = await CategoryModel.get_by_id_parental_name(session=session, category_id=price.category_id)
+        address = await AddressModel.get_by_id(address_id=working_day.address_id, session=session)
         aresponse = {"appointment_id": a.id,
-                    "service_name": price.name,
-                     "address": working_day.address,
+                     "service_name": price.name,
+                     "address": address.address,
                      "day": a.date,
                      "start_time": a.start_time,
                      "end_time": a.end_time,
-                     "price": a.final_price}
+                     "price": a.final_price,
+                     "parental_category": parental_name}
         response_list.append(aresponse)
 
     return response_list
@@ -215,7 +208,7 @@ async def create_appointment(
     """Создание записи"""
 
 
-    possible_times = await get_possible_start_time(appointment_dict["master_id"], appointment_dict["date"], appointment_dict["price_id"], session=session)
+    possible_times, status, addresses = await get_possible_start_time(appointment_dict["master_id"], appointment_dict["date"], appointment_dict["price_id"], session=session)
     if possible_times != None and appointment_dict["start_time"] in possible_times:
         status = await AppointmentModel.create(session=session, data=appointment_dict)
         return status

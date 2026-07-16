@@ -18,6 +18,9 @@ async def get_all_categories(session: AsyncSession):
         for cat in categories
     ]
 
+async def check_data_categories(session:AsyncSession):
+    return await CategoryModel.get_all(session=session)
+
 async def get_all_categories_parental(parental_name: str,
                                       session: AsyncSession):
     """Получение всех категорий"""
@@ -58,6 +61,9 @@ async def check_category(category_ids: List[uuid.UUID],
             logging.info("Успешная проверка")
             return True
     return False
+
+async def get_parental_by_id(category_id: uuid.UUID, session: AsyncSession):
+    return await CategoryModel.get_by_id_parental_name(category_id=category_id, session=session)
 
 async def delete_category(category_id: uuid.UUID,
                           session: AsyncSession):

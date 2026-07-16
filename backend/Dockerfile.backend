@@ -1,0 +1,22 @@
+# Используем легковесный образ Python 3.14
+FROM python:3.13-slim
+
+# Устанавливаем рабочую директорию внутри контейнера
+WORKDIR /app
+
+# Копируем файл с зависимостями
+COPY requirements.txt .
+
+# Устанавливаем зависимости бэкенда
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем все остальные файлы бэкенда в контейнер
+COPY . ./backend
+
+ENV PYTHONPATH=/app
+
+# Открываем порт 8000 для связи
+EXPOSE 8000
+
+# Команда для запуска приложения
+CMD ["python", "backend/main.py"]

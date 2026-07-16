@@ -64,7 +64,7 @@ async def _cancel_conflicting_appointments_for_date(
     end_int = _timedelta_to_int_minutes(end_del)
 
     for apt in appointments:
-        app_time = _time_to_timedelta(apt.time)
+        app_time = _time_to_timedelta(apt.start_time)
         app_start = _timedelta_to_int_minutes(app_time)
 
         price = await PriceModel.get_by_id(session=session, price_id=apt.price_id)

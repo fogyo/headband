@@ -90,7 +90,7 @@ async def get_prices_by_category(
         "id": str(p.id),
         "name": p.name,
         "price": p.price,
-        "category": await CategoryModel.get_by_id(session=session, category_id=p.category_id),
+        "category": await CategoryModel.get_by_id_name(session=session, category_id=p.category_id),
         "approximate_time": p.approximate_time,
         "master_id": str(p.master_id)
     } for p in prices]

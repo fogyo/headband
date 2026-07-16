@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import multiprocessing
+import os
 import subprocess
 import sys
 from multiprocessing import Process
@@ -77,7 +78,14 @@ async def init_db():
     await create_hair_perms_template()
 
 def run_celery_process():
-    subprocess.run(["celery", "-A", "backend.model.bg_factory.factory", "worker", "--pool=threads", "--concurrency=4", "--loglevel=info"], check=True)
+    current_env = os.environ.copy()
+
+    subprocess.run(
+        ["celery", "-A", "backend.model.bg_factory.factory", "worker", "--pool=threads", "--concurrency=4",
+         "--loglevel=info"],
+        check=True,
+        env=current_env  # Передаем окружение в Celery
+    )
 
 def run_server_process():
     async def start_server():
@@ -93,7 +101,7 @@ def run_server_process():
             await obj_storage.upload_folder(
                 local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\perms", s3_prefix="perms\\")"""
 
-            #await init_db()
+            await init_db()
             logging.info("База данных инициализирована")
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
         server = uvicorn.Server(config)

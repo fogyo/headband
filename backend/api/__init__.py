@@ -54,8 +54,10 @@ CategoryList = [{"name": "Стрижки",
 async def create_categories():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            for cat in CategoryList:
-                await miniapp_db_fcn.create_category(name=cat["name"], parental=cat["parental_name"], eng_name=cat["eng_name"], session=session)
+            cats = await miniapp_db_fcn.check_data_categories(session=session)
+            if not cats:
+                for cat in CategoryList:
+                    await miniapp_db_fcn.create_category(name=cat["name"], parental=cat["parental_name"], eng_name=cat["eng_name"], session=session)
 
 async def delete_all_categories():
     async with AsyncSessionLocal() as session:
@@ -67,29 +69,37 @@ async def delete_all_categories():
 async def create_haircut_template():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            for cut in haircuts["mens_haircuts"]:
-                cut["gender"] = False
-                await miniapp_db_fcn.create_cut_template(data=cut, session=session)
-            for cut in haircuts["womens_haircuts"]:
-                cut["gender"] = True
-                await miniapp_db_fcn.create_cut_template(data=cut, session=session)
+            haircuts = await miniapp_db_fcn.get_all_haircuts(session=session)
+            if len(haircuts)==0:
+                for cut in haircuts["mens_haircuts"]:
+                    cut["gender"] = False
+                    await miniapp_db_fcn.create_cut_template(data=cut, session=session)
+                for cut in haircuts["womens_haircuts"]:
+                    cut["gender"] = True
+                    await miniapp_db_fcn.create_cut_template(data=cut, session=session)
 
 async def create_beards_template():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            for beard in face_hair["beards"]:
-                await miniapp_db_fcn.create_face_hair_template(data=beard, session=session)
-            for mustach in face_hair["mustaches"]:
-                await miniapp_db_fcn.create_face_hair_template(data=mustach, session=session)
+            beards = await miniapp_db_fcn.get_beards(session=session)
+            if len(beards) == 0:
+                for beard in face_hair["beards"]:
+                    await miniapp_db_fcn.create_face_hair_template(data=beard, session=session)
+                for mustach in face_hair["mustaches"]:
+                    await miniapp_db_fcn.create_face_hair_template(data=mustach, session=session)
 
 async def create_hair_colors_template():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            for color in hair_colors:
-                await miniapp_db_fcn.create_color_template(data=color, session=session)
+            colors = await miniapp_db_fcn.get_colors(session=session)
+            if len(colors) == 0:
+                for color in hair_colors:
+                    await miniapp_db_fcn.create_color_template(data=color, session=session)
 
 async def create_hair_perms_template():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            for perm in perms:
-                await miniapp_db_fcn.create_perm_template(data=perm, session=session)
+            perms = await miniapp_db_fcn.get_perms(session=session)
+            if len(perms) == 0:
+                for perm in perms:
+                    await miniapp_db_fcn.create_perm_template(data=perm, session=session)

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import os
 import uuid
@@ -45,9 +46,9 @@ async def setup_database():
                     await conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
                     logging.info(f"Таблица {table} удалена")
                 except Exception as e:
-                    logging.warning(f"Ошибка при удалении таблицы {table}: {e}")
+                    logging.warning(f"Ошибка при удалении таблицы {table}: {e}")"""
 
-            await conn.run_sync(Base.metadata.create_all)"""
+            await conn.run_sync(Base.metadata.create_all)
 
             tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
             logging.info(f"Таблицы в базе данных: {tables}")
@@ -200,6 +201,12 @@ class CategoryModel(Base):
     @classmethod
     async def get_by_id_name(cls, session: AsyncSession, category_id: uuid.UUID):
         query = select(cls.name).where(cls.id == category_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_id_parental_name(cls, session: AsyncSession, category_id: uuid.UUID):
+        query = select(cls.parental_name).where(cls.id == category_id)
         result = await session.execute(query)
         return result.scalars().first()
 
@@ -715,7 +722,7 @@ class PriceModel(Base):
         return result.scalars().first()
 
     @classmethod
-    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID) -> List[PriceModel]:
+    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID) -> List['PriceModel']:
         query = select(cls).where(cls.master_id == master_id)
         result = await session.execute(query)
         return result.scalars().all()
@@ -780,13 +787,13 @@ class AppointmentModel(Base):
         appointment = cls(**data)
         session.add(appointment)
         await session.flush()
-        return appointment.id
+        return "success"
 
     @classmethod
-    async def get_by_master_and_date(cls, session: AsyncSession, master_id: uuid.UUID, app_date: date):
+    async def get_by_master_and_date(cls, session: AsyncSession, master_id: uuid.UUID, app_date: date) -> List[AppointmentModel]:
         query = select(cls).where(cls.master_id == master_id, cls.date == app_date).order_by(cls.start_time)
         result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def get_by_master_confirmation(cls, session: AsyncSession, master_id: uuid.UUID, day: date):
@@ -796,7 +803,7 @@ class AppointmentModel(Base):
 
     @classmethod
     async def get_by_user_id(cls, session: AsyncSession, user_id: uuid.UUID):
-        query = select(cls).where(cls.user_id == user_id).order_by(cls.date, cls.start_time)
+        query = select(cls).where(and_(cls.user_id == user_id,or_(cls.end_time>datetime.now().time(), cls.date>date.today()))).order_by(cls.date, cls.start_time)
         result = await session.execute(query)
         return result.scalars().all()
 
@@ -1735,6 +1742,13 @@ class HaircutTemplateModel(Base):
             return "success"
         return "no such template"
 
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["HaircutTemplateModel"]:
+        """Получает все шаблоны"""
+        query = select(cls)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
 class FaceParametersModel(Base):
     __tablename__ = "face_parameters"
 
@@ -1877,6 +1891,7 @@ class HaircutRecommendationModel(Base):
             return "success"
         return "no such recommendation"
 
+
 class FaceHairTemplateModel(Base):
     __tablename__ = "face_hair_templates"
 
@@ -1915,7 +1930,7 @@ class FaceHairTemplateModel(Base):
         """Получает все шаблоны"""
         query = select(cls)
         result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["FaceHairTemplateModel"]:
@@ -1978,7 +1993,7 @@ class ColorTemplateModel(Base):
         """Получает все шаблоны"""
         query = select(cls)
         result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["ColorTemplateModel"]:
@@ -2038,7 +2053,7 @@ class PermsTemplateModel(Base):
         """Получает все шаблоны"""
         query = select(cls)
         result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def get_by_name(cls, session: AsyncSession, name: str) -> Optional["PermsTemplateModel"]:

@@ -11,6 +11,7 @@ interface ServiceItem {
   id: string;
   name: string;
   price: number;
+  duration: number;
 }
 
 interface Category {
@@ -22,6 +23,7 @@ interface PriceTemplate {
   id: string;
   name: string;
   price: number;
+  duration: number;
 }
 
 interface CategoryTemplate {
@@ -63,6 +65,7 @@ export default function MasterPriceListPage() {
             id: p.id,
             name: p.name,
             price: p.price,
+            duration: p.duration,
           })),
         }));
 
@@ -163,10 +166,14 @@ export default function MasterPriceListPage() {
                     <Link
                       key={service.id}
                       to={`/booking/${masterId}/${service.id}`}
+                      state={{ 
+                        serviceName: service.name, 
+                        servicePrice: service.price,
+                        serviceDuration: service.duration,
+                      }}
                       className="relative bg-[#FFE9EF] rounded-[10px] h-9 flex items-center px-2 mb-2 cursor-pointer hover:opacity-80 transition-opacity w-full"
                       style={{
-                        boxShadow:
-                          "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05), 36px 38px 21px rgba(0,0,0,0.01), 57px 60px 23px rgba(0,0,0,0.00)",
+                        boxShadow: "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05), 36px 38px 21px rgba(0,0,0,0.01), 57px 60px 23px rgba(0,0,0,0.00)",
                         border: "0.5px solid rgba(0,0,0,0.00)",
                       }}
                     >

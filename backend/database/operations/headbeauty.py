@@ -63,6 +63,9 @@ async def get_haircuts(session_id: uuid.UUID, session: AsyncSession):
     working_session = await HeadbeautySessionModel.get_by_id(session_id=session_id, session=session)
     return await HaircutTemplateModel.get_all_by_gender(gender=working_session.gender, session=session)
 
+async def get_all_haircuts(session: AsyncSession):
+    return await HaircutTemplateModel.get_all(session=session)
+
 async def get_beards(session: AsyncSession):
     return await FaceHairTemplateModel.get_all(session=session)
 

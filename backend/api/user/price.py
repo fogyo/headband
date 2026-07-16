@@ -17,6 +17,7 @@ class PriceTemplate(BaseModel):
     id: uuid.UUID
     name: str
     price: int
+    duration: int
 
 class CategoryTemplate(BaseModel):
     category_name: str
@@ -40,7 +41,8 @@ async def get_price(master_id: uuid.UUID,
             if p["category"] == cat:
                 price = {"id": p["id"],
                          "name": p["name"],
-                         "price": p["price"]}
+                         "price": p["price"],
+                         "duration": p["approximate_time"]}
                 price_by_cat.append(price)
         cat_dict = {"category_name": cat,
                     "prices": price_by_cat}

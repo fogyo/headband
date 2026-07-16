@@ -18,6 +18,7 @@ class Appointment(BaseModel):
     start_time: time
     end_time: time
     price: int
+    parental_category: str
 
 class AppointmentListResponse(StatusResponse):
     appointments: List[Appointment]
