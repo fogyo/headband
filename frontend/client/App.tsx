@@ -62,6 +62,28 @@ const TelegramAuthContext = createContext<TelegramAuthContextType>({
 export const useTelegramAuth = () => useContext(TelegramAuthContext);
 
 // ---------- Провайдер ----------
+const queryClient = new QueryClient();
+
+interface TelegramAuthContextType {
+  initDataRaw: string | null;
+  chatId: number | null;
+  isVerified: boolean;
+  isLoading: boolean;
+  error: string | null;
+  verify: () => Promise<void>;
+}
+
+const TelegramAuthContext = createContext<TelegramAuthContextType>({
+  initDataRaw: null,
+  chatId: null,
+  isVerified: false,
+  isLoading: true,
+  error: null,
+  verify: async () => {},
+});
+
+export const useTelegramAuth = () => useContext(TelegramAuthContext);
+
 function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const [initDataRaw, setInitDataRaw] = useState<string | null>(null);
   const [chatId, setChatId] = useState<number | null>(null);
@@ -69,47 +91,7 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Режим разработки (включите через .env)
   const isDev = import.meta.env.MODE === 'development' && import.meta.env.VITE_DEV_MOCK === 'true';
-
-  // Инициализация Telegram
-  const initTelegram = () => {
-    try {
-      const tg = window.Telegram?.WebApp;
-      if (tg) {
-        tg.ready(); // обязательно! сообщаем, что мини-апп готов
-        const initData = tg.initData;
-        const user = tg.initDataUnsafe?.user;
-        if (user?.id) {
-          setChatId(user.id);
-          if (initData) {
-            setInitDataRaw(initData);
-            return { success: true, hasInitData: true };
-          } else {
-            // Технически в Telegram initData всегда есть, но оставим fallback
-            return { success: true, hasInitData: false };
-          }
-        } else {
-          setError("Не удалось получить ID пользователя из Telegram");
-          return { success: false };
-        }
-      } else {
-        // Если Telegram недоступен
-        if (isDev) {
-          // Мок для разработки
-          setChatId(123456789);
-          setInitDataRaw("mock_init_data");
-          return { success: true, hasInitData: true };
-        } else {
-          setError("Telegram WebApp не инициализирован");
-          return { success: false };
-        }
-      }
-    } catch (err) {
-      setError("Ошибка инициализации Telegram");
-      return { success: false };
-    }
-  };
 
   // Верификация через /security
   const verify = async () => {
@@ -150,21 +132,77 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Основной эффект – запускаем один раз при монтировании
+  // Инициализация Telegram с ожиданием
   useEffect(() => {
-    const result = initTelegram();
-    if (result.success) {
-      if (result.hasInitData || isDev) {
-        verify();
-      } else {
-        // Если initData нет (но такого не должно быть), выдаём ошибку
-        setError("Отсутствует initData, необходимый для безопасности");
+    let attempts = 0;
+    const maxAttempts = 20; // 10 секунд
+    let interval: NodeJS.Timeout | null = null;
+
+    const tryInit = () => {
+      attempts++;
+      try {
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+          tg.ready(); // обязательно вызываем
+          const initData = tg.initData;
+          const user = tg.initDataUnsafe?.user;
+          if (user?.id) {
+            setChatId(user.id);
+            if (initData) {
+              setInitDataRaw(initData);
+              verify();
+              if (interval) clearInterval(interval);
+              return true;
+            } else {
+              // Если initData нет, но user есть – всё равно считаем частично инициализированным, но верификацию пропускаем
+              setError("initData отсутствует, верификация невозможна. Проверьте настройки бота.");
+              if (interval) clearInterval(interval);
+              setIsLoading(false);
+              return false;
+            }
+          } else {
+            setError("Не удалось получить ID пользователя из Telegram");
+            if (interval) clearInterval(interval);
+            setIsLoading(false);
+            return false;
+          }
+        } else {
+          if (isDev) {
+            // Мок для разработки
+            setChatId(123456789);
+            setInitDataRaw("mock_init_data");
+            verify();
+            if (interval) clearInterval(interval);
+            return true;
+          }
+          // Если Telegram ещё не загрузился
+          if (attempts >= maxAttempts) {
+            setError("Telegram WebApp не инициализирован");
+            if (interval) clearInterval(interval);
+            setIsLoading(false);
+            return false;
+          }
+          return false;
+        }
+      } catch (err) {
+        setError("Ошибка инициализации Telegram");
+        if (interval) clearInterval(interval);
         setIsLoading(false);
+        return false;
       }
-    } else {
-      // Ошибка уже установлена в initTelegram
-      setIsLoading(false);
+    };
+
+    // Пробуем сразу
+    if (!tryInit()) {
+      // Если не получилось, запускаем интервал
+      interval = setInterval(() => {
+        tryInit();
+      }, 500);
     }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   return (
