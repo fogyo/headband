@@ -71,116 +71,138 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const isDev = import.meta.env.MODE === 'development' && import.meta.env.VITE_DEV_MOCK === 'true';
 
   // Верификация через /security
-  const verify = async () => {
-    if (!initDataRaw) {
-      if (isDev) {
-        setIsVerified(true);
-        toast.info("Режим разработки: авторизация пропущена");
-        setIsLoading(false);
-        return;
-      } else {
-        setError("Нет данных для верификации (initData)");
-        setIsLoading(false);
-        return;
+  // 1. Измени сигнатуру функции verify, чтобы она принимала данные
+  const verify = async (rawInitData?: string) => {
+  // Используем переданный аргумент или (на всякий случай) состояние
+  const dataToSend = rawInitData || initDataRaw; 
+
+  if (!dataToSend) {
+    if (isDev) {
+      setIsVerified(true);
+      toast.info("Режим разработки: авторизация пропущена");
+      setIsLoading(false);
+      return;
+    } else {
+      setError("Нет данных для верификации (initData)");
+      setIsLoading(false);
+      return;
+    }
+  }
+
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/security/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Отправляем то, что пришло в аргументе
+      body: JSON.stringify({ initData: dataToSend }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.status === "success") {
+      setIsVerified(true);
+      toast.success("Авторизация подтверждена");
+    } else {
+      setError("Ошибка верификации на сервере");
+      setIsVerified(false);
+    }
+  } catch (err: any) {
+    console.error(err);
+    setError("Не удалось верифицировать пользователя");
+    toast.error("Ошибка авторизации");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// 2. В useEffect передавай initData напрямую
+useEffect(() => {
+  // ФУНКЦИЯ ПАРСИНГА ИЗ URL (Работает 100% везде)
+  const getInitDataFromUrl = (): string | null => {
+    // Telegram передает данные в window.location.hash (после #)
+    const hash = window.location.hash.substring(1); 
+    if (hash) {
+      const params = new URLSearchParams(hash);
+      const tgData = params.get('tgWebAppData');
+      if (tgData) {
+        // URLSearchParams автоматически делает decodeURIComponent
+        return tgData; 
       }
     }
+    // На всякий случай проверяем обычные query-параметры (?...)
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get('tgWebAppData');
+  };
 
+  const tryInit = () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/security/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ initData: initDataRaw }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data.status === "success") {
-        setIsVerified(true);
-        toast.success("Авторизация подтверждена");
-      } else {
-        setError("Ошибка верификации");
-        setIsVerified(false);
+      // 1. СНАЧАЛА пробуем достать данные из URL
+      const initDataFromUrl = getInitDataFromUrl();
+      
+      // 2. Пробуем использовать Telegram SDK
+      const tg = window.Telegram?.WebApp;
+      
+      let initData = initDataFromUrl;
+      let userId: number | null = null;
+
+      if (tg) {
+        tg.ready(); // Говорим Telegram, что мы готовы
+        tg.expand(); // Разворачиваем окно на весь экран (опционально)
+        
+        // Если в URL ничего не было, берем из SDK
+        if (!initData && tg.initData) {
+          initData = tg.initData;
+        }
+        
+        userId = tg.initDataUnsafe?.user?.id || null;
       }
-    } catch (err: any) {
-      console.error(err);
-      setError("Не удалось верифицировать пользователя");
-      toast.error("Ошибка авторизации");
-    } finally {
-      setIsLoading(false);
+
+      // Если мы в режиме разработки (нет ни URL, ни SDK)
+      if (isDev && !initData) {
+        setChatId(123456789);
+        setInitDataRaw("mock_init_data");
+        verify("mock_init_data");
+        return true;
+      }
+
+      // Если есть initData (из URL или SDK)
+      if (initData) {
+        setInitDataRaw(initData);
+        
+        // Если нет userId из SDK, его можно вытащить из самой строки initData
+        // (но для верификации на бэкенде userId в стейте не обязателен)
+        if (userId) {
+          setChatId(userId);
+        }
+        
+        verify(initData); // Передаем строку напрямую, обходя stale closure
+        return true;
+      }
+
+      return false; // Telegram SDK не загрузился, и в URL данных нет
+
+    } catch (err) {
+      console.error("Ошибка tryInit:", err);
+      return false;
     }
   };
 
-  // Инициализация Telegram с ожиданием
-  useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 20; // 10 секунд
-    let interval: NodeJS.Timeout | null = null;
+  // Пробуем один раз сразу
+  if (!tryInit()) {
+    // Если не получилось, даем скрипту Telegram еще немного времени загрузиться
+    const interval = setInterval(() => {
+      if (tryInit()) clearInterval(interval);
+    }, 300);
 
-    const tryInit = () => {
-      attempts++;
-      try {
-        const tg = window.Telegram?.WebApp;
-        if (tg) {
-          tg.ready(); // обязательно вызываем
-          const initData = tg.initData;
-          const user = tg.initDataUnsafe?.user;
-          if (user?.id) {
-            setChatId(user.id);
-            if (initData) {
-              setInitDataRaw(initData);
-              verify();
-              if (interval) clearInterval(interval);
-              return true;
-            } else {
-              // Если initData нет, но user есть – всё равно считаем частично инициализированным, но верификацию пропускаем
-              setError("initData отсутствует, верификация невозможна. Проверьте настройки бота.");
-              if (interval) clearInterval(interval);
-              setIsLoading(false);
-              return false;
-            }
-          } else {
-            setError("Не удалось получить ID пользователя из Telegram");
-            if (interval) clearInterval(interval);
-            setIsLoading(false);
-            return false;
-          }
-        } else {
-          if (isDev) {
-            // Мок для разработки
-            setChatId(123456789);
-            setInitDataRaw("mock_init_data");
-            verify();
-            if (interval) clearInterval(interval);
-            return true;
-          }
-          // Если Telegram ещё не загрузился
-          if (attempts >= maxAttempts) {
-            setError("Telegram WebApp не инициализирован");
-            if (interval) clearInterval(interval);
-            setIsLoading(false);
-            return false;
-          }
-          return false;
-        }
-      } catch (err) {
-        setError("Ошибка инициализации Telegram");
-        if (interval) clearInterval(interval);
-        setIsLoading(false);
-        return false;
-      }
-    };
+    // Но если через 5 секунд всё ещё пусто, выдаем ошибку
+    setTimeout(() => {
+      clearInterval(interval);
+      setIsLoading(false);
+      setError("Telegram WebApp не инициализирован. Проверьте подключение к сети или CSP заголовки сервера.");
+    }, 5000);
 
-    // Пробуем сразу
-    if (!tryInit()) {
-      // Если не получилось, запускаем интервал
-      interval = setInterval(() => {
-        tryInit();
-      }, 500);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }
+}, []);
 
   return (
     <TelegramAuthContext.Provider
