@@ -38,29 +38,6 @@ import AIPermPage from "./pages/headbeauty/PermHeadbeauty";
 import AIPreviewPage from "./pages/headbeauty/PreviewHeadbeauty";
 import AIHistoryPage from "./pages/headbeauty/HeadbeautyHistory";
 
-const queryClient = new QueryClient();
-
-// ---------- Контекст ----------
-interface TelegramAuthContextType {
-  initDataRaw: string | null;
-  chatId: number | null;
-  isVerified: boolean;
-  isLoading: boolean;
-  error: string | null;
-  verify: () => Promise<void>;
-}
-
-const TelegramAuthContext = createContext<TelegramAuthContextType>({
-  initDataRaw: null,
-  chatId: null,
-  isVerified: false,
-  isLoading: true,
-  error: null,
-  verify: async () => {},
-});
-
-export const useTelegramAuth = () => useContext(TelegramAuthContext);
-
 // ---------- Провайдер ----------
 const queryClient = new QueryClient();
 
