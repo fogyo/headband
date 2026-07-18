@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { toast } from "sonner";
 
-// Импорты страниц (оставляем без изменений)
+// Импорты всех страниц (оставьте как есть)
 import Index from "./pages/Index";
 import Schedule from "./pages/master/Schedule";
 import NotFound from "./pages/NotFound";
@@ -40,6 +40,7 @@ import AIHistoryPage from "./pages/headbeauty/HeadbeautyHistory";
 
 const queryClient = new QueryClient();
 
+// ---------- Контекст ----------
 interface TelegramAuthContextType {
   initDataRaw: string | null;
   chatId: number | null;
@@ -60,6 +61,7 @@ const TelegramAuthContext = createContext<TelegramAuthContextType>({
 
 export const useTelegramAuth = () => useContext(TelegramAuthContext);
 
+// ---------- Провайдер ----------
 function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const [initDataRaw, setInitDataRaw] = useState<string | null>(null);
   const [chatId, setChatId] = useState<number | null>(null);
@@ -67,113 +69,103 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Функция инициализации WebApp и извлечения данных
-  const initializeWebApp = (): { initData: string; userId: number } | null => {
-    const tg = window.Telegram?.WebApp;
-    if (!tg) return null;
+  // Режим разработки (включите через .env)
+  const isDev = import.meta.env.MODE === 'development' && import.meta.env.VITE_DEV_MOCK === 'true';
 
-    // Сообщаем Telegram, что приложение готово
-    if (typeof tg.ready === 'function') tg.ready();
-    if (typeof tg.expand === 'function') tg.expand();
-
-    const initData = tg.initData || '';
-    const user = tg.initDataUnsafe?.user;
-    if (!user?.id) {
-      // Если пользователь не получен, пробуем взять из initData (но обычно там нет)
-      console.warn('Не удалось получить user.id из WebApp');
-      return null;
+  // Инициализация Telegram
+  const initTelegram = () => {
+    try {
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+        tg.ready(); // обязательно! сообщаем, что мини-апп готов
+        const initData = tg.initData;
+        const user = tg.initDataUnsafe?.user;
+        if (user?.id) {
+          setChatId(user.id);
+          if (initData) {
+            setInitDataRaw(initData);
+            return { success: true, hasInitData: true };
+          } else {
+            // Технически в Telegram initData всегда есть, но оставим fallback
+            return { success: true, hasInitData: false };
+          }
+        } else {
+          setError("Не удалось получить ID пользователя из Telegram");
+          return { success: false };
+        }
+      } else {
+        // Если Telegram недоступен
+        if (isDev) {
+          // Мок для разработки
+          setChatId(123456789);
+          setInitDataRaw("mock_init_data");
+          return { success: true, hasInitData: true };
+        } else {
+          setError("Telegram WebApp не инициализирован");
+          return { success: false };
+        }
+      }
+    } catch (err) {
+      setError("Ошибка инициализации Telegram");
+      return { success: false };
     }
-
-    return { initData, userId: user.id };
   };
 
-  // Функция верификации (принимает initData)
-  const verify = async (initData: string) => {
-    if (!initData) {
-      // Если initData пустая, мы не можем верифицировать, но можем считать пользователя гостем
-      // В этом случае вы можете либо выставить ошибку, либо пропустить верификацию
-      setError('initData отсутствует, верификация пропущена');
-      setIsVerified(false);
-      setIsLoading(false);
-      return;
+  // Верификация через /security
+  const verify = async () => {
+    if (!initDataRaw) {
+      if (isDev) {
+        setIsVerified(true);
+        toast.info("Режим разработки: авторизация пропущена");
+        setIsLoading(false);
+        return;
+      } else {
+        setError("Нет данных для верификации (initData)");
+        setIsLoading(false);
+        return;
+      }
     }
 
-    setIsLoading(true);
-    setError(null);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/security/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initData: initDataRaw }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.status === 'success') {
+      if (data.status === "success") {
         setIsVerified(true);
-        toast.success('Авторизация подтверждена');
+        toast.success("Авторизация подтверждена");
       } else {
-        setError('Ошибка верификации');
+        setError("Ошибка верификации");
         setIsVerified(false);
       }
     } catch (err: any) {
       console.error(err);
-      setError('Не удалось верифицировать пользователя');
-      toast.error('Ошибка авторизации');
+      setError("Не удалось верифицировать пользователя");
+      toast.error("Ошибка авторизации");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Основной эффект: ожидание появления WebApp и запуск верификации
+  // Основной эффект – запускаем один раз при монтировании
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 10; // ~5 секунд (500ms * 10)
-    let interval: NodeJS.Timeout | null = null;
-
-    const attemptInit = () => {
-      attempts++;
-      const result = initializeWebApp();
-      if (result) {
-        // Успешно получили данные
-        setChatId(result.userId);
-        setInitDataRaw(result.initData);
-        // Останавливаем поиск
-        if (interval) clearInterval(interval);
-        // Верификация запустится автоматически через useEffect ниже
-        return;
-      }
-
-      // Если превысили лимит попыток
-      if (attempts >= maxAttempts) {
-        setError('Telegram WebApp не инициализирован');
+    const result = initTelegram();
+    if (result.success) {
+      if (result.hasInitData || isDev) {
+        verify();
+      } else {
+        // Если initData нет (но такого не должно быть), выдаём ошибку
+        setError("Отсутствует initData, необходимый для безопасности");
         setIsLoading(false);
-        if (interval) clearInterval(interval);
       }
-    };
-
-    // Первая попытка сразу
-    attemptInit();
-
-    // Если не получилось, запускаем интервал
-    if (!window.Telegram?.WebApp) {
-      interval = setInterval(attemptInit, 500);
+    } else {
+      // Ошибка уже установлена в initTelegram
+      setIsLoading(false);
     }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, []);
-
-  // Отдельный эффект для запуска верификации, когда появился initDataRaw
-  useEffect(() => {
-    if (initDataRaw !== null && !isVerified && !isLoading) {
-      verify(initDataRaw);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initDataRaw]); // Зависимость только от initDataRaw
-
-  // Можно также добавить эффект, который сбрасывает isLoading, если верификация не требуется
-  // Например, если initData пустая, мы уже выставили isLoading=false в verify
 
   return (
     <TelegramAuthContext.Provider
@@ -183,7 +175,7 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
         isVerified,
         isLoading,
         error,
-        verify: () => verify(initDataRaw || ''),
+        verify,
       }}
     >
       {children}
@@ -191,7 +183,7 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ---------- Приложение ----------
+// ---------- Приложение (маршруты без изменений) ----------
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
