@@ -3,9 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Camera, Upload, X } from "lucide-react";
 import backIconSrc from "@/assets/back_icon.svg";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-const STATIC_CHAT_ID = 980609742;
 
 interface Session {
   id: string;
@@ -40,6 +40,7 @@ const formatDate = (dateStr: string) => {
 
 export default function AIStylePage() {
   const navigate = useNavigate();
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,8 +50,9 @@ export default function AIStylePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchSessions = async () => {
+    if (!chatId) return;
     try {
-      const res = await fetch(`${baseUrl}/headbeauty/?chat_id=${STATIC_CHAT_ID}`);
+      const res = await fetch(`${baseUrl}/headbeauty/?chat_id=${chatId}`);
       if (!res.ok) throw new Error("Ошибка загрузки сессий");
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status);
@@ -62,14 +64,40 @@ export default function AIStylePage() {
   };
 
   useEffect(() => {
-    fetchSessions();
-  }, []);
+    if (isVerified && chatId) {
+      fetchSessions();
+    }
+  }, [isVerified, chatId]);
+
+  // Устанавливаем loading=false когда сессии загружены или авторизация не пройдена
+  useEffect(() => {
+    if (!authLoading) {
+      if (authError || !isVerified) {
+        setLoading(false);
+      } else if (chatId) {
+        // после загрузки сессий они будут в состоянии, но мы поставим false после первого рендера
+        setLoading(false);
+      }
+    }
+  }, [authLoading, authError, isVerified, chatId]);
+
+  // Фактически loading управляется через fetchSessions, но мы используем отдельный флаг
+  // Чтобы избежать двойного управления, просто установим loading=false после завершения fetchSessions
+  // и при ошибке. Упростим: будем отслеживать состояние загрузки сессий.
+  const [sessionsLoading, setSessionsLoading] = useState(true);
 
   useEffect(() => {
-    if (sessions.length >= 0) {
-      setLoading(false);
+    if (isVerified && chatId) {
+      const doFetch = async () => {
+        setSessionsLoading(true);
+        await fetchSessions();
+        setSessionsLoading(false);
+      };
+      doFetch();
+    } else if (!authLoading) {
+      setSessionsLoading(false);
     }
-  }, [sessions]);
+  }, [isVerified, chatId, authLoading]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,11 +109,11 @@ export default function AIStylePage() {
   };
 
   const handleSend = async (gender: boolean) => {
-    if (!selectedFile || isSubmitting) return;
+    if (!selectedFile || isSubmitting || !chatId) return;
     setIsSubmitting(true);
     try {
       const objectKey = await uploadFile(selectedFile);
-      const createRes = await fetch(`${baseUrl}/headbeauty/make_new_session?chat_id=${STATIC_CHAT_ID}`, {
+      const createRes = await fetch(`${baseUrl}/headbeauty/make_new_session?chat_id=${chatId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gender, img_url: objectKey }),
@@ -153,6 +181,7 @@ export default function AIStylePage() {
   const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!window.confirm("Удалить эту сессию?")) return;
+    if (!chatId) return;
     try {
       const res = await fetch(`${baseUrl}/headbeauty/delete_session?session_id=${sessionId}`, {
         method: "DELETE",
@@ -171,10 +200,18 @@ export default function AIStylePage() {
     }
   };
 
-  if (loading) {
+  if (authLoading || sessionsLoading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
         <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
       </div>
     );
   }

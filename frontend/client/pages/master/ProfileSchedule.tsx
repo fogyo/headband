@@ -5,6 +5,7 @@ import trashIcon from "@/assets/Trash.svg";
 import backIcon from "@/assets/back_icon.svg";
 import pinIcon from "@/assets/pinIcon.png";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -192,8 +193,8 @@ const TimeInput = ({
     </div>
   );
 };
+
 const AddressSelect = ({ value, addresses, onChange, className, disabled = false }: { value: string; addresses: Address[]; onChange: (addressId: string) => void; className?: string; disabled?: boolean }) => {
-  const selectedAddress = addresses.find(a => a.id === value);
   return (
     <div className={`${className} bg-[#FFE9EF] rounded-[5px] h-7 flex items-center ${disabled ? "opacity-50" : ""}`} style={{ boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
       <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled} className="w-full h-full bg-transparent text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black outline-none truncate px-1 py-0 leading-none text-center appearance-none disabled:text-gray-400">
@@ -205,7 +206,7 @@ const AddressSelect = ({ value, addresses, onChange, className, disabled = false
 
 // ---------- Основной компонент ----------
 export default function ProfileSchedulePage() {
-  const STATIC_CHAT_ID = 980609742;
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   // Все useState (9 штук)
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -221,8 +222,14 @@ export default function ProfileSchedulePage() {
   // Все useEffect – в одном месте, до любых return
   useEffect(() => {
     const loadAll = async () => {
+      if (!isVerified || !chatId) {
+        setLoading(false);
+        setError(authError || "Ожидание авторизации...");
+        return;
+      }
       try {
         setLoading(true);
+        setError(null);
         await fetchAddresses();
         await fetchTemplate();
         await fetchAbsences();
@@ -234,9 +241,9 @@ export default function ProfileSchedulePage() {
       }
     };
     loadAll();
-  }, [STATIC_CHAT_ID]);
+  }, [chatId, isVerified, authLoading, authError]);
 
-  // Синхронизация customDay.addressId при изменении адресов (был после return – перемещён сюда)
+  // Синхронизация customDay.addressId при изменении адресов
   useEffect(() => {
     if (addresses.length && !customDay.addressId) {
       setCustomDay(prev => ({ ...prev, addressId: addresses[0].id }));
@@ -245,7 +252,7 @@ export default function ProfileSchedulePage() {
 
   // Функции для работы с адресами, шаблоном, отсутствиями – объявляются после хуков
   const fetchAddresses = async () => {
-    const res = await fetch(`${baseUrl}/master/profile/schedule/addresses?chat_id=${STATIC_CHAT_ID}`);
+    const res = await fetch(`${baseUrl}/master/profile/schedule/addresses?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки адресов");
     const data = await res.json();
     if (data.status !== "success") throw new Error(data.status);
@@ -254,7 +261,7 @@ export default function ProfileSchedulePage() {
   };
 
   const fetchTemplate = async () => {
-    const res = await fetch(`${baseUrl}/master/profile/schedule/get_template?chat_id=${STATIC_CHAT_ID}`);
+    const res = await fetch(`${baseUrl}/master/profile/schedule/get_template?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки шаблона");
     const data = await res.json();
     if (data.status !== "success") throw new Error(data.status);
@@ -280,7 +287,7 @@ export default function ProfileSchedulePage() {
   };
 
   const fetchAbsences = async () => {
-    const res = await fetch(`${baseUrl}/master/profile/schedule/absence?chat_id=${STATIC_CHAT_ID}`);
+    const res = await fetch(`${baseUrl}/master/profile/schedule/absence?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки отсутствий");
     const data = await res.json();
     if (data.status !== "success" && data.status !== "no absences") throw new Error(data.status);
@@ -291,7 +298,7 @@ export default function ProfileSchedulePage() {
     const res = await fetch(`${baseUrl}/master/profile/schedule/create_address`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: STATIC_CHAT_ID, address: addressText }),
+      body: JSON.stringify({ chat_id: chatId, address: addressText }),
     });
     if (!res.ok) throw new Error();
     const data = await res.json();
@@ -377,8 +384,7 @@ export default function ProfileSchedulePage() {
   }
 
   try {
-    // chat_id передаём в query, а не в теле
-    const res = await fetch(`${baseUrl}/master/profile/schedule/set_template?chat_id=${STATIC_CHAT_ID}`, {
+    const res = await fetch(`${baseUrl}/master/profile/schedule/set_template?chat_id=${chatId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ days: daysToSend }),
@@ -400,7 +406,7 @@ export default function ProfileSchedulePage() {
 };
 
 const deleteDayTemplate = async (weekday: number) => {
-  const res = await fetch(`${baseUrl}/master/profile/schedule/day_off_template?chat_id=${STATIC_CHAT_ID}&weekday=${weekday}`, {
+  const res = await fetch(`${baseUrl}/master/profile/schedule/day_off_template?chat_id=${chatId}&weekday=${weekday}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -419,7 +425,7 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
     end_time: toTimeWithSeconds(endTime),
     address_id: addressId,
   }];
-  const res = await fetch(`${baseUrl}/master/profile/schedule/update_template?chat_id=${STATIC_CHAT_ID}`, {
+  const res = await fetch(`${baseUrl}/master/profile/schedule/update_template?chat_id=${chatId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -439,7 +445,7 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
     try {
       const startDate = parseDDMMToDate(newAbsence.startDate);
       const endDate = parseDDMMToDate(newAbsence.endDate);
-      const res = await fetch(`${baseUrl}/master/profile/schedule/set_absence?chat_id=${STATIC_CHAT_ID}`, {
+      const res = await fetch(`${baseUrl}/master/profile/schedule/set_absence?chat_id=${chatId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date: startDate, end_date: endDate, reason: newAbsence.reason }),
@@ -475,7 +481,7 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
     if (!confirmed) return;
     try {
       const dateObj = parseDDMMToDate(customDay.date);
-      const res = await fetch(`${baseUrl}/master/profile/schedule/working_day/update?chat_id=${STATIC_CHAT_ID}`, {
+      const res = await fetch(`${baseUrl}/master/profile/schedule/working_day/update?chat_id=${chatId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -500,6 +506,12 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
   };
 
   // Ранние возвраты теперь идут **после всех хуков**
+  if (authLoading) {
+    return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p>Загрузка...</p></div>;
+  }
+  if (authError || !isVerified) {
+    return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-red-500">{authError || "Ошибка авторизации"}</p></div>;
+  }
   if (loading) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p>Загрузка...</p></div>;
   if (error) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-red-500">{error}</p></div>;
 
@@ -554,9 +566,7 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
               const d = week[idx];
               const handleToggle = async () => {
                 const willBeOff = !d.dayOff;
-                // Сохраняем текущие значения для возможного отката
                 const prevState = { ...d };
-                // Оптимистичное обновление локального состояния
                 updateDay(idx, {
                   dayOff: willBeOff,
                   startTime: willBeOff ? "" : "9:00",
@@ -565,10 +575,8 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
                 });
                 try {
                   if (willBeOff) {
-                    // Включаем выходной – DELETE
                     await deleteDayTemplate(idx + 1);
                   } else {
-                    // Включаем рабочий день – PATCH с новыми значениями
                     const newStart = "9:00";
                     const newEnd = "18:00";
                     const newAddressId = addresses[0]?.id || "";
@@ -578,7 +586,6 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
                 } catch (err: any) {
                   console.error(err);
                   toast.error(err.message || "Ошибка сохранения");
-                  // Откатываем изменения
                   updateDay(idx, prevState);
                 }
               };
@@ -620,16 +627,12 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
         <section className="mt-10">
           <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black">Изменить конкретный<br /> день</h2>
           <div className="h-px bg-black w-56 mb-4" />
-
-          {/* Сетка для надписей */}
           <div className="grid grid-cols-4 gap-2 mb-1 text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/100">
             <div className="text-center">дата</div>
             <div className="text-center">начало</div>
             <div className="text-center">конец</div>
             <div className="text-center">адрес</div>
           </div>
-
-          {/* Сетка для полей */}
           <div className="grid grid-cols-4 gap-2">
             <div className="flex justify-center">
               <DatePicker value={customDay.date} onChange={v => setCustomDay(prev => ({ ...prev, date: v }))} />
@@ -644,7 +647,6 @@ const updateSingleDayTemplate = async (weekday: number, startTime: string, endTi
               <AddressSelect value={customDay.addressId} addresses={addresses} onChange={addrId => setCustomDay(prev => ({ ...prev, addressId: addrId }))} />
             </div>
           </div>
-
           <div className="flex justify-end mt-4">
             <button onClick={handleCustomDaySubmit} className="bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>Принять изменения</button>
           </div>

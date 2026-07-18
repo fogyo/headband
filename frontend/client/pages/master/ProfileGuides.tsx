@@ -10,6 +10,7 @@ import videoTypeIcon from "@/assets/video_icon.svg";
 import textTypeIcon from "@/assets/text_icon.svg";
 import { toast } from "sonner";
 import { X } from "lucide-react";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -161,7 +162,8 @@ function GuideCardPlain({ item }: { item: ApproveGuide }) {
 }
 
 export default function ProfileGuidesPage() {
-  const STATIC_CHAT_ID = 980609742;
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
+
   const [isAmbassador, setIsAmbassador] = useState(false);
   const [myGuides, setMyGuides] = useState<MyGuide[]>([]);
   const [starredGuides, setStarredGuides] = useState<LikedGuide[]>([]);
@@ -171,9 +173,25 @@ export default function ProfileGuidesPage() {
   const [showTypeModal, setShowTypeModal] = useState(false);
 
   useEffect(() => {
+    // Если авторизация ещё не завершена или нет chat_id – не делаем запрос
+    if (!isVerified || !chatId) {
+      if (authLoading) {
+        setLoading(true);
+        setError(null);
+      } else if (authError) {
+        setError(authError);
+        setLoading(false);
+      } else {
+        setError("Ожидание авторизации...");
+        setLoading(false);
+      }
+      return;
+    }
+
     const fetchGuides = async () => {
       try {
-        const res = await fetch(`${baseUrl}/master/profile/guides/?chat_id=${STATIC_CHAT_ID}`);
+        setLoading(true);
+        const res = await fetch(`${baseUrl}/master/profile/guides/?chat_id=${chatId}`);
         if (!res.ok) throw new Error("Ошибка загрузки");
         const data = await res.json();
         if (data.status !== "success") throw new Error(data.status);
@@ -231,7 +249,7 @@ export default function ProfileGuidesPage() {
       }
     };
     fetchGuides();
-  }, []);
+  }, [chatId, isVerified, authLoading, authError]);
 
   const handleDelete = async (id: string, type: "text" | "video") => {
     if (!window.confirm("Удалить гайд?")) return;
@@ -253,13 +271,30 @@ export default function ProfileGuidesPage() {
     window.location.href = `/profile/guides/${id}/edit?type=${type}`;
   };
 
+  // Если авторизация не завершена – показываем загрузку
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  // Если ошибка авторизации
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
+
   if (loading) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p>Загрузка...</p></div>;
   if (error) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-red-500">{error}</p></div>;
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
-        {/* Кнопка назад */}
         <Link
           to="/profile"
           className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
@@ -268,7 +303,6 @@ export default function ProfileGuidesPage() {
           <img src={backIcon} alt="back" className="w-6 h-6 relative z-10" />
         </Link>
 
-        {/* Header */}
         <div className="pt-8 pb-2">
           <h1
             className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
@@ -284,7 +318,6 @@ export default function ProfileGuidesPage() {
           </p>
         </div>
 
-        {/* Мои гайды */}
         <section className="mt-8">
           <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black"> Мои гайды</h2>
           <div className="h-px bg-black w-52 mb-4" />
@@ -317,7 +350,6 @@ export default function ProfileGuidesPage() {
                   <GuideCard item={guide} />
                 </div>
 
-                {/* Кнопки действий */}
                 <div className="flex flex-col justify-center gap-2 flex-shrink-0">
                   <button
                     onClick={(e) => {
@@ -344,7 +376,6 @@ export default function ProfileGuidesPage() {
             ))}
           </div>
 
-          {/* Кнопка "Добавить гайд" */}
           <div className="flex justify-end mt-6">
             <button
               onClick={() => setShowTypeModal(true)}
@@ -360,7 +391,6 @@ export default function ProfileGuidesPage() {
           </div>
         </section>
 
-        {/* Гайды на одобрение (только для амбассадоров) */}
         {isAmbassador && (
           <section className="mt-10">
             <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black"> Гайды на одобрение</h2>
@@ -400,7 +430,6 @@ export default function ProfileGuidesPage() {
           </section>
         )}
 
-        {/* Отмеченные гайды */}
         <section className="mt-10">
           <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black"> Отмеченные гайды</h2>
           <div className="h-px bg-black w-52 mb-4" />
@@ -419,7 +448,6 @@ export default function ProfileGuidesPage() {
         </section>
       </div>
 
-      {/* Модальное окно выбора типа гайда */}
       {showTypeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowTypeModal(false)} />

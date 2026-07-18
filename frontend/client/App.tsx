@@ -6,8 +6,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { toast } from "sonner";
 
-
+// Импорты страниц (оставляем без изменений)
 import Index from "./pages/Index";
 import Schedule from "./pages/master/Schedule";
 import NotFound from "./pages/NotFound";
@@ -27,7 +28,7 @@ import UserIndexPage from "./pages/client/UserIndex";
 import CategoryMastersPage from "./pages/client/CategoryMastersPage";
 import MasterPriceListPage from "./pages/client/MasterPriceListPage";
 import BookAppointmentPage from "./pages/client/BookAppointmentsPage";
-import HeadbeautyIndexPage from "./pages/headbeauty/IndexHeadbeauty"
+import HeadbeautyIndexPage from "./pages/headbeauty/IndexHeadbeauty";
 import AICategoryPage from "./pages/headbeauty/HeadbeautyCategory";
 import AIHairCatsPage from "./pages/headbeauty/HairHeadbeautyCategory";
 import AIHairPage from "./pages/headbeauty/HaircutHeadbeauty";
@@ -39,36 +40,109 @@ import AIHistoryPage from "./pages/headbeauty/HeadbeautyHistory";
 
 const queryClient = new QueryClient();
 
-
+// Контекст авторизации Telegram
 interface TelegramAuthContextType {
   initDataRaw: string | null;
+  chatId: number | null;
+  isVerified: boolean;
+  isLoading: boolean;
+  error: string | null;
+  verify: () => Promise<void>;
 }
 
 const TelegramAuthContext = createContext<TelegramAuthContextType>({
   initDataRaw: null,
+  chatId: null,
+  isVerified: false,
+  isLoading: true,
+  error: null,
+  verify: async () => {},
 });
 
 export const useTelegramAuth = () => useContext(TelegramAuthContext);
 
-// ---------- Провайдер ----------
+// ---------- Провайдер с верификацией ----------
 function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const [initDataRaw, setInitDataRaw] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<number | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Получаем initData и chat_id из Telegram WebApp
   useEffect(() => {
-    if (window.Telegram?.WebApp?.initData) {
-      setInitDataRaw(window.Telegram.WebApp.initData);
+    const tg = window.Telegram?.WebApp;
+    if (tg?.initData) {
+      setInitDataRaw(tg.initData);
+      const user = tg.initDataUnsafe?.user;
+      if (user?.id) {
+        setChatId(user.id);
+      } else {
+        setError("Не удалось получить ID пользователя");
+      }
     } else {
-
+      setError("Telegram WebApp не инициализирован");
     }
   }, []);
 
+  // Функция верификации
+  const verify = async () => {
+    if (!initDataRaw) {
+      setError("Нет данных для верификации");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/security/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initData: initDataRaw }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.status === "success") {
+        setIsVerified(true);
+        toast.success("Авторизация подтверждена");
+      } else {
+        setError("Ошибка верификации");
+        setIsVerified(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError("Не удалось верифицировать пользователя");
+      toast.error("Ошибка авторизации");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Автоматическая верификация при загрузке initData
+  useEffect(() => {
+    if (initDataRaw && chatId) {
+      verify();
+    } else {
+      setIsLoading(false);
+    }
+  }, [initDataRaw, chatId]);
+
   return (
-    <TelegramAuthContext.Provider value={{ initDataRaw }}>
+    <TelegramAuthContext.Provider
+      value={{
+        initDataRaw,
+        chatId,
+        isVerified,
+        isLoading,
+        error,
+        verify,
+      }}
+    >
       {children}
     </TelegramAuthContext.Provider>
   );
 }
 
+// ---------- Приложение ----------
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -112,6 +186,5 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
-
 
 createRoot(document.getElementById("root")!).render(<App />);

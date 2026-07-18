@@ -2,13 +2,12 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import homeIconSrc from "@/assets/home.svg";
 import ambassadorBadgeSrc from "@/assets/ambassador_badge.png";
-// 👇 замените на путь к вашей картинке для пустого состояния
 import emptyMastersIcon from "@/assets/sad_cat.png";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
-// ---------- Типы ----------
 interface Master {
   id: string;
   fullName: string;
@@ -34,7 +33,6 @@ interface MastersResponse {
   partner_masters: MasterApiResponse[];
 }
 
-// ---------- Компонент карточки ----------
 function MasterCard({ master }: { master: Master }) {
   return (
     <Link
@@ -79,10 +77,9 @@ function MasterCard({ master }: { master: Master }) {
   );
 }
 
-// ---------- Главный компонент ----------
 export default function CategoryMastersPage() {
-  const { category } = useParams<{ category: string }>(); // parental_category
-  const STATIC_CHAT_ID = 980609742; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
+  const { category } = useParams<{ category: string }>();
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [regularMasters, setRegularMasters] = useState<Master[]>([]);
   const [ambassadorMasters, setAmbassadorMasters] = useState<Master[]>([]);
@@ -90,31 +87,37 @@ export default function CategoryMastersPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchMasters = async () => {
-      if (!category) {
-        setError("Категория не указана");
+    if (!category) {
+      setError("Категория не указана");
+      setLoading(false);
+      return;
+    }
+    if (!isVerified || !chatId) {
+      if (!authLoading) {
+        setError(authError || "Авторизация не пройдена");
         setLoading(false);
-        return;
       }
+      return;
+    }
+
+    const fetchMasters = async () => {
       try {
-        const url = `${baseUrl}/users/master/?chat_id=${STATIC_CHAT_ID}&parental_category=${encodeURIComponent(category)}`;
+        const url = `${baseUrl}/users/master/?chat_id=${chatId}&parental_category=${encodeURIComponent(category)}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: MastersResponse = await res.json();
         if (data.status !== "success") throw new Error(data.status);
 
-        // Постоянные мастера (partner может быть true, если у них уровень 2)
         const regular: Master[] = data.const_masters.map((m, idx) => ({
           id: m.id,
           fullName: m.name,
           rating: m.rating,
           reviewCount: m.rates,
           avatarUrl: m.avatar || "https://placehold.co/50x50",
-          isAmbassador: m.partner, // отображаем бейдж, если партнёр
+          isAmbassador: m.partner,
           bgColor: idx % 2 === 0 ? "#FFE9EF" : "#FFD0DC",
         }));
 
-        // Партнёры-амбассадоры (всегда true)
         const ambassadors: Master[] = data.partner_masters.map((m, idx) => ({
           id: m.id,
           fullName: m.name,
@@ -136,10 +139,11 @@ export default function CategoryMastersPage() {
         setLoading(false);
       }
     };
-    fetchMasters();
-  }, [category, STATIC_CHAT_ID]);
 
-  if (loading) {
+    fetchMasters();
+  }, [category, chatId, isVerified, authLoading, authError]);
+
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
         <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
@@ -147,20 +151,18 @@ export default function CategoryMastersPage() {
     );
   }
 
-  if (error) {
+  if (error || authError) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
-        <p className="text-red-500 font-['Sofia_Sans']">{error}</p>
+        <p className="text-red-500 font-['Sofia_Sans']">{error || authError}</p>
       </div>
     );
   }
 
-  // ---- ПУСТОЕ СОСТОЯНИЕ ----
   if (regularMasters.length === 0 && ambassadorMasters.length === 0) {
     return (
       <div className="min-h-screen bg-[#FFE9EF]">
         <div className="max-w-sm mx-auto px-4 pb-10 relative">
-          {/* Кнопка Home */}
           <Link
             to="/user"
             className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
@@ -170,12 +172,7 @@ export default function CategoryMastersPage() {
           </Link>
 
           <div className="pt-8 pb-2">
-            <h1
-              className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
-              style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}
-            >
-              masters
-            </h1>
+            <h1 className="text-[40px] leading-tight tracking-[3.2px] text-transparent" style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}>masters</h1>
           </div>
 
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -189,7 +186,6 @@ export default function CategoryMastersPage() {
     );
   }
 
-  // ---- ОСНОВНОЙ РЕНДЕР С МАСТЕРАМИ ----
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
@@ -202,19 +198,13 @@ export default function CategoryMastersPage() {
         </Link>
 
         <div className="pt-8 pb-2">
-          <h1
-            className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
-            style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}
-          >
-            masters
-          </h1>
+          <h1 className="text-[40px] leading-tight tracking-[3.2px] text-transparent" style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}>masters</h1>
         </div>
 
         {regularMasters.length > 0 && (
           <section className="mt-8">
             <h2 className="text-[32px] tracking-[-1.6px] font-['Sofia_Sans'] text-black"> Ваши мастера</h2>
             <div className="h-px bg-black w-[210px] mb-4" />
-
             <div className="grid grid-cols-2 gap-4">
               {regularMasters.map((master) => (
                 <MasterCard key={master.id} master={master} />
@@ -227,7 +217,6 @@ export default function CategoryMastersPage() {
           <section className="mt-10">
             <h2 className="text-[32px] tracking-[-1.6px] font-['Sofia_Sans'] text-black"> Партнеры</h2>
             <div className="h-px bg-black w-[210px] mb-4" />
-
             <div className="grid grid-cols-2 gap-4">
               {ambassadorMasters.map((master) => (
                 <MasterCard key={master.id} master={master} />

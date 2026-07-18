@@ -4,6 +4,7 @@ import homeIconSrc from "@/assets/home.svg";
 import { addDays, format, startOfDay, startOfWeek } from "date-fns";
 import AppointmentItem from "@/components/AppointmentItem";
 import RestBreak from "@/components/RestBreak";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -140,7 +141,7 @@ function WeekGrid({
 
 // ---------- Основной компонент ----------
 export default function SchedulePage() {
-  const STATIC_CHAT_ID = 980609742; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   // ---------- Дни ----------
   const [selectedDayKey, setSelectedDayKey] = useState<string>("");
@@ -180,12 +181,20 @@ export default function SchedulePage() {
 
   // Загрузка записей для выбранного дня
   useEffect(() => {
+    if (!isVerified || !chatId) {
+      if (authLoading) {
+        setDayLoading(true);
+      } else {
+        setDayError(authError || "Ожидание авторизации...");
+      }
+      return;
+    }
     if (!selectedDayKey) return;
     const fetchDay = async () => {
       setDayLoading(true);
       setDayError(null);
       try {
-        const url = `${baseUrl}/master/schedule/date?chat_id=${STATIC_CHAT_ID}&day=${selectedDayKey}`;
+        const url = `${baseUrl}/master/schedule/date?chat_id=${chatId}&day=${selectedDayKey}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -201,7 +210,7 @@ export default function SchedulePage() {
       }
     };
     fetchDay();
-  }, [selectedDayKey, STATIC_CHAT_ID]);
+  }, [selectedDayKey, chatId, isVerified, authLoading, authError]);
 
   // ---------- Генерация недель ----------
   const weeks = useMemo(() => {
@@ -229,12 +238,13 @@ export default function SchedulePage() {
   // Функция загрузки данных для недели по индексу (с кэшированием)
   const loadWeek = useCallback(
     async (weekIdx: number) => {
+      if (!isVerified || !chatId) return;
       if (weeksCache[weekIdx] || weekIdx < 0 || weekIdx >= weeks.length) return;
       const weekDays = weeks[weekIdx];
       if (!weekDays) return;
 
       const monday = weekDays[0].key;
-      const url = `${baseUrl}/master/schedule/week?chat_id=${STATIC_CHAT_ID}&day=${monday}`;
+      const url = `${baseUrl}/master/schedule/week?chat_id=${chatId}&day=${monday}`;
 
       try {
         setWeekLoading(true);
@@ -257,7 +267,7 @@ export default function SchedulePage() {
         setWeekLoading(false);
       }
     },
-    [weeks, weeksCache, STATIC_CHAT_ID]
+    [weeks, weeksCache, chatId, isVerified]
   );
 
   // IntersectionObserver для определения видимой недели
@@ -348,6 +358,23 @@ export default function SchedulePage() {
     if (el) dayRefs.current.set(key, el);
     else dayRefs.current.delete(key);
   }, []);
+
+  // Показ загрузки/ошибки авторизации
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
 
   // ---------- Рендер ----------
   return (

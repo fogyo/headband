@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import backIcon from "@/assets/back_icon.svg";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
-// Тот же Toggle, что на странице расписания (стили не меняем)
 const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
   <button
     onClick={onChange}
@@ -20,7 +20,7 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void 
 );
 
 interface NotificationSetting {
-  id: string;          // используем ключ поля как id
+  id: string;
   label: string;
   enabled: boolean;
   field: keyof Omit<MasterNotification, "id" | "master_id">;
@@ -37,13 +37,12 @@ interface MasterNotification {
 }
 
 export default function ProfileNotificationsPage() {
-  const STATIC_CHAT_ID = 980609742; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Маппинг полей бэка на человекочитаемые подписи
   const labelMap: Record<keyof Omit<MasterNotification, "id" | "master_id">, string> = {
     appointment_notification: "Присылать уведомление о записи",
     appointment_cancel_notification: "Присылать уведомление о отмене записи",
@@ -52,14 +51,13 @@ export default function ProfileNotificationsPage() {
     subscription_ending_notification: "Присылать уведомление о заканчивающейся подписке",
   };
 
-  // Загрузка настроек с бэка
   const fetchNotifications = async () => {
-    const res = await fetch(`${baseUrl}/master/profile/notifications/?chat_id=${STATIC_CHAT_ID}`);
+    if (!chatId) return;
+    const res = await fetch(`${baseUrl}/master/profile/notifications/?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки настроек");
     const data = await res.json();
     if (data.status !== "success") throw new Error(data.status);
     const notif: MasterNotification = data.notification;
-    // Преобразуем в массив для удобного рендера
     const settingsArray: NotificationSetting[] = (
       Object.keys(labelMap) as Array<keyof typeof labelMap>
     ).map((field) => ({
@@ -71,10 +69,10 @@ export default function ProfileNotificationsPage() {
     setSettings(settingsArray);
   };
 
-  // Отправка обновления одного поля (PATCH)
   const updateNotification = async (field: keyof MasterNotification, value: boolean) => {
+    if (!chatId) return;
     const payload = { [field]: value };
-    const res = await fetch(`${baseUrl}/master/profile/notifications/update?chat_id=${STATIC_CHAT_ID}`, {
+    const res = await fetch(`${baseUrl}/master/profile/notifications/update?chat_id=${chatId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -87,12 +85,10 @@ export default function ProfileNotificationsPage() {
     if (data.status !== "success") throw new Error(data.status);
   };
 
-  // Переключение тогла – сразу отправляем запрос и обновляем локальное состояние
   const toggleSetting = async (id: string) => {
     const setting = settings.find(s => s.id === id);
     if (!setting) return;
     const newValue = !setting.enabled;
-    // Оптимистичное обновление UI
     setSettings(prev =>
       prev.map(s => (s.id === id ? { ...s, enabled: newValue } : s))
     );
@@ -102,7 +98,6 @@ export default function ProfileNotificationsPage() {
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка сохранения");
-      // Откат при ошибке
       setSettings(prev =>
         prev.map(s => (s.id === id ? { ...s, enabled: setting.enabled } : s))
       );
@@ -110,23 +105,36 @@ export default function ProfileNotificationsPage() {
   };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        await fetchNotifications();
-        setError(null);
-      } catch (err: any) {
-        console.error(err);
-        setError("Не удалось загрузить настройки");
-        toast.error(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+    if (authError) {
+      setError(authError);
+      setLoading(false);
+      return;
+    }
+    if (isVerified && chatId) {
+      const load = async () => {
+        try {
+          setLoading(true);
+          await fetchNotifications();
+          setError(null);
+        } catch (err: any) {
+          console.error(err);
+          setError("Не удалось загрузить настройки");
+          toast.error(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      load();
+    } else {
+      setLoading(false);
+    }
+  }, [isVerified, chatId, authLoading, authError]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
         <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
@@ -134,10 +142,18 @@ export default function ProfileNotificationsPage() {
     );
   }
 
-  if (error) {
+  if (authError || error) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
-        <p className="text-red-500 font-['Sofia_Sans']">{error}</p>
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || error}</p>
+      </div>
+    );
+  }
+
+  if (!isVerified || !chatId) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">Ошибка авторизации</p>
       </div>
     );
   }
@@ -145,7 +161,6 @@ export default function ProfileNotificationsPage() {
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
-        {/* Кнопка назад */}
         <Link
           to="/profile"
           className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
@@ -154,7 +169,6 @@ export default function ProfileNotificationsPage() {
           <img src={backIcon} alt="back" className="w-6 h-6 relative z-10" />
         </Link>
 
-        {/* Header */}
         <div className="pt-8 pb-2">
           <h1
             className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
@@ -170,7 +184,6 @@ export default function ProfileNotificationsPage() {
           </p>
         </div>
 
-        {/* Уведомления */}
         <section className="mt-8">
           <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black"> Уведомления</h2>
           <div className="h-px bg-black w-56 mb-4" />

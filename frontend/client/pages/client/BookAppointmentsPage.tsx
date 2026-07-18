@@ -5,6 +5,7 @@ import { addDays, format, startOfDay } from "date-fns";
 import backIconSrc from "@/assets/back_icon.svg";
 import loadingSpinner from "@/assets/loading.svg";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 import appointmentHairdressingImg from "@/assets/appointment_card_hairdressing.png";
 import appointmentCosmetologyImg from "@/assets/appointment_card_cosmetology.png";
@@ -17,7 +18,6 @@ import appointmentMassageSpaImg from "@/assets/appointment_card_massage.png";
 import appointmentConsultationsImg from "@/assets/appointment_card_consultation.png";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-const STATIC_CHAT_ID = 980609742;
 
 const categoryImages: Record<string, string> = {
   "hairdressing": appointmentHairdressingImg,
@@ -32,7 +32,6 @@ const categoryImages: Record<string, string> = {
   "other": appointmentHairdressingImg,
 };
 
-// ---------- Генерация дней ----------
 const today = startOfDay(new Date());
 const startDate = addDays(today, 1);
 const days: { date: Date; label: string; key: string }[] = Array.from({ length: 365 }, (_, i) => {
@@ -50,6 +49,8 @@ export default function BookAppointmentPage() {
     servicePrice?: number;
     serviceDuration?: number;
   }) || {};
+
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [selectedDayKey, setSelectedDayKey] = useState<string>(todayKey);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -86,8 +87,12 @@ export default function BookAppointmentPage() {
   };
 
   useEffect(() => {
-    fetchTimeSlots(selectedDayKey);
-  }, [selectedDayKey, serviceId]);
+    if (isVerified && chatId) {
+      fetchTimeSlots(selectedDayKey);
+    } else if (!authLoading) {
+      setError(authError || "Авторизация не пройдена");
+    }
+  }, [selectedDayKey, serviceId, isVerified, chatId, authLoading, authError]);
 
   // ---------- Карусель дней ----------
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -121,7 +126,7 @@ export default function BookAppointmentPage() {
 
   // ---------- Запись ----------
   const handleBook = async () => {
-    if (!selectedTime || !serviceId) return;
+    if (!selectedTime || !serviceId || !chatId) return;
     setLoadingBook(true);
     try {
       const [hours, minutes] = selectedTime.split(":").map(Number);
@@ -129,7 +134,7 @@ export default function BookAppointmentPage() {
       startTime.setHours(hours, minutes, 0, 0);
       const isoTime = startTime.toTimeString().slice(0, 8);
 
-      const res = await fetch(`${baseUrl}/users/booking/create_appointment?chat_id=${STATIC_CHAT_ID}`, {
+      const res = await fetch(`${baseUrl}/users/booking/create_appointment?chat_id=${chatId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,8 +177,23 @@ export default function BookAppointmentPage() {
       })()
     : null;
 
-  // Выбор картинки по категории
   const image = categoryImages[parentalCategory] || appointmentHairdressingImg;
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Авторизация не пройдена"}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">

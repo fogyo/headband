@@ -6,6 +6,7 @@ import pencilIcon from "@/assets/Pencil.svg";
 import backIcon from "@/assets/back_icon.svg";
 import loadingSpinner from "@/assets/loading.svg";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -85,7 +86,7 @@ async function uploadFileToS3(file: File): Promise<string> {
 }
 
 export default function ProfilePriceListPage() {
-  const STATIC_CHAT_ID = 980609742;
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesOptions, setCategoriesOptions] = useState<CategoryFromApi[]>([]);
@@ -119,21 +120,18 @@ export default function ProfilePriceListPage() {
       const data = await res.json();
 
       if (data.status === "pending") {
-        // продолжаем ожидать
         return;
       }
 
-      // Задача завершена
       stopPolling();
 
       if (data.status === "success") {
         toast.success("Прайс успешно загружен и обработан");
-        await loadData(); // перезагружаем данные
+        await loadData();
         setIsUploadModalOpen(false);
         setUploadFile(null);
         setTaskId(null);
       } else {
-        // failed
         toast.error(data.error || "Ошибка обработки файла");
         setTaskId(null);
       }
@@ -151,10 +149,9 @@ export default function ProfilePriceListPage() {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     pollingIntervalRef.current = setInterval(() => {
       pollTaskStatus(taskId);
-    }, 2000); // опрашиваем каждые 2 секунды
+    }, 2000);
   };
 
-  // Очистка интервала при размонтировании
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
@@ -172,7 +169,7 @@ export default function ProfilePriceListPage() {
   };
 
   const fetchPrices = async (): Promise<ServiceFromApi[]> => {
-    const res = await fetch(`${baseUrl}/master/profile/prices/prices?chat_id=${STATIC_CHAT_ID}`);
+    const res = await fetch(`${baseUrl}/master/profile/prices/prices?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки услуг");
     const data = await res.json();
     if (data.status !== "success") throw new Error(data.status);
@@ -180,6 +177,11 @@ export default function ProfilePriceListPage() {
   };
 
   const loadData = async () => {
+    if (!isVerified || !chatId) {
+      setLoading(false);
+      setError(authError || "Ожидание авторизации...");
+      return;
+    }
     try {
       setLoading(true);
       const cats = await fetchCategories();
@@ -200,7 +202,7 @@ export default function ProfilePriceListPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [chatId, isVerified, authLoading, authError]);
 
   useEffect(() => {
     if (categoriesOptions.length > 0 && !newService.categoryId) {
@@ -209,7 +211,7 @@ export default function ProfilePriceListPage() {
   }, [categoriesOptions]);
 
   const createService = async (data: { category_id: string; name: string; approximate_time: number; price: number }) => {
-    const res = await fetch(`${baseUrl}/master/profile/prices/create_price?chat_id=${STATIC_CHAT_ID}`, {
+    const res = await fetch(`${baseUrl}/master/profile/prices/create_price?chat_id=${chatId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -231,7 +233,7 @@ export default function ProfilePriceListPage() {
   };
 
   const updateService = async (id: string, data: Partial<{ name: string; price: number; category_id: string; approximate_time: number }>) => {
-    const res = await fetch(`${baseUrl}/master/profile/prices/?chat_id=${STATIC_CHAT_ID}`, {
+    const res = await fetch(`${baseUrl}/master/profile/prices/?chat_id=${chatId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...data }),
@@ -328,7 +330,7 @@ export default function ProfilePriceListPage() {
     }
     try {
       const fileKey = await uploadFileToS3(uploadFile);
-      const res = await fetch(`${baseUrl}/master/profile/prices/upload_price_file/?chat_id=${STATIC_CHAT_ID}`, {
+      const res = await fetch(`${baseUrl}/master/profile/prices/upload_price_file/?chat_id=${chatId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filepath: fileKey }),
@@ -341,7 +343,6 @@ export default function ProfilePriceListPage() {
       if (data.status !== "processing") {
         throw new Error("Неожиданный статус ответа");
       }
-      // Запускаем опрос
       startPolling(data.task);
     } catch (err: any) {
       console.error(err);
@@ -352,6 +353,12 @@ export default function ProfilePriceListPage() {
 
   const handleUploadServices = () => setIsUploadModalOpen(true);
 
+  if (authLoading) {
+    return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-black font-['Sofia_Sans']">Загрузка...</p></div>;
+  }
+  if (authError || !isVerified) {
+    return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p></div>;
+  }
   if (loading) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-black font-['Sofia_Sans']">Загрузка...</p></div>;
   if (error) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-red-500 font-['Sofia_Sans']">{error}</p></div>;
 

@@ -6,6 +6,7 @@ import starIcon from "@/assets/star.svg";
 import starFilledIcon from "@/assets/filled_star.svg";
 import videoTypeIcon from "@/assets/video_icon.svg";
 import textTypeIcon from "@/assets/text_icon.svg";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -32,7 +33,6 @@ function GuideCard({ item }: { item: GuideItem }) {
       style={{ border: "0.5px solid rgba(0,0,0,0.00)", backgroundColor: item.bgColor, boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
     >
       <div className="flex h-full">
-        {/* Левая часть: текст + вертикальная статистика */}
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
           <div className="min-w-0">
             <h4
@@ -69,7 +69,6 @@ function GuideCard({ item }: { item: GuideItem }) {
           </div>
         </div>
 
-        {/* Правая часть: иконка типа (строго 73×92) */}
         <div className="w-[73px] h-[92px] flex-shrink-0 self-center mr-0.5">
           <img
             src={typeIcon}
@@ -83,7 +82,7 @@ function GuideCard({ item }: { item: GuideItem }) {
 }
 
 export default function GuidesPage() {
-  const STATIC_CHAT_ID = 980609742; // заменить на реальный chat_id
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [fitGuides, setFitGuides] = useState<GuideItem[]>([]);
   const [allGuides, setAllGuides] = useState<GuideItem[]>([]);
@@ -91,15 +90,29 @@ export default function GuidesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isVerified || !chatId) {
+      if (authLoading) {
+        setLoading(true);
+        setError(null);
+      } else if (authError) {
+        setError(authError);
+        setLoading(false);
+      } else {
+        setError("Ожидание авторизации...");
+        setLoading(false);
+      }
+      return;
+    }
+
     const fetchGuides = async () => {
       try {
-        const url = `${baseUrl}/master/guides/?chat_id=${STATIC_CHAT_ID}`;
+        setLoading(true);
+        const url = `${baseUrl}/master/guides/?chat_id=${chatId}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.status !== "success") throw new Error(data.status);
 
-        // Преобразуем данные бэка в формат GuideItem
         const mapGuide = (g: any, index: number): GuideItem => ({
           id: g.id,
           title: g.name,
@@ -108,7 +121,6 @@ export default function GuidesPage() {
           likes: g.likes,
           isStarred: g.liked,
           type: g.video ? "video" : "text",
-          // Цвет фона: чередование, как в моках (не меняем стиль карточки)
           bgColor: (index+1) % 4 <= 1  ? "#FFE9EF" : "#FFD0DC",
         });
 
@@ -122,13 +134,35 @@ export default function GuidesPage() {
       }
     };
     fetchGuides();
-  }, [STATIC_CHAT_ID]);
+  }, [chatId, isVerified, authLoading, authError]);
 
-  // Оригинальная вёрстка, только данные динамические
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
-        {/* Кнопка Home с локальной SVG иконкой */}
         <Link
           to="/"
           className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
@@ -137,7 +171,6 @@ export default function GuidesPage() {
           <img src={homeIconUrl} alt="home" className="w-6 h-6 relative z-10" />
         </Link>
 
-        {/* Header */}
         <div className="pt-8 pb-2">
           <h1
             className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
@@ -159,7 +192,6 @@ export default function GuidesPage() {
           </p>
         </div>
 
-        {/* Секция "Могут Вам подойти" */}
         <section className="mt-8">
           <h2
             className="text-[30px] leading-tight tracking-[-2px] text-black"
@@ -169,11 +201,7 @@ export default function GuidesPage() {
           </h2>
           <div className="h-px bg-black w-[210px] mb-3" />
 
-          {loading ? (
-            <p className="text-black/50 text-sm italic font-['Sofia_Sans']">Загрузка...</p>
-          ) : error ? (
-            <p className="text-red-500 text-sm italic font-['Sofia_Sans']">{error}</p>
-          ) : fitGuides.length === 0 ? (
+          {fitGuides.length === 0 ? (
             <p className="text-black/50 text-sm italic font-['Sofia_Sans']">
               Пока здесь пусто
             </p>
@@ -186,7 +214,6 @@ export default function GuidesPage() {
           )}
         </section>
 
-        {/* Секция "Все гайды" */}
         <section className="mt-10">
           <h2
             className="text-[30px] leading-tight tracking-[-2px] text-black"
@@ -196,11 +223,7 @@ export default function GuidesPage() {
           </h2>
           <div className="h-px bg-black w-[210px] mb-3" />
 
-          {loading ? (
-            <p className="text-black/50 text-sm italic font-['Sofia_Sans']">Загрузка...</p>
-          ) : error ? (
-            <p className="text-red-500 text-sm italic font-['Sofia_Sans']">{error}</p>
-          ) : allGuides.length === 0 ? (
+          {allGuides.length === 0 ? (
             <p className="text-black/50 text-sm italic font-['Sofia_Sans']">
               Пока здесь пусто
             </p>

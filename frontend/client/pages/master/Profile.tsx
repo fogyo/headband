@@ -11,6 +11,7 @@ import portfolioIcon from "@/assets/portfolio.svg";
 import notificationsIcon from "@/assets/notifications.svg";
 import supportIcon from "@/assets/support.svg";
 import feedbackIcon from "@/assets/feedback.svg";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -20,7 +21,7 @@ interface ProfileResponse {
   tg: string;
   phone: string | null;
   ambassador: boolean;
-  avatar: string; // новое поле
+  avatar: string;
 }
 
 function MenuRow({
@@ -62,16 +63,30 @@ function MenuRow({
 }
 
 export default function ProfilePage() {
-  const STATIC_CHAT_ID = 980609742; // TODO: заменить на window.Telegram.WebApp.initDataUnsafe.user.id
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isVerified || !chatId) {
+      if (authLoading) {
+        setLoading(true);
+        setError(null);
+      } else if (authError) {
+        setError(authError);
+        setLoading(false);
+      } else {
+        setError("Ожидание авторизации...");
+        setLoading(false);
+      }
+      return;
+    }
+
     const fetchProfile = async () => {
       try {
-        const url = `${baseUrl}/master/profile/?chat_id=${STATIC_CHAT_ID}`;
+        const url = `${baseUrl}/master/profile/?chat_id=${chatId}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: ProfileResponse = await res.json();
@@ -85,12 +100,20 @@ export default function ProfilePage() {
       }
     };
     fetchProfile();
-  }, [STATIC_CHAT_ID]);
+  }, [chatId, isVerified, authLoading, authError]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
         <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
       </div>
     );
   }
@@ -103,17 +126,14 @@ export default function ProfilePage() {
     );
   }
 
-  // Подготовка данных с учётом null
   const fullName = profile.name || "Имя не указано";
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
   const phone = profile.phone ? `+${profile.phone}` : "+7 (___) ___-__-__";
-  // Если аватар пришёл, используем его, иначе заглушка
   const avatarUrl = profile.avatar || "https://placehold.co/100x100";
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
-        {/* Кнопка Home – оригинальные стили */}
         <Link
           to="/"
           className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
@@ -122,7 +142,6 @@ export default function ProfilePage() {
           <img src={homeIconUrl} alt="home" className="w-6 h-6 relative z-10" />
         </Link>
 
-        {/* Header – без изменений */}
         <div className="pt-8 pb-2">
           <h1
             className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
@@ -144,7 +163,6 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        {/* Секция "Аккаунт" – стили нетронуты */}
         <section className="mt-8">
           <h2
             className="text-[30px] leading-tight tracking-[-1.5px] text-black font-['Sofia_Sans']"
@@ -154,7 +172,6 @@ export default function ProfilePage() {
           </h2>
           <div className="h-px bg-black w-36 mb-4" />
 
-          {/* Аватар и данные – динамические значения */}
           <div className="flex items-center gap-4 mb-6">
             <img
               src={avatarUrl}
@@ -174,7 +191,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Меню "Аккаунт" – без изменений */}
           <div className="flex flex-col gap-2">
             <MenuRow
               icon={accountCircleIcon}
@@ -214,7 +230,6 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {/* Секция "Приложение" – без изменений */}
         <section className="mt-10">
           <h2
             className="text-[30px] leading-tight tracking-[-1.5px] text-black font-['Sofia_Sans']"

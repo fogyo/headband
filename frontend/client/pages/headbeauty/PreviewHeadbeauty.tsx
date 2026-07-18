@@ -5,6 +5,7 @@ import backIconSrc from "@/assets/back_icon.svg";
 import { toast } from "sonner";
 import tokenIcon from "@/assets/silver_coin.png";
 import superTokenIcon from "@/assets/gold_coin.png";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -32,6 +33,7 @@ export default function AIPreviewPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [historyPreviews, setHistoryPreviews] = useState<any[]>([]);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { chatId, isVerified } = useTelegramAuth();
 
   const getStoredTaskId = (): string | null => {
     try {

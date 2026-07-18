@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
 import backIcon from "@/assets/back_icon.svg";
 import cardIcon from "@/assets/bank_card_icon.svg";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -174,7 +175,7 @@ const ConfirmationRow = ({ appointment, onConfirm, onDecline }: { appointment: A
 );
 
 export default function ProfileIncomePage() {
-  const STATIC_CHAT_ID = 980609742;
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,15 +190,14 @@ export default function ProfileIncomePage() {
   const [prepayPeriods, setPrepayPeriods] = useState<PrepayPeriod[]>([]);
   const [newPrepay, setNewPrepay] = useState({ start: "", end: "", percent: "" });
 
-  // Карта – заглушка
   const [hasCard, setHasCard] = useState(false);
   const [cardLast4, setCardLast4] = useState("");
   const [cardInput, setCardInput] = useState("");
   const [isEditingCard, setIsEditingCard] = useState(false);
 
-  // ---------- Загрузка доходов по диапазону ----------
   const fetchEarningsForRange = async (startDate: string, endDate: string): Promise<{ amount: number; number: number }> => {
-    const url = `${baseUrl}/master/profile/earnings/range?chat_id=${STATIC_CHAT_ID}&start_date=${startDate}&end_date=${endDate}`;
+    if (!chatId) throw new Error("Нет chat_id");
+    const url = `${baseUrl}/master/profile/earnings/range?chat_id=${chatId}&start_date=${startDate}&end_date=${endDate}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("Ошибка загрузки доходов за период");
     const data = await res.json();
@@ -218,7 +218,8 @@ export default function ProfileIncomePage() {
   };
 
   const loadPendingAppointments = async () => {
-    const res = await fetch(`${baseUrl}/master/profile/earnings/confirmation?chat_id=${STATIC_CHAT_ID}`);
+    if (!chatId) return;
+    const res = await fetch(`${baseUrl}/master/profile/earnings/confirmation?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки подтверждений");
     const data = await res.json();
     if (data.status !== "success") throw new Error(data.status);
@@ -226,7 +227,8 @@ export default function ProfileIncomePage() {
   };
 
   const loadPrepayments = async () => {
-    const res = await fetch(`${baseUrl}/master/profile/earnings/prepayments?chat_id=${STATIC_CHAT_ID}`);
+    if (!chatId) return;
+    const res = await fetch(`${baseUrl}/master/profile/earnings/prepayments?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки предоплат");
     const data = await res.json();
     if (data.status !== "success") throw new Error(data.status);
@@ -234,6 +236,7 @@ export default function ProfileIncomePage() {
   };
 
   const loadAll = async () => {
+    if (!isVerified || !chatId) return;
     try {
       setLoading(true);
       await Promise.all([loadMonthData(), loadPendingAppointments(), loadPrepayments()]);
@@ -247,15 +250,36 @@ export default function ProfileIncomePage() {
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+    if (authError) {
+      setError(authError);
+      setLoading(false);
+      return;
+    }
+    if (isVerified && chatId) {
+      loadAll();
+    } else {
+      setLoading(false);
+    }
+  }, [isVerified, chatId, authLoading, authError]);
+
+  useEffect(() => {
+    if (!loading && isVerified && chatId) {
+      loadMonthData();
+    }
+  }, [monthIndex]);
 
   const prevMonth = () => setMonthIndex((prev) => (prev === 0 ? 11 : prev - 1));
   const nextMonth = () => setMonthIndex((prev) => (prev === 11 ? 0 : prev + 1));
-  useEffect(() => { if (!loading) loadMonthData(); }, [monthIndex]);
 
   const handleConfirm = async (id: string) => {
+    if (!chatId) return;
     try {
-      const res = await fetch(`${baseUrl}/master/profile/earnings/confirm?chat_id=${STATIC_CHAT_ID}&appointment_id=${id}`, { method: "POST" });
+      const res = await fetch(`${baseUrl}/master/profile/earnings/confirm?chat_id=${chatId}&appointment_id=${id}`, { method: "POST" });
       if (!res.ok) throw new Error("Ошибка подтверждения");
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status);
@@ -268,6 +292,7 @@ export default function ProfileIncomePage() {
   };
 
   const handleDecline = async (id: string) => {
+    if (!chatId) return;
     try {
       const res = await fetch(`${baseUrl}/master/profile/earnings/cancel?appo_id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Ошибка отклонения");
@@ -282,6 +307,7 @@ export default function ProfileIncomePage() {
   };
 
   const addPrepayPeriod = async () => {
+    if (!chatId) return;
     if (!newPrepay.start || !newPrepay.end || !newPrepay.percent) {
       toast.warning("Заполните все поля");
       return;
@@ -292,7 +318,7 @@ export default function ProfileIncomePage() {
       return;
     }
     try {
-      const res = await fetch(`${baseUrl}/master/profile/earnings/prepayments/create?chat_id=${STATIC_CHAT_ID}`, {
+      const res = await fetch(`${baseUrl}/master/profile/earnings/prepayments/create?chat_id=${chatId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -312,8 +338,29 @@ export default function ProfileIncomePage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p>Загрузка...</p></div>;
-  if (error) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-red-500">{error}</p></div>;
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (authError || error) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || error}</p>
+      </div>
+    );
+  }
+
+  if (!isVerified || !chatId) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">Ошибка авторизации</p>
+      </div>
+    );
+  }
 
   const formattedMonthAmount = `${monthAmount} ₽`;
   const formattedMonthCount = `${monthNumber} встреч`;

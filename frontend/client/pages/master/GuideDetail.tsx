@@ -19,6 +19,7 @@ import arrowForwardIcon from "@/assets/arrow_forward.svg";
 import educationIcon from "@/assets/education.svg";
 import { Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -80,7 +81,7 @@ export default function GuideDetailPage() {
   const categoryName = (location.state as { categoryName?: string })?.categoryName || "";
   const [videoTitle, setVideoTitle] = useState("");
 
-  const STATIC_CHAT_ID = 980609742;
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [steps, setSteps] = useState<UnifiedStep[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -98,6 +99,22 @@ export default function GuideDetailPage() {
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   const [categoriesMap, setCategoriesMap] = useState<Map<string, string>>(new Map());
+
+  // Проверка авторизации
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+  if (!isVerified || !chatId) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -119,7 +136,7 @@ export default function GuideDetailPage() {
   const fetchLikeStatus = async () => {
     if (!id) return;
     try {
-      const res = await fetch(`${baseUrl}/master/guides/like_status?guide_id=${id}&chat_id=${STATIC_CHAT_ID}`);
+      const res = await fetch(`${baseUrl}/master/guides/like_status?guide_id=${id}&chat_id=${chatId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.status === "success") {
@@ -135,7 +152,7 @@ export default function GuideDetailPage() {
     if (!id) return;
     const fetchGuide = async () => {
       try {
-        await fetch(`${baseUrl}/master/guides/view?chat_id=${STATIC_CHAT_ID}&guide_id=${id}`, { method: "POST" });
+        await fetch(`${baseUrl}/master/guides/view?chat_id=${chatId}&guide_id=${id}`, { method: "POST" });
 
         const textRes = await fetch(`${baseUrl}/master/guides/step_text?guide_id=${id}`);
         if (textRes.ok) {
@@ -186,11 +203,11 @@ export default function GuideDetailPage() {
       }
     };
     fetchGuide();
-  }, [id]);
+  }, [id, chatId]);
 
   const handleRateToggle = async () => {
     try {
-      await fetch(`${baseUrl}/master/guides/like?chat_id=${STATIC_CHAT_ID}&guide_id=${id}`, { method: "PATCH" });
+      await fetch(`${baseUrl}/master/guides/like?chat_id=${chatId}&guide_id=${id}`, { method: "PATCH" });
       setIsRated(!isRated);
       toast.success(isRated ? "Оценка убрана" : "Гайд оценён");
     } catch (e) {
@@ -266,7 +283,6 @@ export default function GuideDetailPage() {
     setGalleryIndex((prev) => (prev < steps[currentStep].imgUrls!.length - 1 ? prev + 1 : 0));
   };
 
-  // Закрытие галереи по клавише Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeGallery();
@@ -612,7 +628,6 @@ export default function GuideDetailPage() {
               <X className="w-8 h-8" />
             </button>
 
-            {/* Кнопка назад */}
             <button
               onClick={goToPrev}
               className="absolute left-2 text-white/80 hover:text-white z-10 p-2"
@@ -626,7 +641,6 @@ export default function GuideDetailPage() {
               className="max-h-full max-w-full object-contain"
             />
 
-            {/* Кнопка вперёд */}
             <button
               onClick={goToNext}
               className="absolute right-2 text-white/80 hover:text-white z-10 p-2"
@@ -634,7 +648,6 @@ export default function GuideDetailPage() {
               <ChevronRight className="w-8 h-8" />
             </button>
 
-            {/* Индикатор текущей картинки */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm font-['Sofia_Sans']">
               {galleryIndex + 1} / {steps[currentStep].imgUrls!.length}
             </div>

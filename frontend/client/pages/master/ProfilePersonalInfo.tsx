@@ -6,6 +6,7 @@ import telegramIcon from "@/assets/telegram_icon.png";
 import phoneIcon from "@/assets/phoneIcon.png";
 import { Copy } from "lucide-react";
 import InputMask from "react-input-mask";
+import { useTelegramAuth } from "@/App";
 
 // Мастер-бар
 import masterBar0 from "@/assets/master_bar_0.svg";
@@ -32,7 +33,7 @@ interface ProfilePersonalResponse {
   tg: string;
   phone: string;
   description: string;
-  avatar: string | null; // новое поле
+  avatar: string | null;
   tg_users: string;
   tg_master: string;
   ref_clients: number;
@@ -64,7 +65,6 @@ const clientBarImages = [
   clientBar4, clientBar5, clientBar6, clientBar7, clientBar8,
 ];
 
-// Форматирование сырых цифр в отображаемый номер (+7 (___) ___-__-__)
 const formatPhoneForDisplay = (rawDigits: string): string => {
   const digits = rawDigits.replace(/\D/g, "");
   if (!digits) {
@@ -80,10 +80,8 @@ const formatPhoneForDisplay = (rawDigits: string): string => {
   return result;
 };
 
-// Извлекает только цифры из маскированного значения (для хранения в состоянии)
 const extractDigits = (masked: string): string => masked.replace(/\D/g, "");
 
-// Функция загрузки файла в S3 (аналогично другим модулям)
 async function uploadFile(file: File): Promise<string> {
   const res = await fetch(`${baseUrl}/media/upload-url`, {
     method: "POST",
@@ -94,7 +92,6 @@ async function uploadFile(file: File): Promise<string> {
   const data = await res.json();
   if (data.status !== "success") throw new Error(data.status);
   const { upload_url, file_key } = data;
-
   const uploadRes = await fetch(upload_url, {
     method: "PUT",
     body: file,
@@ -104,14 +101,14 @@ async function uploadFile(file: File): Promise<string> {
 }
 
 export default function ProfilePersonalInfoPage() {
-  const STATIC_CHAT_ID = 980609742;
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [tgUsername, setTgUsername] = useState("");
   const [bio, setBio] = useState("");
   const [avatarKey, setAvatarKey] = useState<string | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>(""); // для отображения
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [masterReferralLink, setMasterReferralLink] = useState("");
   const [clientReferralLink, setClientReferralLink] = useState("");
   const [mastersCount, setMastersCount] = useState(0);
@@ -121,44 +118,57 @@ export default function ProfilePersonalInfoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<"name" | "phone" | "bio" | null>(null);
-
-  // Состояние для загрузки аватарки
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const url = `${baseUrl}/master/profile/personal/?chat_id=${STATIC_CHAT_ID}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: ProfilePersonalResponse = await res.json();
-        if (data.status !== "success") throw new Error(data.status);
+  const fetchData = async () => {
+    if (!isVerified || !chatId) return;
+    try {
+      const url = `${baseUrl}/master/profile/personal/?chat_id=${chatId}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: ProfilePersonalResponse = await res.json();
+      if (data.status !== "success") throw new Error(data.status);
 
-        setFullName(data.full_name || "");
-        setPhone(data.phone ? data.phone.replace(/\D/g, "") : "");
-        setTgUsername(data.tg || "");
-        setBio(data.description || "");
-        setAvatarKey(data.avatar || null);
-        // Для превью используем либо аватар с бэка (если есть), либо заглушку
-        setAvatarPreview(data.avatar || "https://placehold.co/153x153");
-        setMasterReferralLink(data.tg_master);
-        setClientReferralLink(data.tg_users);
-        setMastersCount(data.ref_masters_active);
-        setClientsCount(data.ref_clients);
-        setPriorityClients(data.ref_clients);
-      } catch (err: any) {
-        console.error(err);
-        setError("Не удалось загрузить данные");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [STATIC_CHAT_ID]);
+      setFullName(data.full_name || "");
+      setPhone(data.phone ? data.phone.replace(/\D/g, "") : "");
+      setTgUsername(data.tg || "");
+      setBio(data.description || "");
+      setAvatarKey(data.avatar || null);
+      setAvatarPreview(data.avatar || "https://placehold.co/153x153");
+      setMasterReferralLink(data.tg_master);
+      setClientReferralLink(data.tg_users);
+      setMastersCount(data.ref_masters_active);
+      setClientsCount(data.ref_clients);
+      setPriorityClients(data.ref_clients);
+    } catch (err: any) {
+      console.error(err);
+      setError("Не удалось загрузить данные");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+    if (authError) {
+      setError(authError);
+      setLoading(false);
+      return;
+    }
+    if (isVerified && chatId) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [isVerified, chatId, authLoading, authError]);
 
   const updateField = async (field: string, value: string) => {
+    if (!chatId) return;
     try {
-      const payload: any = { chat_id_tg: STATIC_CHAT_ID };
+      const payload: any = { chat_id_tg: chatId };
       if (field === "name") payload.full_name = value;
       if (field === "phone") payload.phone = value;
       if (field === "bio") payload.description = value;
@@ -193,17 +203,13 @@ export default function ProfilePersonalInfoPage() {
     updateField("bio", bio);
   };
 
-  // Загрузка аватарки
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsAvatarUploading(true);
     try {
-      // 1. Загружаем в S3
       const fileKey = await uploadFile(file);
-      // 2. Отправляем на бэкенд
       await updateField("avatar", fileKey);
-      // 3. Обновляем превью (локально)
       const reader = new FileReader();
       reader.onload = (ev) => {
         setAvatarPreview(ev.target?.result as string);
@@ -215,7 +221,6 @@ export default function ProfilePersonalInfoPage() {
       toast.error("Не удалось загрузить аватар");
     } finally {
       setIsAvatarUploading(false);
-      // Сброс input, чтобы можно было выбрать тот же файл повторно
       e.target.value = "";
     }
   };
@@ -229,22 +234,8 @@ export default function ProfilePersonalInfoPage() {
   const masterState = getMasterBarState(mastersCount);
   const clientState = getClientBarState(clientsCount);
 
-  // Компонент для полей с редактированием (name, phone, bio)
-  const EditableButton = ({
-    field,
-    value,
-    setValue,
-    placeholder = "",
-    icon,
-  }: {
-    field: "name" | "phone" | "bio";
-    value: string;
-    setValue: (v: string) => void;
-    placeholder?: string;
-    icon?: string;
-  }) => {
+  const EditableButton = ({ field, value, setValue, placeholder = "", icon }) => {
     const displayValue = field === "phone" ? formatPhoneForDisplay(value) : value;
-
     return (
       <div className="w-full h-full">
         {editing === field ? (
@@ -300,8 +291,7 @@ export default function ProfilePersonalInfoPage() {
     );
   };
 
-  // Компонент для статичного поля телеграма (без редактирования)
-  const StaticTelegramField = ({ value, icon }: { value: string; icon?: string }) => (
+  const StaticTelegramField = ({ value, icon }) => (
     <div className="w-full h-full">
       <div
         className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
@@ -315,7 +305,7 @@ export default function ProfilePersonalInfoPage() {
     </div>
   );
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
         <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
@@ -323,10 +313,18 @@ export default function ProfilePersonalInfoPage() {
     );
   }
 
-  if (error) {
+  if (authError || error) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
-        <p className="text-red-500 font-['Sofia_Sans']">{error}</p>
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || error}</p>
+      </div>
+    );
+  }
+
+  if (!isVerified || !chatId) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">Ошибка авторизации</p>
       </div>
     );
   }
@@ -361,7 +359,6 @@ export default function ProfilePersonalInfoPage() {
           <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">О себе</h2>
           <div className="h-px bg-black w-52 mb-4" />
 
-          {/* Аватар – кликабельный для загрузки */}
           <div className="flex justify-center mb-4">
             <label className="relative cursor-pointer">
               <img

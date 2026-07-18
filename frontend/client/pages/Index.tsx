@@ -3,13 +3,14 @@ import AppointmentItem from "@/components/AppointmentItem";
 import RestBreak from "@/components/RestBreak";
 import HeadbeautyAICard from "@/components/HeadbeautyAICard";
 import InfoSection from "@/components/InfoSection";
+import { useTelegramAuth } from "@/App"; // импортируем хук из App
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-// Тип для элемента списка (запись или перерыв)
+
 type TimelineItem =
   | {
       type: "appointment";
-      startTime: string; // "HH:MM"
+      startTime: string;
       endTime: string;
       service: string;
       location: string;
@@ -19,10 +20,9 @@ type TimelineItem =
       label: string;
     };
 
-// Тип ответа от бэка (упрощённо)
 interface AppointmentFromBackend {
-  start_time: string; // "10:00:00"
-  end_time: string;   // "10:40:00"
+  start_time: string;
+  end_time: string;
   service_name: string;
   address: string | null;
 }
@@ -33,47 +33,36 @@ interface ApiResponse {
   appointments: AppointmentFromBackend[];
 }
 
-// Вспомогательная функция: "10:00:00" → "10:00"
 const toHHMM = (timeWithSeconds: string) => timeWithSeconds.slice(0, 5);
 
-// Склонение часов/минут
 function formatBreakDuration(minutes: number): string {
   if (minutes <= 0) return "";
-
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-
   const hourStr = (h: number) => {
     if (h === 0) return "";
     if (h === 1) return "1 час";
     if (h >= 2 && h <= 4) return `${h} часа`;
     return `${h} часов`;
   };
-
   const minuteStr = (m: number) => {
     if (m === 0) return "";
     if (m === 1) return "1 минуту";
     if (m >= 2 && m <= 4) return `${m} минуты`;
     return `${m} минут`;
   };
-
   const hPart = hourStr(hours);
   const mPart = minuteStr(mins);
-
   if (hours > 0 && mins > 0) return `Отдых ${hPart} ${mPart}`;
   if (hours > 0) return `Отдых ${hPart}`;
   return `Отдых ${mPart}`;
 }
 
-// Преобразование ответа бэка в плоский список с перерывами
 function buildTimeline(appointments: AppointmentFromBackend[]): TimelineItem[] {
   if (!appointments.length) return [];
-
   const timeline: TimelineItem[] = [];
-
   for (let i = 0; i < appointments.length; i++) {
     const curr = appointments[i];
-    // Добавляем текущую запись
     timeline.push({
       type: "appointment",
       startTime: toHHMM(curr.start_time),
@@ -81,14 +70,11 @@ function buildTimeline(appointments: AppointmentFromBackend[]): TimelineItem[] {
       service: curr.service_name || "",
       location: curr.address || "",
     });
-
-    // Если есть следующая запись — считаем перерыв
     if (i < appointments.length - 1) {
       const next = appointments[i + 1];
       const currEnd = new Date(`1970-01-01T${curr.end_time}`);
       const nextStart = new Date(`1970-01-01T${next.start_time}`);
       const diffMinutes = (nextStart.getTime() - currEnd.getTime()) / 60000;
-
       if (diffMinutes > 0) {
         timeline.push({
           type: "break",
@@ -100,24 +86,36 @@ function buildTimeline(appointments: AppointmentFromBackend[]): TimelineItem[] {
   return timeline;
 }
 
-// Временный статический chat_id (потом заменишь на window.Telegram...)
-const STATIC_CHAT_ID = 980609742; // замени на свой ID мастера
-
 export default function Index() {
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
+
   const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Запрос данных только после верификации и наличия chat_id
   useEffect(() => {
+    if (!isVerified || !chatId) {
+      if (authLoading) {
+        setLoading(true);
+        setError(null);
+      } else if (authError) {
+        setError(authError);
+        setLoading(false);
+      } else {
+        setError("Ожидание авторизации...");
+        setLoading(false);
+      }
+      return;
+    }
+
     const fetchAppointments = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${baseUrl}/master/welcome/?chat_id=${STATIC_CHAT_ID}`);
+        const res = await fetch(`${baseUrl}/master/welcome/?chat_id=${chatId}`);
         if (!res.ok) throw new Error(`Ошибка ${res.status}`);
         const data: ApiResponse = await res.json();
-
         if (data.status !== "success") throw new Error("Статус ответа не ok");
-
         const items = buildTimeline(data.appointments);
         setTimelineItems(items);
         setError(null);
@@ -130,12 +128,30 @@ export default function Index() {
     };
 
     fetchAppointments();
-  }, []);
+  }, [chatId, isVerified, authLoading, authError]);
 
+  // Если авторизация ещё не завершена, показываем загрузку
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  // Если ошибка авторизации – показываем сообщение
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
+
+  // Основной рендер (без изменений, только data)
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10">
-        {/* Header */}
         <div className="pt-8 pb-2">
           <h1
             className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
@@ -157,7 +173,6 @@ export default function Index() {
           </p>
         </div>
 
-        {/* Актуальное Section */}
         <section className="mt-6">
           <div className="mb-4">
             <h2
@@ -199,7 +214,6 @@ export default function Index() {
           </div>
         </section>
 
-        {/* headbeauty Section */}
         <section className="mt-10">
           <div className="mb-3">
             <h2
@@ -213,7 +227,6 @@ export default function Index() {
           <HeadbeautyAICard />
         </section>
 
-        {/* Информация Section */}
         <section className="mt-10">
           <div className="mb-4">
             <h2

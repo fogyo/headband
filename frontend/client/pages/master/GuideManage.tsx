@@ -5,9 +5,9 @@ import backIcon from "@/assets/back_icon.svg";
 import { toast } from "sonner";
 import pencilIcon from "@/assets/Pencil.svg";
 import ambassadorIcon from "@/assets/ambassadorIcon.png";
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-const STATIC_CHAT_ID = 980609742;
 
 interface GuideStep {
   id: string;
@@ -60,6 +60,7 @@ async function uploadFile(file: File): Promise<string> {
 
 export default function GuideManagePage() {
   const navigate = useNavigate();
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
   const [videoStepId, setVideoStepId] = useState<string>("");
   const [videoPreviewPreview, setVideoPreviewPreview] = useState<string | null>(null);
   const { id: editId } = useParams<{ id?: string }>();
@@ -76,7 +77,23 @@ export default function GuideManagePage() {
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // <-- новое состояние
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Проверка авторизации
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+  if (!isVerified || !chatId) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
 
   // Загрузка категорий
   useEffect(() => {
@@ -164,7 +181,6 @@ export default function GuideManagePage() {
 
         const loadedSteps: GuideStep[] = data.steps.map((step: any) => {
           const keys = step.img_url ? step.img_url.split(" ").filter((k: string) => k.trim() !== "") : [];
-          // Для превью используем прямой S3-URL или эндпоинт для получения изображения
           const previews = keys.map((key: string) => `${baseUrl}/media/images/${key}`);
           return {
             id: step.step_id,
@@ -225,7 +241,6 @@ export default function GuideManagePage() {
     });
   };
 
-  // Загрузка множества изображений для шага
   const handleStepImagesUpload = (id: string, files: FileList) => {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
@@ -285,7 +300,7 @@ export default function GuideManagePage() {
 
   // Сохранение
   const handleSave = async () => {
-    if (isSubmitting) return; // защита от повторных кликов
+    if (isSubmitting) return;
     if (!title.trim()) {
       toast.warning("Введите название гайда");
       return;
@@ -314,7 +329,6 @@ export default function GuideManagePage() {
             }
 
             const currentStepNum = i + 1;
-            // Загружаем все новые файлы в S3
             let allKeys: string[] = [...step.imageKeys];
             for (const file of step.images) {
               const key = await uploadFile(file);
@@ -379,7 +393,7 @@ export default function GuideManagePage() {
               image_urls: keys.join(" "),
             });
           }
-          const res = await fetch(`${baseUrl}/master/profile/guides/create_text?chat_id=${STATIC_CHAT_ID}`, {
+          const res = await fetch(`${baseUrl}/master/profile/guides/create_text?chat_id=${chatId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -447,7 +461,7 @@ export default function GuideManagePage() {
           if (data.status !== "success") throw new Error(data.status);
           toast.success("Видео гайд обновлён");
         } else {
-          const res = await fetch(`${baseUrl}/master/profile/guides/create_video?chat_id=${STATIC_CHAT_ID}`, {
+          const res = await fetch(`${baseUrl}/master/profile/guides/create_video?chat_id=${chatId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -553,7 +567,6 @@ export default function GuideManagePage() {
                           />
                         </div>
 
-                        {/* Блок изображений (ширина = 100% родителя) */}
                         <div className="flex flex-wrap gap-3 w-full">
                           {step.imagePreviews.map((preview, pIdx) => (
                             <div key={pIdx} className="relative w-16 h-16 rounded overflow-hidden border border-black/10 flex-shrink-0">
