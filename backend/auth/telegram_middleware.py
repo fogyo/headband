@@ -2,10 +2,10 @@ import hashlib
 import hmac
 import os
 from datetime import datetime
+from urllib.parse import parse_qsl, unquote
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from urllib.parse import parse_qs
 from backend.database.responses import StatusResponse
 
 router = APIRouter(
@@ -14,31 +14,50 @@ router = APIRouter(
 )
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+
 class VerifyModel(BaseModel):
     initData: str
 
 
 @router.post("/", response_model=StatusResponse)
 async def verify(request: VerifyModel):
-    parsed = parse_qs(request.initData)
-    hash_str = parsed.pop('hash')[0]
+    try:
+        # Parse the initData correctly using parse_qsl
+        parsed_data = dict(parse_qsl(request.initData, strict_parsing=True))
 
-    sorted_keys = sorted(parsed.keys())
-    check_string = "\n".join([f"{k}={parsed[k][0]}" for k in sorted_keys])
+        # Extract hash
+        if "hash" not in parsed_data:
+            return {"status": "error"}
 
-    secret_key = hmac.new(
-        key=b"WebAppData",
-        msg=BOT_TOKEN.encode('utf-8'),
-        digestmod=hashlib.sha256
-    ).digest()
+        hash_str = parsed_data.pop("hash")
 
-    computed_hash = hmac.new(
-        key=secret_key,
-        msg=check_string.encode('utf-8'),
-        digestmod=hashlib.sha256
-    ).hexdigest()
-    auth_date = int(parsed.get('auth_date', [0])[0])
+        # Create check_string: sorted key=value pairs joined by \n
+        sorted_data = sorted(parsed_data.items(), key=lambda x: x[0])
+        check_string = "\n".join(f"{k}={v}" for k, v in sorted_data)
 
-    if computed_hash != hash_str or abs(datetime.now().timestamp() - auth_date) > 86400:
+        # Create secret key
+        secret_key = hmac.new(
+            key=b"WebAppData",
+            msg=BOT_TOKEN.encode('utf-8'),
+            digestmod=hashlib.sha256
+        ).digest()
+
+        # Compute hash
+        computed_hash = hmac.new(
+            key=secret_key,
+            msg=check_string.encode('utf-8'),
+            digestmod=hashlib.sha256
+        ).hexdigest()
+
+        # Check auth_date (optional but recommended)
+        auth_date = int(parsed_data.get('auth_date', 0))
+        current_time = datetime.now().timestamp()
+
+        # Validate hash and check if data is not older than 24 hours
+        if computed_hash != hash_str or abs(current_time - auth_date) > 86400:
+            return {"status": "error"}
+
+        return {"status": "success"}
+
+    except Exception as e:
         return {"status": "error"}
-    return {"status": "success"}
