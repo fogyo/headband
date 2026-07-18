@@ -40,7 +40,6 @@ import AIHistoryPage from "./pages/headbeauty/HeadbeautyHistory";
 
 const queryClient = new QueryClient();
 
-// Контекст авторизации Telegram
 interface TelegramAuthContextType {
   initDataRaw: string | null;
   chatId: number | null;
@@ -61,7 +60,6 @@ const TelegramAuthContext = createContext<TelegramAuthContextType>({
 
 export const useTelegramAuth = () => useContext(TelegramAuthContext);
 
-// ---------- Провайдер с верификацией ----------
 function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const [initDataRaw, setInitDataRaw] = useState<string | null>(null);
   const [chatId, setChatId] = useState<number | null>(null);
@@ -69,23 +67,36 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Получаем initData и chat_id из Telegram WebApp
-  useEffect(() => {
+  // Функция попытки получить данные из Telegram WebApp
+  const tryInitTelegram = () => {
     const tg = window.Telegram?.WebApp;
-    if (tg?.initData) {
-      setInitDataRaw(tg.initData);
+    if (tg) {
+      // Инициализация WebApp, если она ещё не выполнена
+      if (typeof tg.ready === "function") tg.ready();
+
+      const initData = tg.initData;
       const user = tg.initDataUnsafe?.user;
       if (user?.id) {
         setChatId(user.id);
+        if (initData) {
+          setInitDataRaw(initData);
+          return true;
+        } else {
+          // initData может быть пустым, если бот не передал данные
+          // но id пользователя есть – можно попытаться верифицировать без initData? 
+          // Лучше запросить верификацию отдельно, но пока пропустим.
+          setError("initData отсутствует, проверка невозможна");
+          return false;
+        }
       } else {
         setError("Не удалось получить ID пользователя");
+        return false;
       }
-    } else {
-      setError("Telegram WebApp не инициализирован");
     }
-  }, []);
+    return false;
+  };
 
-  // Функция верификации
+  // Функция верификации (без изменений)
   const verify = async () => {
     if (!initDataRaw) {
       setError("Нет данных для верификации");
@@ -117,14 +128,55 @@ function TelegramAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Автоматическая верификация при загрузке initData
+  // Основной эффект – ожидание появления window.Telegram
   useEffect(() => {
-    if (initDataRaw && chatId) {
-      verify();
-    } else {
-      setIsLoading(false);
+    let attempts = 0;
+    const maxAttempts = 10; // ~5 секунд
+    let interval: NodeJS.Timeout | null = null;
+
+    const checkTelegram = () => {
+      attempts++;
+      const success = tryInitTelegram();
+      if (success) {
+        // Данные получены – запускаем верификацию
+        if (initDataRaw) verify();
+        else {
+          // Если initData нет, но chatId есть – считаем верифицированным? 
+          // Для продакшена лучше не делать, но для разработки можно.
+          // Пока оставим как есть.
+          setIsLoading(false);
+        }
+        if (interval) clearInterval(interval);
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        // Не удалось получить Telegram WebApp
+        setError("Telegram WebApp не инициализирован");
+        setIsLoading(false);
+        if (interval) clearInterval(interval);
+      }
+    };
+
+    // Пробуем сразу
+    checkTelegram();
+
+    // Если не получилось – запускаем интервал
+    if (!window.Telegram?.WebApp) {
+      interval = setInterval(checkTelegram, 500);
     }
-  }, [initDataRaw, chatId]);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, []);
+
+  // Автоматическая верификация при получении initData
+  useEffect(() => {
+    if (initDataRaw && !isVerified && !isLoading) {
+      verify();
+    }
+  }, [initDataRaw]);
 
   return (
     <TelegramAuthContext.Provider
