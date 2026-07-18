@@ -69,8 +69,8 @@ async def delete_all_categories():
 async def create_haircut_template():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            haircuts = await miniapp_db_fcn.get_all_haircuts(session=session)
-            if len(haircuts)==0:
+            ready_haircuts = await miniapp_db_fcn.get_all_haircuts(session=session)
+            if len(ready_haircuts)==0:
                 for cut in haircuts["mens_haircuts"]:
                     cut["gender"] = False
                     await miniapp_db_fcn.create_cut_template(data=cut, session=session)
