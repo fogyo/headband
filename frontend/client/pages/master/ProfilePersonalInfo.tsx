@@ -234,8 +234,12 @@ export default function ProfilePersonalInfoPage() {
   const masterState = getMasterBarState(mastersCount);
   const clientState = getClientBarState(clientsCount);
 
-  const EditableButton = ({ field, value, setValue, placeholder = "", icon }) => {
-    const displayValue = field === "phone" ? formatPhoneForDisplay(value) : value;
+  // Обновлённый EditableButton с поддержкой префикса
+  const EditableButton = ({ field, value, setValue, placeholder = "", icon, prefix = "" }) => {
+    const displayValue = field === "phone" 
+      ? formatPhoneForDisplay(value) 
+      : (prefix ? prefix + value : value);
+
     return (
       <div className="w-full h-full">
         {editing === field ? (
@@ -252,6 +256,8 @@ export default function ProfilePersonalInfoPage() {
                   {(inputProps) => (
                     <input
                       {...inputProps}
+                      type="tel"
+                      inputMode="numeric"
                       autoFocus
                       className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-center"
                       placeholder="+7 (___) ___-__-__"
@@ -262,6 +268,7 @@ export default function ProfilePersonalInfoPage() {
             ) : (
               <div className="flex items-center h-full">
                 {icon && <img src={icon} className="w-7 h-7 rounded-full mr-2" alt="" />}
+                {prefix && <span className="text-sm font-['Sofia_Sans'] text-black/70 mr-1">{prefix}</span>}
                 <input
                   autoFocus
                   className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-left"
@@ -388,20 +395,35 @@ export default function ProfilePersonalInfoPage() {
           </div>
 
           <div className="mb-3">
-            <EditableButton field="name" value={fullName} setValue={setFullName} />
+            <EditableButton 
+              field="name" 
+              value={fullName} 
+              setValue={setFullName} 
+              prefix="ФИО: "
+            />
           </div>
 
           <div className="flex gap-3 items-stretch">
             <div className="flex flex-col gap-3 flex-1">
               <div className="flex-1">
-                <EditableButton field="phone" value={phone} setValue={setPhone} icon={phoneIcon} />
+                <EditableButton 
+                  field="phone" 
+                  value={phone} 
+                  setValue={setPhone} 
+                  icon={phoneIcon} 
+                />
               </div>
               <div className="flex-1">
                 <StaticTelegramField value={tgUsername} icon={telegramIcon} />
               </div>
             </div>
             <div className="flex-1">
-              <EditableButton field="bio" value={bio} setValue={setBio} />
+              <EditableButton 
+                field="bio" 
+                value={bio} 
+                setValue={setBio} 
+                placeholder="О себе"
+              />
             </div>
           </div>
         </section>
