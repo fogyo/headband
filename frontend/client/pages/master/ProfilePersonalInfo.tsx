@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import backIcon from "@/assets/back_icon.svg";
@@ -33,7 +33,7 @@ interface ProfilePersonalResponse {
   tg: string;
   phone: string;
   description: string;
-  avatar: string | null;
+  avatar: string | null; // полный URL
   tg_users: string;
   tg_master: string;
   ref_clients: number;
@@ -67,9 +67,7 @@ const clientBarImages = [
 
 const formatPhoneForDisplay = (rawDigits: string): string => {
   const digits = rawDigits.replace(/\D/g, "");
-  if (!digits) {
-    return "+7 (___) ___-__-__";
-  }
+  if (!digits) return "+7 (___) ___-__-__";
   let result = "+7";
   if (digits.length > 1) result += ` (${digits.slice(1, 4)}`;
   if (digits.length >= 4) result += ")";
@@ -100,6 +98,19 @@ async function uploadFile(file: File): Promise<string> {
   return file_key;
 }
 
+// Извлекает имя файла (ключ) из полного URL аватара
+const extractKeyFromUrl = (url: string): string | null => {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    const parts = path.split("/");
+    return parts[parts.length - 1] || null;
+  } catch {
+    return null;
+  }
+};
+
 export default function ProfilePersonalInfoPage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
@@ -120,6 +131,8 @@ export default function ProfilePersonalInfoPage() {
   const [editing, setEditing] = useState<"name" | "phone" | "bio" | null>(null);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const fetchData = async () => {
     if (!isVerified || !chatId) return;
     try {
@@ -133,8 +146,17 @@ export default function ProfilePersonalInfoPage() {
       setPhone(data.phone ? data.phone.replace(/\D/g, "") : "");
       setTgUsername(data.tg || "");
       setBio(data.description || "");
-      setAvatarKey(data.avatar || null);
-      setAvatarPreview(data.avatar || "https://placehold.co/153x153");
+
+      // Извлекаем ключ из полного URL аватара
+      if (data.avatar) {
+        const key = extractKeyFromUrl(data.avatar);
+        setAvatarKey(key);
+        setAvatarPreview(data.avatar);
+      } else {
+        setAvatarKey(null);
+        setAvatarPreview("");
+      }
+
       setMasterReferralLink(data.tg_master);
       setClientReferralLink(data.tg_users);
       setMastersCount(data.ref_masters_active);
@@ -172,7 +194,6 @@ export default function ProfilePersonalInfoPage() {
       if (field === "name") payload.full_name = value;
       if (field === "phone") payload.phone = value;
       if (field === "bio") payload.description = value;
-      if (field === "telegram") return;
       if (field === "avatar") payload.avatar = value;
 
       const res = await fetch(`${baseUrl}/master/profile/personal/update`, {
@@ -210,12 +231,12 @@ export default function ProfilePersonalInfoPage() {
     try {
       const fileKey = await uploadFile(file);
       await updateField("avatar", fileKey);
+      setAvatarKey(fileKey);
       const reader = new FileReader();
       reader.onload = (ev) => {
         setAvatarPreview(ev.target?.result as string);
       };
       reader.readAsDataURL(file);
-      setAvatarKey(fileKey);
     } catch (err) {
       console.error(err);
       toast.error("Не удалось загрузить аватар");
@@ -234,71 +255,127 @@ export default function ProfilePersonalInfoPage() {
   const masterState = getMasterBarState(mastersCount);
   const clientState = getClientBarState(clientsCount);
 
-  const EditableButton = ({ field, value, setValue, placeholder = "", icon }) => {
-    const displayValue = field === "phone" ? formatPhoneForDisplay(value) : value;
-    return (
-      <div className="w-full h-full">
-        {editing === field ? (
-          <div className="relative bg-[#FFE9EF] rounded-[10px] p-2 shadow h-full">
+  // Компонент редактируемого поля с лейблом
+  const EditableField = ({
+    field,
+    value,
+    setValue,
+    label,
+    placeholder,
+    icon,
+    type = "text",
+    inputMode = "text",
+  }: {
+    field: "name" | "phone" | "bio";
+    value: string;
+    setValue: (v: string) => void;
+    label: string;
+    placeholder?: string;
+    icon?: string;
+    type?: string;
+    inputMode?: "text" | "numeric" | "tel";
+  }) => {
+    const isEditing = editing === field;
+
+    const startEdit = () => {
+      setEditing(field);
+      // Фокус на инпут после рендера
+      setTimeout(() => {
+        if (inputRef.current) inputRef.current.focus();
+      }, 10);
+    };
+
+    const finishEdit = () => {
+      if (field === "name") handleNameBlur();
+      else if (field === "phone") handlePhoneBlur();
+      else if (field === "bio") handleBioBlur();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finishEdit();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        // Отменить изменения? Но мы не храним старые значения, просто выходим
+        setEditing(null);
+      }
+    };
+
+    if (isEditing) {
+      return (
+        <div className="relative bg-[#FFE9EF] rounded-[10px] p-2 shadow h-full">
+          <div className="flex items-center h-full">
+            {icon && <img src={icon} className="w-7 h-7 rounded-full mr-2" alt="" />}
             {field === "phone" ? (
-              <div className="flex items-center h-full">
-                {icon && <img src={icon} className="w-7 h-7 rounded-full mr-2" alt="" />}
-                <InputMask
-                  mask="+7 (999) 999-99-99"
-                  value={value}
-                  onChange={(e) => setValue(extractDigits(e.target.value))}
-                  onBlur={handlePhoneBlur}
-                >
-                  {(inputProps) => (
-                    <input
-                      {...inputProps}
-                      autoFocus
-                      className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-center"
-                      placeholder="+7 (___) ___-__-__"
-                    />
-                  )}
-                </InputMask>
-              </div>
+              <InputMask
+                mask="+7 (999) 999-99-99"
+                value={value}
+                onChange={(e) => setValue(extractDigits(e.target.value))}
+                onBlur={finishEdit}
+                inputMode="numeric"
+              >
+                {(inputProps) => (
+                  <input
+                    {...inputProps}
+                    ref={inputRef}
+                    className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-center"
+                    placeholder={placeholder || "+7 (___) ___-__-__"}
+                    onKeyDown={handleKeyDown}
+                  />
+                )}
+              </InputMask>
             ) : (
-              <div className="flex items-center h-full">
-                {icon && <img src={icon} className="w-7 h-7 rounded-full mr-2" alt="" />}
-                <input
-                  autoFocus
-                  className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-left"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  onBlur={field === "name" ? handleNameBlur : handleBioBlur}
-                  onKeyDown={(e) => e.key === "Enter" && (field === "name" ? handleNameBlur() : handleBioBlur())}
-                  placeholder={placeholder}
-                />
-              </div>
+              <input
+                ref={inputRef}
+                type={type}
+                inputMode={inputMode}
+                className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-left"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onBlur={finishEdit}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder || label}
+              />
             )}
           </div>
-        ) : (
-          <button
-            type="button"
-            className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
-            onClick={() => setEditing(field)}
-            style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
-          >
-            {icon && <img src={icon} className="w-7 h-7 rounded-full absolute left-3 top-1/2 -translate-y-1/2" alt="" />}
-            <span className={`text-[14px] tracking-[-0.5px] ${icon ? "ml-10" : ""} text-center w-full`}>
-              {displayValue || placeholder}
-            </span>
-          </button>
-        )}
-      </div>
+        </div>
+      );
+    }
+
+    // Неактивное состояние – показываем только лейбл
+    return (
+      <button
+        type="button"
+        className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
+        onClick={startEdit}
+        style={{
+          border: "0.5px solid rgba(0,0,0,0.00)",
+          boxShadow:
+            "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)",
+        }}
+      >
+        {icon && <img src={icon} className="w-7 h-7 rounded-full absolute left-3 top-1/2 -translate-y-1/2" alt="" />}
+        <span className={`text-[14px] tracking-[-0.5px] ${icon ? "ml-10" : ""} text-center w-full text-black/50`}>
+          {label}
+        </span>
+      </button>
     );
   };
 
-  const StaticTelegramField = ({ value, icon }) => (
+  const StaticTelegramField = ({ value, icon }: { value: string; icon: string }) => (
     <div className="w-full h-full">
       <div
         className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
-        style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
+        style={{
+          border: "0.5px solid rgba(0,0,0,0.00)",
+          boxShadow:
+            "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)",
+        }}
       >
         {icon && <img src={icon} className="w-7 h-7 rounded-full absolute left-3 top-1/2 -translate-y-1/2" alt="" />}
-        <span className={`text-[14px] tracking-[-0.5px] ${icon ? "ml-10" : ""} text-center w-full`}>
+        <span className={`text-[14px] tracking-[-0.5px] ${icon ? "ml-10" : ""} text-center w-full text-black/50`}>
           {value || "tg: не указан"}
         </span>
       </div>
@@ -388,20 +465,40 @@ export default function ProfilePersonalInfoPage() {
           </div>
 
           <div className="mb-3">
-            <EditableButton field="name" value={fullName} setValue={setFullName} />
+            <EditableField
+              field="name"
+              value={fullName}
+              setValue={setFullName}
+              label="ФИО"
+              placeholder="Иванов Иван Иванович"
+            />
           </div>
 
           <div className="flex gap-3 items-stretch">
             <div className="flex flex-col gap-3 flex-1">
               <div className="flex-1">
-                <EditableButton field="phone" value={phone} setValue={setPhone} icon={phoneIcon} />
+                <EditableField
+                  field="phone"
+                  value={phone}
+                  setValue={setPhone}
+                  label="Телефон"
+                  placeholder="+7 (___) ___-__-__"
+                  icon={phoneIcon}
+                  inputMode="numeric"
+                />
               </div>
               <div className="flex-1">
                 <StaticTelegramField value={tgUsername} icon={telegramIcon} />
               </div>
             </div>
             <div className="flex-1">
-              <EditableButton field="bio" value={bio} setValue={setBio} />
+              <EditableField
+                field="bio"
+                value={bio}
+                setValue={setBio}
+                label="О себе"
+                placeholder="Расскажите о себе"
+              />
             </div>
           </div>
         </section>
