@@ -279,9 +279,6 @@ export default function ProfilePersonalInfoPage() {
     );
   };
 
-  const masterState = getMasterBarState(mastersCount);
-  const clientState = getClientBarState(clientsCount);
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
