@@ -399,7 +399,7 @@ export default function ProfilePersonalInfoPage() {
               field="name" 
               value={fullName} 
               setValue={setFullName} 
-              prefix="ФИО: "
+              placeholder="ФИО"
             />
           </div>
 
