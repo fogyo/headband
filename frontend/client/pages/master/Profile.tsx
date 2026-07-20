@@ -25,6 +25,15 @@ interface ProfileResponse {
   avatar: string;
 }
 
+function isValidUrl(string) {
+  try {
+    new URL(string);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function MenuRow({
   icon,
   label,
@@ -179,7 +188,9 @@ export default function ProfilePage() {
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
   const phone = profile.phone ? `+${profile.phone}` : "+7 (___) ___-__-__";
   // fallback на base_man_avatar, если avatar пустой или не задан
-  const avatarUrl = profile.avatar ? profile.avatar : baseManAvatar;
+  const avatarUrl = (profile.avatar && isValidUrl(profile.avatar)) 
+    ? profile.avatar 
+    : baseManAvatar;
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">

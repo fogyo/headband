@@ -63,10 +63,10 @@ async def set_sub(chat_id: int,
 @router.post("/communication", response_model=StatusResponse)
 async def get_help(chat_id: int,
                    request: Feedback):
-    await bot.send_message(chat_id=980609742, text=f"Обратная связь: {request.text} \n ID пользователя: {chat_id}")
+    await bot.send_message(chat_id=980609742, text=f"Обратная связь: {request.text} \nID пользователя: {chat_id}")
     return {"status": "success"}
 
-@router.post("/communication", response_model=StatusResponse)
+@router.post("/communication_response", response_model=StatusResponse)
 async def dev_help(chat_id: int,
                    request: Feedback):
     await bot.send_message(chat_id=chat_id, text=f"Ответ от разработчика:\n {request.text} \n С уважением, \n команда headband")
