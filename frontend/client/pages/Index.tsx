@@ -3,7 +3,7 @@ import AppointmentItem from "@/components/AppointmentItem";
 import RestBreak from "@/components/RestBreak";
 import HeadbeautyAICard from "@/components/HeadbeautyAICard";
 import InfoSection from "@/components/InfoSection";
-import { useTelegramAuth } from "@/App"; // импортируем хук из App
+import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -86,6 +86,23 @@ function buildTimeline(appointments: AppointmentFromBackend[]): TimelineItem[] {
   return timeline;
 }
 
+/**
+ * Возвращает приветствие в зависимости от текущего времени.
+ * morning:  06:01 – 12:00
+ * afternoon: 12:01 – 19:00
+ * evening:  19:01 – 22:00
+ * night:    22:01 – 06:00
+ */
+function getGreeting(): string {
+  const now = new Date();
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+
+  if (totalMinutes >= 361 && totalMinutes <= 720) return "good morning";
+  if (totalMinutes >= 721 && totalMinutes <= 1080) return "good afternoon";
+  if (totalMinutes >= 1081 && totalMinutes <= 1320) return "good evening";
+  return "good night";
+}
+
 export default function Index() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
@@ -93,7 +110,6 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Запрос данных только после верификации и наличия chat_id
   useEffect(() => {
     if (!isVerified || !chatId) {
       if (authLoading) {
@@ -130,7 +146,8 @@ export default function Index() {
     fetchAppointments();
   }, [chatId, isVerified, authLoading, authError]);
 
-  // Если авторизация ещё не завершена, показываем загрузку
+  const greeting = getGreeting();
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
@@ -139,7 +156,6 @@ export default function Index() {
     );
   }
 
-  // Если ошибка авторизации – показываем сообщение
   if (authError || !isVerified) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
@@ -148,7 +164,6 @@ export default function Index() {
     );
   }
 
-  // Основной рендер (без изменений, только data)
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10">
@@ -160,7 +175,7 @@ export default function Index() {
               WebkitTextStroke: "1px #000",
             }}
           >
-            good morning
+            {greeting}
           </h1>
           <p
             className="text-right text-[16px] tracking-[1.28px] text-transparent mt-[-4px]"
