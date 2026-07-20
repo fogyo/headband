@@ -67,9 +67,7 @@ const clientBarImages = [
 
 const formatPhoneForDisplay = (rawDigits: string): string => {
   const digits = rawDigits.replace(/\D/g, "");
-  if (!digits) {
-    return "+7 (___) ___-__-__";
-  }
+  if (!digits) return "+7 (___) ___-__-__";
   let result = "+7";
   if (digits.length > 1) result += ` (${digits.slice(1, 4)}`;
   if (digits.length >= 4) result += ")";
@@ -107,7 +105,8 @@ export default function ProfilePersonalInfoPage() {
   const [phone, setPhone] = useState("");
   const [tgUsername, setTgUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [avatarKey, setAvatarKey] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [masterReferralLink, setMasterReferralLink] = useState("");
   const [clientReferralLink, setClientReferralLink] = useState("");
   const [mastersCount, setMastersCount] = useState(0);
@@ -117,9 +116,6 @@ export default function ProfilePersonalInfoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
-
-  // Состояния для редактирования полей
-  const [editingField, setEditingField] = useState<"name" | "bio" | null>(null);
 
   const fetchData = async () => {
     if (!isVerified || !chatId) return;
@@ -134,7 +130,21 @@ export default function ProfilePersonalInfoPage() {
       setPhone(data.phone ? data.phone.replace(/\D/g, "") : "");
       setTgUsername(data.tg || "");
       setBio(data.description || "");
-      setAvatarUrl(data.avatar || "");
+      // Бэк возвращает полную ссылку, сохраняем её как ключ (но это не ключ, а полный URL)
+      // Для загрузки нового аватара будем хранить только ключ, а для отображения — полную ссылку.
+      // Поэтому парсим ключ из URL, если это возможно, иначе оставляем null.
+      let key = null;
+      if (data.avatar) {
+        // Если ссылка содержит s3_domain, то извлекаем путь после домена
+        // или просто сохраняем как есть, но лучше вытащить ключ
+        // Однако для обратной совместимости будем хранить полную ссылку как avatarKey,
+        // но при обновлении будем отправлять новый fileKey.
+        // При инициализации установим avatarKey как data.avatar (полная ссылка),
+        // потом при загрузке нового аватара заменим на fileKey.
+        key = data.avatar; // пока сохраняем как есть
+      }
+      setAvatarKey(key);
+      setAvatarPreview(data.avatar || "https://placehold.co/153x153");
       setMasterReferralLink(data.tg_master);
       setClientReferralLink(data.tg_users);
       setMastersCount(data.ref_masters_active);
@@ -183,14 +193,45 @@ export default function ProfilePersonalInfoPage() {
       const result = await res.json();
       if (result.status !== "success") throw new Error(result.status);
       toast.success("Изменения сохранены");
-      // После успешного обновления аватара перезапрашиваем данные, чтобы получить новый URL
-      if (field === "avatar") {
-        await fetchData();
-      }
     } catch (err) {
       console.error(err);
       toast.error("Не удалось сохранить изменения");
-      throw err; // пробрасываем для обработки в вызывающем коде
+    }
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFullName(e.target.value);
+  };
+  const handleNameBlur = () => {
+    updateField("name", fullName);
+  };
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(extractDigits(e.target.value));
+  };
+  const handlePhoneBlur = () => {
+    updateField("phone", phone);
+  };
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  };
+
+  const handleBioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBio(e.target.value);
+  };
+  const handleBioBlur = () => {
+    updateField("bio", bio);
+  };
+  const handleBioKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
     }
   };
 
@@ -201,10 +242,17 @@ export default function ProfilePersonalInfoPage() {
     try {
       const fileKey = await uploadFile(file);
       await updateField("avatar", fileKey);
-      // После успешного обновления fetchData обновит avatarUrl
-    } catch (err) {
+      // После успешного обновления сохраняем ключ и превью
+      setAvatarKey(fileKey);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setAvatarPreview(ev.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      toast.success("Аватар обновлён");
+    } catch (err: any) {
       console.error(err);
-      toast.error("Не удалось загрузить аватар");
+      toast.error(err.message);
     } finally {
       setIsAvatarUploading(false);
       e.target.value = "";
@@ -220,64 +268,59 @@ export default function ProfilePersonalInfoPage() {
   const masterState = getMasterBarState(mastersCount);
   const clientState = getClientBarState(clientsCount);
 
-  // Вспомогательный компонент для редактируемых полей (имя, описание)
-  const EditableTextInput = ({
-    field,
-    value,
-    setValue,
-    label,
-    placeholder,
-    onSave,
-  }: {
-    field: "name" | "bio";
-    value: string;
-    setValue: (v: string) => void;
-    label: string;
-    placeholder: string;
-    onSave: () => void;
-  }) => {
-    const isEditing = editingField === field;
-
+  // Компонент поля с лейблом
+  const EditableField = ({ label, value, onChange, onBlur, onKeyDown, icon, isPhone = false }) => {
+    const displayValue = isPhone ? formatPhoneForDisplay(value) : value;
     return (
-      <div className="relative">
-        {isEditing ? (
-          <div className="bg-[#FFE9EF] rounded-[10px] p-2 shadow-sm flex items-center gap-2">
-            <span className="text-sm font-['Sofia_Sans'] text-black/70 whitespace-nowrap">{label}:</span>
-            <input
-              type="text"
-              autoFocus
-              className="flex-1 bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onBlur={() => {
-                setEditingField(null);
-                onSave();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setEditingField(null);
-                  onSave();
-                }
-              }}
-              placeholder={placeholder}
-            />
-          </div>
-        ) : (
-          <div
-            className="bg-[#FFE9EF] rounded-[10px] p-3 shadow-sm cursor-text"
-            style={{
-              boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)",
-            }}
-            onClick={() => setEditingField(field)}
+      <div
+        className="relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow flex items-center gap-2"
+        style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
+      >
+        {icon && <img src={icon} className="w-7 h-7 rounded-full flex-shrink-0" alt="" />}
+        <span className="text-[14px] font-['Sofia_Sans'] text-black/70 whitespace-nowrap">{label}:</span>
+        {isPhone ? (
+          <InputMask
+            mask="+7 (999) 999-99-99"
+            value={value}
+            onChange={onChange}
+            onBlur={onBlur}
           >
-            <span className={`text-sm font-['Sofia_Sans'] ${value ? "text-black" : "text-black/50"}`}>
-              {value || placeholder}
-            </span>
-          </div>
+            {(inputProps) => (
+              <input
+                {...inputProps}
+                type="tel"
+                inputMode="numeric"
+                className="flex-1 bg-transparent text-[14px] font-['Sofia_Sans'] text-black outline-none min-w-0"
+                onKeyDown={onKeyDown}
+              />
+            )}
+          </InputMask>
+        ) : (
+          <input
+            type="text"
+            value={value}
+            onChange={onChange}
+            onBlur={onBlur}
+            onKeyDown={onKeyDown}
+            className="flex-1 bg-transparent text-[14px] font-['Sofia_Sans'] text-black outline-none min-w-0"
+          />
         )}
       </div>
     );
   };
+
+  const StaticTelegramField = ({ value, icon }) => (
+    <div
+      className="relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow flex items-center gap-2"
+      style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
+    >
+      {icon && <img src={icon} className="w-7 h-7 rounded-full flex-shrink-0" alt="" />}
+      <span className="text-[14px] font-['Sofia_Sans'] text-black/70 whitespace-nowrap">Telegram:</span>
+      <span className="flex-1 text-[14px] font-['Sofia_Sans'] text-black truncate">
+        {value || "tg: не указан"}
+      </span>
+    </div>
+  );
 
   if (authLoading || loading) {
     return (
@@ -336,7 +379,7 @@ export default function ProfilePersonalInfoPage() {
           <div className="flex justify-center mb-4">
             <label className="relative cursor-pointer">
               <img
-                src={avatarUrl || "https://placehold.co/153x153"}
+                src={avatarPreview || "https://placehold.co/153x153"}
                 alt="avatar"
                 className="w-40 h-40 rounded-full object-cover border border-black/10"
               />
@@ -362,57 +405,39 @@ export default function ProfilePersonalInfoPage() {
           </div>
 
           <div className="mb-3">
-            <EditableTextInput
-              field="name"
-              value={fullName}
-              setValue={setFullName}
+            <EditableField
               label="ФИО"
-              placeholder="ФИО"
-              onSave={() => updateField("name", fullName)}
+              value={fullName}
+              onChange={handleNameChange}
+              onBlur={handleNameBlur}
+              onKeyDown={handleNameKeyDown}
             />
           </div>
 
           <div className="flex gap-3 items-stretch">
             <div className="flex flex-col gap-3 flex-1">
               <div className="flex-1">
-                {/* Поле телефона с маской и цифровой клавиатурой */}
-                <div className="bg-[#FFE9EF] rounded-[10px] p-3 shadow-sm flex items-center gap-2">
-                  <img src={phoneIcon} className="w-7 h-7 rounded-full flex-shrink-0" alt="" />
-                  <InputMask
-                    mask="+7 (999) 999-99-99"
-                    value={phone}
-                    onChange={(e) => setPhone(extractDigits(e.target.value))}
-                    onBlur={() => updateField("phone", phone)}
-                  >
-                    {(inputProps) => (
-                      <input
-                        {...inputProps}
-                        type="tel"
-                        inputMode="numeric"
-                        className="flex-1 bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none"
-                        placeholder="+7 (___) ___-__-__"
-                      />
-                    )}
-                  </InputMask>
-                </div>
+                <EditableField
+                  label="Телефон"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  onBlur={handlePhoneBlur}
+                  onKeyDown={handlePhoneKeyDown}
+                  icon={phoneIcon}
+                  isPhone
+                />
               </div>
               <div className="flex-1">
-                <div className="bg-[#FFE9EF] rounded-[10px] p-3 shadow-sm flex items-center gap-2">
-                  <img src={telegramIcon} className="w-7 h-7 rounded-full flex-shrink-0" alt="" />
-                  <span className="text-sm font-['Sofia_Sans'] text-black">
-                    {tgUsername || "tg: не указан"}
-                  </span>
-                </div>
+                <StaticTelegramField value={tgUsername} icon={telegramIcon} />
               </div>
             </div>
             <div className="flex-1">
-              <EditableTextInput
-                field="bio"
+              <EditableField
+                label="О себе"
                 value={bio}
-                setValue={setBio}
-                label="Описание"
-                placeholder="О себе"
-                onSave={() => updateField("bio", bio)}
+                onChange={handleBioChange}
+                onBlur={handleBioBlur}
+                onKeyDown={handleBioKeyDown}
               />
             </div>
           </div>
