@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import homeIconUrl from "@/assets/home.svg";
 import arrowForwardIcon from "@/assets/arrow_forward.svg";
 import accountCircleIcon from "@/assets/account_circle.svg";
@@ -7,10 +8,10 @@ import scheduleIcon from "@/assets/schedule.svg";
 import priceListIcon from "@/assets/price_list.svg";
 import incomeIcon from "@/assets/income.svg";
 import guidesIcon from "@/assets/education.svg";
-import portfolioIcon from "@/assets/portfolio.svg";
 import notificationsIcon from "@/assets/notifications.svg";
 import supportIcon from "@/assets/support.svg";
 import feedbackIcon from "@/assets/feedback.svg";
+import baseManAvatar from "@/assets/base_man_avatar.png";
 import { useTelegramAuth } from "@/App";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
@@ -69,6 +70,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Состояния для модалки поддержки
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [supportComment, setSupportComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     if (!isVerified || !chatId) {
       if (authLoading) {
@@ -102,6 +108,49 @@ export default function ProfilePage() {
     fetchProfile();
   }, [chatId, isVerified, authLoading, authError]);
 
+  const openSupportModal = () => {
+    setSupportComment("");
+    setIsSupportModalOpen(true);
+  };
+
+  const closeSupportModal = () => {
+    setIsSupportModalOpen(false);
+    setSupportComment("");
+  };
+
+  const handleSupportSubmit = async () => {
+    if (!chatId) {
+      toast.error("Ошибка: не найден chat_id");
+      return;
+    }
+    if (!supportComment.trim()) {
+      toast.error("Введите сообщение");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${baseUrl}/admins/communication?chat_id=${chatId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: supportComment.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.status !== "success") {
+        throw new Error(data.status || "Ошибка отправки");
+      }
+      toast.success("Сообщение отправлено в поддержку");
+      closeSupportModal();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Не удалось отправить сообщение");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
@@ -129,7 +178,8 @@ export default function ProfilePage() {
   const fullName = profile.name || "Имя не указано";
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
   const phone = profile.phone ? `+${profile.phone}` : "+7 (___) ___-__-__";
-  const avatarUrl = profile.avatar || "https://placehold.co/100x100";
+  // fallback на base_man_avatar, если avatar пустой или не задан
+  const avatarUrl = profile.avatar ? profile.avatar : baseManAvatar;
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
@@ -217,11 +267,7 @@ export default function ProfilePage() {
               label="Гайды"
               to="/profile/guides"
             />
-            <MenuRow
-              icon={portfolioIcon}
-              label="Мои работы"
-              to="/profile/portfolio"
-            />
+            {/* Пункт "Мои работы" удалён */}
             <MenuRow
               icon={notificationsIcon}
               label="Уведомления"
@@ -243,7 +289,7 @@ export default function ProfilePage() {
             <MenuRow
               icon={supportIcon}
               label="Написать в поддержку"
-              to="/support"
+              onClick={openSupportModal}
             />
             <MenuRow
               icon={feedbackIcon}
@@ -253,6 +299,37 @@ export default function ProfilePage() {
           </div>
         </section>
       </div>
+
+      {/* Модальное окно поддержки */}
+      {isSupportModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+            <h3 className="text-[24px] font-semibold mb-4 text-black">Написать в поддержку</h3>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-[14px] font-['Sofia_Sans'] text-black resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
+              rows={4}
+              placeholder="Опишите вашу проблему или вопрос..."
+              value={supportComment}
+              onChange={(e) => setSupportComment(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeSupportModal}
+                className="px-4 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSupportSubmit}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-[#FA4F96] text-white rounded-lg text-[14px] font-medium hover:bg-[#e8447e] disabled:opacity-50"
+              >
+                {isSubmitting ? "Отправка..." : "Отправить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
 from backend.model.bg_factory import task_manager
+from backend.telegram_bot.bot_main import bot
 
 router = APIRouter(
     prefix="/admins",
@@ -16,6 +17,9 @@ router = APIRouter(
 
 class SubRequest(BaseModel):
     level: int
+
+class Feedback(BaseModel):
+    text: str
 
 @router.patch("/set_moderator", response_model=StatusResponse)
 async def set_moderator(
@@ -54,4 +58,16 @@ async def set_sub(chat_id: int,
                   session: AsyncSession = Depends(get_db_session)):
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     await miniapp_db_fcn.create_subscription(master_id=master.id, duration_days=30, level=request.level, session=session)
+    return {"status": "success"}
+
+@router.post("/communication", response_model=StatusResponse)
+async def get_help(chat_id: int,
+                   request: Feedback):
+    await bot.send_message(chat_id=980609742, text=f"Обратная связь: {request.text} \n ID пользователя: {chat_id}")
+    return {"status": "success"}
+
+@router.post("/communication", response_model=StatusResponse)
+async def dev_help(chat_id: int,
+                   request: Feedback):
+    await bot.send_message(chat_id=chat_id, text=f"Ответ от разработчика:\n {request.text} \n С уважением, \n команда headband")
     return {"status": "success"}

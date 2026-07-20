@@ -93,7 +93,7 @@ function getGreeting(): string {
   const totalMinutes = now.getHours() * 60 + now.getMinutes();
 
   if (totalMinutes >= 361 && totalMinutes <= 720) return "good morning";
-  if (totalMinutes >= 721 && totalMinutes <= 1140) return "good afternoon";
+  if (totalMinutes >= 721 && totalMinutes <= 1140) return "good day";
   if (totalMinutes >= 1141 && totalMinutes <= 1320) return "good evening";
   return "good night";
 }
