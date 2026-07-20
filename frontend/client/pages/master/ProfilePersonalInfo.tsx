@@ -268,7 +268,7 @@ export default function ProfilePersonalInfoPage() {
             ) : (
               <div className="flex items-center h-full">
                 {icon && <img src={icon} className="w-7 h-7 rounded-full mr-2" alt="" />}
-                {prefix && <span className="text-sm font-['Sofia_Sans'] text-black/70 mr-1">{prefix}</span>}
+                {prefix && <span className="text-sm font-['Sofia_Sans'] text-black mr-2">{prefix}</span>}
                 <input
                   autoFocus
                   className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-left"
