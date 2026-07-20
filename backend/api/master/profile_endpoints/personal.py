@@ -24,7 +24,7 @@ class ProfileResponse(StatusResponse):
     tg: str
     phone: Optional[str] = "Пока не задан"
     description: Optional[str] = "Пока не задано"
-    avatar: Optional[str] = None
+    avatar: str
     tg_users: str
     tg_master: str
     ref_clients: int
@@ -55,7 +55,7 @@ async def get_personal(
             "tg": master.username_tg,
             "phone": master.phone,
             "description": master.description,
-            "avatar": f"{s3_domain}{master.avatar}",
+            "avatar": f"{s3_domain}{master.avatar}" if master.avatar else "",
             "tg_users": user_link,
             "tg_master": master_link,
             "ref_clients": ref_clients,

@@ -35,6 +35,6 @@ async def get_profile(
             "tg": master.username_tg,
             "phone": master.phone,
             "ambassador": master.moderation,
-            "avatar": f"{s3_domain}{master.avatar}"}
+            "avatar": f"{s3_domain}{master.avatar}" if master.avatar else ""}
 
 
