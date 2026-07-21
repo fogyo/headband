@@ -2349,7 +2349,8 @@ class SubscriptionBankModel(Base):
     def decrease_base_sub_sync(cls, session, master_id: uuid.UUID) -> str:
         """Увеличивает количество базовых подписок"""
         query = update(cls).where(cls.master_id == master_id).values(
-            base_sub=cls.base_sub - 1
+            base_sub=cls.base_sub - 1,
+            change_level = False
         )
         session.execute(query)
         return "success"
@@ -2358,7 +2359,8 @@ class SubscriptionBankModel(Base):
     def decrease_partner_sub_sync(cls, session, master_id: uuid.UUID) -> str:
         """Увеличивает количество партнёрских подписок"""
         query = update(cls).where(cls.master_id == master_id).values(
-            partner_sub=cls.partner_sub - 1
+            partner_sub=cls.partner_sub - 1,
+            change_level=False
         )
         session.execute(query)
         return "success"
