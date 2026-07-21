@@ -87,6 +87,13 @@ def run_celery_process():
         env=current_env  # Передаем окружение в Celery
     )
 
+def run_beat_process():
+    subprocess.run(
+        ["celery", "-A", "backend.model.bg_factory.factory", "beat",
+         "--loglevel=info"],
+        env=os.environ.copy()
+    )
+
 def run_server_process():
     async def start_server():
         if await db.setup_database():
@@ -121,11 +128,14 @@ if __name__ == "__main__":
     bot_process = Process(target=run_bot_process)
     server_process = Process(target=run_server_process)
     celery_process = Process(target=run_celery_process)
+    beat_process = Process(target=run_beat_process())
 
     bot_process.start()
     server_process.start()
     celery_process.start()
+    beat_process.start()
 
     bot_process.join()
     server_process.join()
     celery_process.join()
+    beat_process.join()

@@ -12,7 +12,7 @@ from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, tex
     or_, Boolean, Time, DateTime
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
-from datetime import time, date, datetime
+from datetime import time, date, datetime, timedelta
 from sqlalchemy import inspect
 import os
 
@@ -358,6 +358,13 @@ class MasterModel(Base):
         cascade="all, delete-orphan",
         passive_deletes=True
     )
+    subscription_bank: Mapped["SubscriptionBankModel"] = relationship(
+        "SubscriptionBankModel",
+        back_populates="master",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False
+    )
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
@@ -391,6 +398,17 @@ class MasterModel(Base):
             )
         )
         result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    def get_expiring(cls, session):
+        query = (
+            select(cls)
+            .join(cls.subscription)  # предполагается, что отношение определено
+            .where(or_((SubscriptionModel.end_date+timedelta(days=1)) == date.today(), SubscriptionModel.end_date==date.today())
+            ).options(selectinload(MasterModel.subscription_bank), selectinload(MasterModel.notifications), selectinload(MasterModel.subscription))
+        )
+        result = session.execute(query)
         return list(result.scalars().all())
 
     @classmethod
@@ -1364,6 +1382,12 @@ class SubscriptionModel(Base):
         return "success"
 
     @classmethod
+    def update_sync(cls, session, subscription_id: uuid.UUID, update_data: dict):
+        query = update(cls).where(cls.id == subscription_id).values(**update_data)
+        session.execute(query)
+        return "success"
+
+    @classmethod
     async def delete(cls, session: AsyncSession, subscription_id: uuid.UUID):
         obj = await session.get(cls, subscription_id)
         if obj:
@@ -2235,3 +2259,125 @@ class PreviewModel(Base):
         query = delete(cls).where(cls.session_id == session_id)
         await session.execute(query)
         return "success"
+
+class SubscriptionBankModel(Base):
+    __tablename__ = "subscription_bank"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    master_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("masters.id", ondelete="CASCADE"),
+        unique=True,  # у мастера только одна запись в банке подписок
+        nullable=False
+    )
+    base_sub: Mapped[int] = mapped_column(BigInteger, default=0)        # количество базовых подписок
+    partner_sub: Mapped[int] = mapped_column(BigInteger, default=0)     # количество партнёрских подписок
+    change_level: Mapped[bool] = mapped_column(Boolean, default=False)  # разрешено ли менять уровень
+    stop_sub: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Связь с мастером (один-к-одному)
+    master: Mapped["MasterModel"] = relationship(
+        "MasterModel",
+        back_populates="subscription_bank",
+        uselist=False
+    )
+
+    @classmethod
+    async def create(cls, session: AsyncSession, master_id: uuid.UUID,
+                     base_sub: int = 0, partner_sub: int = 0, change_level: bool = False) -> uuid.UUID:
+        """Создаёт запись банка подписок для мастера"""
+        obj = cls(
+            master_id=master_id,
+            base_sub=base_sub,
+            partner_sub=partner_sub,
+            change_level=change_level
+        )
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID) -> Optional["SubscriptionBankModel"]:
+        """Получает запись по master_id"""
+        query = select(cls).where(cls.master_id == master_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, record_id: uuid.UUID) -> Optional["SubscriptionBankModel"]:
+        """Получает запись по id"""
+        query = select(cls).where(cls.id == record_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, record_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет произвольные поля (с осторожностью)"""
+        query = update(cls).where(cls.id == record_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, record_id: uuid.UUID) -> str:
+        """Удаляет запись по id"""
+        obj = await session.get(cls, record_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such subscription bank record"
+
+    # Специализированные методы для работы с подписками
+    @classmethod
+    async def add_base_sub(cls, session: AsyncSession, master_id: uuid.UUID, amount: int) -> str:
+        """Увеличивает количество базовых подписок"""
+        query = update(cls).where(cls.master_id == master_id).values(
+            base_sub=cls.base_sub + amount
+        )
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def add_partner_sub(cls, session: AsyncSession, master_id: uuid.UUID, amount: int) -> str:
+        """Увеличивает количество партнёрских подписок"""
+        query = update(cls).where(cls.master_id == master_id).values(
+            partner_sub=cls.partner_sub + amount
+        )
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    def decrease_base_sub_sync(cls, session, master_id: uuid.UUID) -> str:
+        """Увеличивает количество базовых подписок"""
+        query = update(cls).where(cls.master_id == master_id).values(
+            base_sub=cls.base_sub - 1
+        )
+        session.execute(query)
+        return "success"
+
+    @classmethod
+    def decrease_partner_sub_sync(cls, session, master_id: uuid.UUID) -> str:
+        """Увеличивает количество партнёрских подписок"""
+        query = update(cls).where(cls.master_id == master_id).values(
+            partner_sub=cls.partner_sub - 1
+        )
+        session.execute(query)
+        return "success"
+
+    @classmethod
+    async def set_change_level(cls, session: AsyncSession, master_id: uuid.UUID, value: bool) -> str:
+        """Устанавливает флаг разрешения смены уровня"""
+        query = update(cls).where(cls.master_id == master_id).values(change_level=value)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def get_balance(cls, session: AsyncSession, master_id: uuid.UUID) -> Optional[dict]:
+        """Возвращает словарь с балансом подписок"""
+        record = await cls.get_by_master_id(session, master_id)
+        if not record:
+            return None
+        return {
+            "base_sub": record.base_sub,
+            "partner_sub": record.partner_sub,
+            "change_level": record.change_level
+        }

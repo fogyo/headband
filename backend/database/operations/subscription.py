@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import SubscriptionModel, MasterModel, MasterReferralModel, SubLevel
+from backend.database import SubscriptionModel, MasterModel, MasterReferralModel, SubLevel, SubscriptionBankModel
 
 
 async def create_subscription(
@@ -73,6 +73,23 @@ async def create_subscription(
     except Exception as e:
         logging.error(f"Ошибка создания подписки: {e}")
         return f"error: {str(e)}", uuid.UUID(int=0)
+
+def extend_subscription_sync(
+        master_id: uuid.UUID,
+        sub_id: uuid.UUID,
+        duration_days: int,
+        level: int,
+        session
+):
+    end_date = date.today()+timedelta(days=duration_days)
+    update_data = {"end_date": end_date,
+                   "level": level}
+    SubscriptionModel.update_sync(session=session, subscription_id=sub_id, update_data=update_data)
+    if level==1:
+        SubscriptionBankModel.decrease_base_sub_sync(session=session, master_id=master_id)
+    else:
+        SubscriptionBankModel.decrease_partner_sub_sync(session=session, master_id=master_id)
+    return end_date
 
 
 async def get_subscription_level(

@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import MasterModel, MasterReferralModel, MasterNotificationModel, MasterConstantUsersModel, \
-    TokenModel
+    TokenModel, SubscriptionBankModel
 from backend.database.operations import headbeauty
 from backend.database.requests import MasterCreateRequestTG
 
@@ -54,6 +54,8 @@ async def create_master_tg(
 
         await MasterReferralModel.create(session=session, master_id=master_id)
 
+        await SubscriptionBankModel.create(session=session, master_id=master_id)
+
         await headbeauty.check_token_model(chat_id=chat_id, session=session)
 
         return "success", master_id
@@ -85,3 +87,6 @@ async def set_moderator(master_id: uuid.UUID, session: AsyncSession):
 
 async def get_partners(session: AsyncSession):
     return await MasterModel.get_partners(session=session)
+
+def get_expiring_masters(session):
+    return MasterModel.get_expiring(session=session)
