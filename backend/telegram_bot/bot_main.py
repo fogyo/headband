@@ -1,5 +1,7 @@
 import logging
 import os
+import uuid
+
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.filters import CommandStart, Command
@@ -37,6 +39,13 @@ def get_main_keyboard(role: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Сменить роль", callback_data="switch_role")]
     ])
 
+def get_rating_keyboard(appointment_id: uuid.UUID) -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(text=str(i), callback_data=f"rating_{i}_{appointment_id}")]
+        for i in range(1, 6)
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 def get_role_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Клиент", callback_data="role_client")],
@@ -56,7 +65,7 @@ async def cmd_start_simple(message: types.Message, state: FSMContext):
     else:
         role_text = "Клиент" if role == "client" else "Мастер"
         await message.answer(
-            f"✅ Ваша роль: {role_text}",
+            f"✅ Ваша роль: {role_text}\nДля получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
             reply_markup=get_main_keyboard(role)
         )
 
@@ -160,6 +169,26 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
                 reply_markup=get_main_keyboard(new_role)
             )
             await callback.answer()
+
+@dp.callback_query(F.data.startswith("rating_"))
+async def handle_rating(callback: types.CallbackQuery, state: FSMContext):
+    # 1. Получаем оценку (число от 1 до 5)
+    rating, appointment_id = int(callback.data.split("_")[1]), uuid.UUID(callback.data.split("_")[2])
+
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            appointment = await miniapp_db_fcn.get_appointment(appointment_id=appointment_id, session=session)
+            await miniapp_db_fcn.create_rating_record(rating=rating, master_id=appointment.master_id, user_id=appointment.user_id, session=session)
+    user_data = await state.get_data()
+    role = user_data.get("role", "client")
+
+    await callback.message.edit_text(
+        f"⭐ Спасибо за вашу оценку!\n"
+        f"Для получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
+        reply_markup=get_main_keyboard(role)
+    )
+
+    await callback.answer()
 
 @dp.callback_query(F.data.in_(["role_client", "role_master"]))
 async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext):

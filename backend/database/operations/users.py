@@ -32,6 +32,10 @@ async def get_user_id(chat_id: int, session: AsyncSession):
     user = await UserModel.get_by_chat_id(chat_id=chat_id, session=session)
     return user.id
 
+async def get_user(user_id: uuid.UUID, session: AsyncSession):
+    user = await UserModel.get_by_id(user_id=user_id, session=session)
+    return user
+
 """async def create_user_from_deeplink(
         chat_id: int,
         username: str,

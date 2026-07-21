@@ -171,6 +171,11 @@ async def get_on_confirm(
     day = date.today()
     return await AppointmentModel.get_by_master_confirmation(master_id=master_id, day=day, session=session)
 
+async def get_appointment(appointment_id: uuid.UUID,
+                                 session: AsyncSession):
+    appointment = await AppointmentModel.get_by_id(appointment_id=appointment_id, session=session)
+    return appointment
+
 
 async def get_appointments_by_user(
         user_id: uuid.UUID,
@@ -218,4 +223,5 @@ async def create_appointment(
 async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession) -> str:
     """Отмена записи"""
     return await AppointmentModel.delete(session=session, appointment_id=appointment_id)
+
 

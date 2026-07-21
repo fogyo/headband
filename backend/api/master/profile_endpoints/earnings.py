@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import IDResponse, StatusResponse
+from backend.telegram_bot.bot_main import bot, get_rating_keyboard
 
 
 #Requests
@@ -153,6 +154,10 @@ async def create_earning(
         appointment_id=appointment_id,
         session=session
     )
+    appointment = await miniapp_db_fcn.get_appointment(appointment_id=appointment_id, session=session)
+    user = await miniapp_db_fcn.get_user(user_id=appointment.user_id, session=session)
+    if user.chat_id != chat_id:
+        await bot.send_message(chat_id=user.chat_id, text=f"Оцените, как прошла последняя запись {appointment.day} в {appointment.start_time}, где 5-отлично, а 1-ужасно ", reply_markup=get_rating_keyboard(appointment_id=appointment_id))
     if status != "success":
         raise HTTPException(status_code=400, detail=status)
     return {"status": status, "id": earning_id}

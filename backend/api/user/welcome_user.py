@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
+from backend.telegram_bot.bot_main import bot
 
 
 class Appointment(BaseModel):
@@ -38,5 +39,11 @@ async def get_welcome(chat_id: int,
 
 @router.delete("/appointment", response_model=StatusResponse)
 async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession = Depends(get_db_session)):
+    appointment = await miniapp_db_fcn.get_appointment(appointment_id=appointment_id, session=session)
+    master = await miniapp_db_fcn.get_master(master_id=appointment.master_id, session=session)
     status = await miniapp_db_fcn.cancel_appointment(appointment_id=appointment_id, session=session)
+    notification = await miniapp_db_fcn.get_master_notification(master_id=appointment.master_id, session=session)
+    if notification["appointment_cancel_notification"]:
+        await bot.send_message(chat_id=master.chat_id_tg,
+                               text=f"❌ Отмена записи на {appointment.date} c {appointment.start_time} до {appointment.end_time}")
     return {"status": status}

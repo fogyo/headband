@@ -90,3 +90,6 @@ async def get_partners(session: AsyncSession):
 
 def get_expiring_masters(session):
     return MasterModel.get_expiring(session=session)
+
+def get_masters_to_confirm_appointments(session):
+    return MasterModel.get_masters_to_confirm(session=session)

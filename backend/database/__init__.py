@@ -412,6 +412,18 @@ class MasterModel(Base):
         return list(result.scalars().all())
 
     @classmethod
+    def get_masters_to_confirm(cls, session):
+        query = (
+            select(cls)
+            .join(cls.appointments)  # предполагается, что отношение определено
+            .where(and_(AppointmentModel.date <= date.today(),
+                       AppointmentModel.status == AppointmentStatus.PENDING.value
+                   ).options(selectinload(MasterModel.notifications), selectinload(MasterModel.appointments))
+        ))
+        result = session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
     async def get_by_chat_id_tg(cls, session: AsyncSession, chat_id: int):
         query = select(cls).where(cls.chat_id_tg == chat_id)
         result = await session.execute(query)
