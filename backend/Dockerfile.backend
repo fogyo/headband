@@ -17,8 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . ./backend
 
 # Копируем entrypoint-скрипт
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
 
 # Устанавливаем PYTHONPATH (если нужно)
 ENV PYTHONPATH=/app
