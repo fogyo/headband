@@ -129,7 +129,7 @@ if __name__ == "__main__":
     bot_process = Process(target=run_bot_process)
     server_process = Process(target=run_server_process)
     celery_process = Process(target=run_celery_process)
-    beat_process = Process(target=run_beat_process())
+    beat_process = Process(target=run_beat_process)
 
     bot_process.start()
     server_process.start()
