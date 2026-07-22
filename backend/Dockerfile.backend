@@ -17,8 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . ./backend
 
 # Копируем entrypoint-скрипт
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 
 # Устанавливаем PYTHONPATH (если нужно)
@@ -30,7 +30,7 @@ EXPOSE 8000
 RUN chmod +x entrypoint.sh
 
 # Устанавливаем точку входа
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Команда по умолчанию (будет выполнена после миграций)
 CMD ["python", "backend/main.py"]
