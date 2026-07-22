@@ -1,22 +1,35 @@
-# Используем легковесный образ Python 3.14
+# Используем легковесный образ Python 3.13
 FROM python:3.13-slim
 
-# Устанавливаем рабочую директорию внутри контейнера
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем файл с зависимостями
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 
-# Устанавливаем зависимости бэкенда
+# Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем все остальные файлы бэкенда в контейнер
+# Копируем все файлы проекта в /app/backend
 COPY . ./backend
 
+# Копируем entrypoint-скрипт
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Устанавливаем PYTHONPATH (если нужно)
 ENV PYTHONPATH=/app
 
-# Открываем порт 8000 для связи
+# Открываем порт
 EXPOSE 8000
 
-# Команда для запуска приложения
+RUN chmod +x entrypoint.sh
+
+# Устанавливаем точку входа
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Команда по умолчанию (будет выполнена после миграций)
 CMD ["python", "backend/main.py"]
