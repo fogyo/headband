@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import uuid
+from typing import List
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.client.session.aiohttp import AiohttpSession
