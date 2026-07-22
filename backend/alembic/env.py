@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -16,6 +17,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+database_url = os.getenv('DB_ADDRESS_SYNC')
+if database_url:
+    config.set_main_option('sqlalchemy.url', database_url)
+else:
+    raise ValueError("DATABASE_URL environment variable is not set")
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
