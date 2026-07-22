@@ -1,3 +1,5 @@
+import os
+
 from backend.api.headbeauty import haircuts, face_hair, hair_colors, perms
 from backend.database import miniapp_db_fcn, AsyncSessionLocal
 
@@ -51,15 +53,12 @@ CategoryList = [{"name": "Стрижки",
                     "parental_name": "other",
                  "eng_name": "other"}]
 
-admin = {"chat_id": 980609742,
-         "password": "d22877a5c696fd3b181eb59717956273057490e5ca0413aa42d6910c3e935244"}
-
 async def create_admin():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            admin = await miniapp_db_fcn.check_admin(chat_id=980609742, session=session)
-            if not admin:
-                await miniapp_db_fcn.create_admin(chat_id=admin["chat_id"], password=admin["password"], session=session)
+            admin_check = await miniapp_db_fcn.check_admin(chat_id=980609742, session=session)
+            if not admin_check:
+                await miniapp_db_fcn.create_admin(chat_id=980609742, password=os.getenv("PASSWORD"), session=session)
 
 async def create_categories():
     async with AsyncSessionLocal() as session:
