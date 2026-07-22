@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import uuid
@@ -259,3 +260,33 @@ async def send_notification(bot: Bot, chat_id: int, text: str):
         logging.info(f"Уведомление отправлено пользователю {chat_id}")
     except Exception as e:
         logging.error(f"Не удалось отправить сообщение {chat_id}: {e}")
+
+
+sem = asyncio.Semaphore(20)
+
+async def send_single_message(chat_id: int, text: str) -> bool:
+    """Отправляет одно сообщение, логирует успех/ошибку и возвращает статус."""
+    async with sem:
+        try:
+            await bot.send_message(chat_id=chat_id, text=text)
+            logging.info(f"Notification was sent to user {chat_id}")
+            return True
+        except Exception as e:
+            logging.error(f"Notification wasn't sent to user {chat_id}: {e}")
+            return False
+
+
+async def notify_all(messages: List[dict]):
+    """Отправляет все сообщения параллельно, логируя каждую ошибку отдельно."""
+    if not messages:
+        logging.info("No messages")
+        return
+
+    tasks = [
+        send_single_message(msg["chat_id"], msg["text"])
+        for msg in messages
+    ]
+    results = await asyncio.gather(*tasks)
+
+    success_count = sum(results)
+    logging.info(f"Отправлено {success_count} из {len(messages)} уведомлений")

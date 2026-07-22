@@ -12,7 +12,7 @@ from celery.schedules import crontab
 from backend.database import miniapp_db_fcn, SubLevel
 from backend.model import pricelist, analyzer, hair_recommender, face_hair_recommender, color_recommender, previewer, \
     SyncSessionLocal
-from backend.telegram_bot.bot_main import bot
+from backend.telegram_bot.bot_main import notify_all
 
 broker = os.getenv("BROKER")
 
@@ -71,34 +71,6 @@ def task_manager(self, data: dict):
 
 @factory.task
 def check_subs():
-
-    sem = asyncio.Semaphore(20)
-    async def send_single_message(chat_id: int, text: str) -> bool:
-        """Отправляет одно сообщение, логирует успех/ошибку и возвращает статус."""
-        async with sem:
-            try:
-                await bot.send_message(chat_id=chat_id, text=text)
-                logging.info(f"Notification was sent to user {chat_id}")
-                return True
-            except Exception as e:
-                logging.error(f"Notification wasn't sent to user {chat_id}: {e}")
-                return False
-
-    async def notify_all(messages: List[dict]):
-        """Отправляет все сообщения параллельно, логируя каждую ошибку отдельно."""
-        if not messages:
-            logging.info("No messages")
-            return
-
-        tasks = [
-            send_single_message(msg["chat_id"], msg["text"])
-            for msg in messages
-        ]
-        results = await asyncio.gather(*tasks)
-
-        success_count = sum(results)
-        logging.info(f"Отправлено {success_count} из {len(messages)} уведомлений")
-
     with SyncSessionLocal() as session:
         masters = miniapp_db_fcn.get_expiring_masters(session=session)
         messages = []
@@ -211,33 +183,6 @@ def check_subs():
 
 @factory.task
 def master_confirm_notification():
-    sem = asyncio.Semaphore(20)
-
-    async def send_single_message(chat_id: int, text: str) -> bool:
-        """Отправляет одно сообщение, логирует успех/ошибку и возвращает статус."""
-        async with sem:
-            try:
-                await bot.send_message(chat_id=chat_id, text=text)
-                logging.info(f"Notification was sent to user {chat_id}")
-                return True
-            except Exception as e:
-                logging.error(f"Notification wasn't sent to user {chat_id}: {e}")
-                return False
-
-    async def notify_all(messages: List[dict]):
-        """Отправляет все сообщения параллельно, логируя каждую ошибку отдельно."""
-        if not messages:
-            logging.info("No messages")
-            return
-
-        tasks = [
-            send_single_message(msg["chat_id"], msg["text"])
-            for msg in messages
-        ]
-        results = await asyncio.gather(*tasks)
-
-        success_count = sum(results)
-        logging.info(f"Отправлено {success_count} из {len(messages)} уведомлений")
     
     with SyncSessionLocal() as session:
         masters = miniapp_db_fcn.get_masters_to_confirm_appointments(session=session)

@@ -2,7 +2,6 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.headbeauty import hb_session
 from backend.database import HeadbeautySessionModel, FaceParametersModel, HaircutTemplateModel, \
     HaircutRecommendationModel, FaceHairTemplateModel, ColorTemplateModel, PermsTemplateModel, TokenModel, PreviewModel
 from backend.database.obj_storage import s3_domain

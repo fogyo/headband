@@ -19,3 +19,6 @@ async def create_support_request(chat_id: int, text: str, session: AsyncSession)
 
 async def verify_admin(chat_id: int, password: str, session: AsyncSession):
     return await AdminModel.verify_password(chat_id=chat_id, password=password, session=session)
+
+async def create_admin(chat_id: int, password: str, session: AsyncSession):
+    return await AdminModel.create(chat_id=chat_id, session=session, password=password)
