@@ -48,7 +48,7 @@ async def setup_database():
                 except Exception as e:
                     logging.warning(f"Ошибка при удалении таблицы {table}: {e}")"""
 
-            await conn.run_sync(Base.metadata.create_all)
+            #await conn.run_sync(Base.metadata.create_all)
 
             tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
             logging.info(f"Таблицы в базе данных: {tables}")
