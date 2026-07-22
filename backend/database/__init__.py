@@ -78,6 +78,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 class Base(DeclarativeBase):
     pass
 
+class SupportStatus(Enum):
+    PENDING = 1
+    SOLVED = 2
 
 class Week(Enum):
     MONDAY = 1
@@ -108,6 +111,55 @@ class AdminModel(Base):
     __tablename__ = "admins"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String, nullable=False)
+    creator: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, chat_id: int, password: str) -> uuid.UUID:
+        """Создаёт нового администратора"""
+        admin = cls(chat_id=chat_id, password=password)  # здесь можно захешировать пароль
+        session.add(admin)
+        await session.flush()
+        return admin.id
+
+    @classmethod
+    async def get_by_chat_id(cls, session: AsyncSession, chat_id: int) -> Optional["AdminModel"]:
+        """Получает администратора по chat_id"""
+        query = select(cls).where(cls.chat_id == chat_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, admin_id: uuid.UUID) -> Optional["AdminModel"]:
+        """Получает администратора по id"""
+        query = select(cls).where(cls.id == admin_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, admin_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет данные администратора (например, пароль)"""
+        query = update(cls).where(cls.id == admin_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, admin_id: uuid.UUID) -> str:
+        """Удаляет администратора по id"""
+        obj = await session.get(cls, admin_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such admin"
+
+    @classmethod
+    async def verify_password(cls, session: AsyncSession, chat_id: int, password: str) -> bool:
+        """Проверяет пароль хэш"""
+        admin = await cls.get_by_chat_id(session, chat_id)
+        if not admin:
+            return False
+        return admin.password == password
 
 class UserModel(Base):
     __tablename__ = "users"
@@ -250,7 +302,6 @@ class MasterModel(Base):
     user_link_id: Mapped[uuid.UUID]
     referrer_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)  # Кто пригласил
     referral_counted: Mapped[bool] = mapped_column(default=False)  # Засчитан ли реферал
-    moderation: Mapped[bool] = mapped_column(default=False)
 
     # Relationships
     appointments: Mapped[List["AppointmentModel"]] = relationship(
@@ -2395,3 +2446,69 @@ class SubscriptionBankModel(Base):
             "partner_sub": record.partner_sub,
             "change_level": record.change_level
         }
+
+class SupportModel(Base):
+    __tablename__ = "support_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    text: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[int] = mapped_column(default=SupportStatus.PENDING.value)
+    created_at: Mapped[date] = mapped_column(Date, default=date.today)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, chat_id: int, text: str) -> uuid.UUID:
+        """Создаёт новую заявку в поддержку со статусом PENDING"""
+        obj = cls(chat_id=chat_id, text=text, status=SupportStatus.PENDING.value)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, request_id: uuid.UUID) -> Optional["SupportModel"]:
+        """Получает заявку по ID"""
+        query = select(cls).where(cls.id == request_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_chat_id(cls, session: AsyncSession, chat_id: int) -> List["SupportModel"]:
+        """Получает все заявки пользователя (по chat_id)"""
+        query = select(cls).where(cls.chat_id == chat_id).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_pending(cls, session: AsyncSession) -> List["SupportModel"]:
+        """Получает все нерешённые заявки"""
+        query = select(cls).where(cls.status == SupportStatus.PENDING.value).order_by(cls.created_at.asc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["SupportModel"]:
+        """Получает все заявки (для администрирования)"""
+        query = select(cls)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def update_status(cls, session: AsyncSession, request_id: uuid.UUID, new_status: SupportStatus) -> str:
+        """Обновляет статус заявки"""
+        query = update(cls).where(cls.id == request_id).values(status=new_status.value)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def mark_solved(cls, session: AsyncSession, request_id: uuid.UUID) -> str:
+        """Помечает заявку как решённую (SOLVED)"""
+        return await cls.update_status(session, request_id, SupportStatus.SOLVED)
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, request_id: uuid.UUID) -> str:
+        """Удаляет заявку по ID"""
+        obj = await session.get(cls, request_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such support request"

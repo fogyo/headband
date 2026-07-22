@@ -150,27 +150,6 @@ async def get_guides_page(
             "approved": guide.guide_approved,
         })
 
-    # Если мастер модератор – добавляем гайды, ожидающие подтверждения
-    if master.moderation:
-        pending_guides = await miniapp_db_fcn.pending_guides(session=session)
-        amb_resp = []
-        for guide in pending_guides:
-            guide_type = 1 if guide.video_steps_list else 0
-            amb_resp.append({
-                "id": guide.id,
-                "name": guide.name,
-                "category": guide.category.name,
-                "guide_type": guide_type,
-                "created": guide.guide_created,
-                "changed": guide.guide_last_change,
-            })
-        return {
-            "status": "success",
-            "my_guides": my_guides_resp,
-            "liked_guides": liked_guides_resp,
-            "approve_guides": amb_resp,
-        }
-
     return {
         "status": "success",
         "my_guides": my_guides_resp,

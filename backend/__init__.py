@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,7 +8,19 @@ import uvicorn
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-logging.basicConfig(level=logging.INFO)
+LOG_BUFFER = deque(maxlen=5000)
+
+class AllLogHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        # Сохраняем кортеж (уровень, сообщение) для фильтрации
+        LOG_BUFFER.append((record.levelno, log_entry))
+
+all_handler = AllLogHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+all_handler.setFormatter(formatter)
+logging.getLogger().addHandler(all_handler)
+logging.getLogger().setLevel(logging.INFO)
 
 from backend import database as db
 from backend.telegram_bot.bot_main import stop_bot, start_bot

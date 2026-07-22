@@ -1,3 +1,4 @@
+from backend.database.operations.admins import *
 from backend.database.operations.addresses import *
 from backend.database.operations.appointments import *
 from backend.database.operations.categories import *

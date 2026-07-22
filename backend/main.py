@@ -109,7 +109,7 @@ def run_server_process():
                 local_folder="C:\\Users\\Fog\\PycharmProjects\\headband\\frontend\\client\\assets\\perms", s3_prefix="perms\\")"""
 
             await init_db()
-            logging.info("База данных инициализирована")
+            logging.info("Database init")
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
         server = uvicorn.Server(config)
         await server.serve()

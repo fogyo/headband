@@ -11,7 +11,7 @@ class BaseProfileResponse(StatusResponse):
     name: str | None
     tg: str
     phone: str | None
-    ambassador: bool
+    moderator: bool
     avatar: str
 
 
@@ -30,11 +30,12 @@ async def get_profile(
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
     master = await miniapp_db_fcn.get_master(master_id=master_id, session=session)
+    admin_check = await miniapp_db_fcn.check_admin(chat_id=chat_id, session=session)
     return {"status": "success",
             "name":  master.full_name,
             "tg": master.username_tg,
             "phone": master.phone,
-            "ambassador": master.moderation,
+            "moderator": admin_check,
             "avatar": f"{s3_domain}{master.avatar}" if master.avatar else ""}
 
 

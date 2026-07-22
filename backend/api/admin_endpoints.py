@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from celery.result import AsyncResult
@@ -5,6 +6,7 @@ from fastapi import Depends, APIRouter
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend import LOG_BUFFER
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
 from backend.model.bg_factory import task_manager
@@ -14,12 +16,20 @@ router = APIRouter(
     prefix="/admins",
     tags=["Admin"]
 )
+class Password(BaseModel):
+    password: str
 
 class SubRequest(BaseModel):
     level: int
 
 class Feedback(BaseModel):
     text: str
+
+class FeedbackResponse(Feedback):
+    problem_id: uuid.UUID
+
+class LogResponse(StatusResponse):
+    logs: list
 
 @router.patch("/set_moderator", response_model=StatusResponse)
 async def set_moderator(
@@ -62,12 +72,29 @@ async def set_sub(chat_id: int,
 
 @router.post("/communication", response_model=StatusResponse)
 async def get_help(chat_id: int,
-                   request: Feedback):
-    await bot.send_message(chat_id=980609742, text=f"Обратная связь: {request.text} \nID пользователя: {chat_id}")
+                   request: Feedback,
+                   session: AsyncSession = Depends(get_db_session)):
+    req_id = await miniapp_db_fcn.create_support_request(chat_id=chat_id, text=request.text, session=session)
+    await bot.send_message(chat_id=980609742, text=f"Обратная связь: {request.text} \nID пользователя: {chat_id}\nID проблемы: {req_id}")
     return {"status": "success"}
 
 @router.post("/communication_response", response_model=StatusResponse)
 async def dev_help(chat_id: int,
-                   request: Feedback):
+                   request: FeedbackResponse,
+                   session: AsyncSession = Depends(get_db_session)):
+    status = await miniapp_db_fcn.solve_problem(problem_id=request.problem_id, session=session)
     await bot.send_message(chat_id=chat_id, text=f"Ответ от разработчика:\n {request.text} \n С уважением, \n команда headband")
-    return {"status": "success"}
+    return {"status": status}
+
+@router.get("/verify_admin", response_model=StatusResponse)
+async def verify_admin(chat_id: int,
+                       request: Password,
+                       session: AsyncSession = Depends(get_db_session)):
+    status = await miniapp_db_fcn.verify_admin(chat_id=chat_id, password=request.password, session=session)
+    return {"status": status}
+
+
+@router.get("/logs")
+async def get_logs():
+    return {"status": "success",
+            "logs": [msg for _, msg in LOG_BUFFER]}
