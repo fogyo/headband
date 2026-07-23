@@ -37,6 +37,8 @@ import AIColorPage from "./pages/headbeauty/ColorHeadbeauty";
 import AIPermPage from "./pages/headbeauty/PermHeadbeauty";
 import AIPreviewPage from "./pages/headbeauty/PreviewHeadbeauty";
 import AIHistoryPage from "./pages/headbeauty/HeadbeautyHistory";
+import AdminVerifyPage from "./pages/admin/AdminVerifyPage";
+import AdminIndex from "./pages/admin/AdminIndex";
 
 // ---------- Провайдер ----------
 const queryClient = new QueryClient();
@@ -257,6 +259,8 @@ const App = () => (
             <Route path="/headbeauty-perm/:gender" element={<AIPermPage />} />
             <Route path="/headbeauty-preview" element={<AIPreviewPage />} />
             <Route path="/headbeauty-history" element={<AIHistoryPage />} />
+            <Route path="/admin-verify" element={<AdminVerifyPage />} />
+            <Route path="/admin" element={<AdminIndex />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TelegramAuthProvider>
