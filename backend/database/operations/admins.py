@@ -2,8 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import AdminModel, SupportModel
-from database import TokenUsageModel, UsageStatus, TokenTypes, MasterModel, UserModel, SubscriptionModel, \
+from backend.database import AdminModel, SupportModel, TokenUsageModel, UsageStatus, TokenTypes, MasterModel, UserModel, SubscriptionModel, \
     HeadbeautySessionModel, PreviewModel, AppointmentModel
 
 
