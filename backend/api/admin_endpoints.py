@@ -90,8 +90,10 @@ async def dev_help(chat_id: int,
 async def verify_admin(chat_id: int,
                        request: Password,
                        session: AsyncSession = Depends(get_db_session)):
-    status = await miniapp_db_fcn.verify_admin(chat_id=chat_id, password=request.password, session=session)
-    return {"status": status}
+    verify = await miniapp_db_fcn.verify_admin(chat_id=chat_id, password=request.password, session=session)
+    if verify:
+        return {"status": "success"}
+    return {"status": "error"}
 
 
 @router.get("/logs")
