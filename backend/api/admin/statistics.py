@@ -100,10 +100,10 @@ async def getAppointments(session: AsyncSession):
 
 @router.get("/", response_model=StatsResponse)
 async def get_stats(session: AsyncSession = Depends(get_db_session)):
-    users = getUsers(session=session)
-    finance = getFinance(session=session)
-    ai = getAI(session=session)
-    appointments = getAppointments(session=session)
+    users = await getUsers(session=session)
+    finance = await getFinance(session=session)
+    ai = await getAI(session=session)
+    appointments = await getAppointments(session=session)
     return {"status": "success",
             "users": users,
             "finance": finance,
