@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { Shield } from "lucide-react"; // иконка для админки
 import homeIconUrl from "@/assets/home.svg";
 import arrowForwardIcon from "@/assets/arrow_forward.svg";
 import accountCircleIcon from "@/assets/account_circle.svg";
@@ -21,7 +22,7 @@ interface ProfileResponse {
   name: string | null;
   tg: string;
   phone: string | null;
-  ambassador: boolean;
+  moderator: boolean; // заменили ambassador на moderator
   avatar: string;
 }
 
@@ -34,6 +35,7 @@ function isValidUrl(string) {
   }
 }
 
+// Оригинальный MenuRow (без изменений)
 function MenuRow({
   icon,
   label,
@@ -72,6 +74,45 @@ function MenuRow({
   );
 }
 
+// Новый компонент для админской кнопки – стили идентичны MenuRow, но иконка передаётся как React-компонент
+function AdminMenuRow({
+  icon: Icon,
+  label,
+  to = "#",
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  to?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <div
+      className="relative flex items-center gap-3 px-4 py-3 rounded-[10px] bg-[#FFE9EF] shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)] mx-[-8px]"
+      style={{ border: "0.5px solid rgba(0,0,0,0.00)" }}
+    >
+      <Icon className="relative z-10 w-6 h-6 text-black" />
+      <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
+        {label}
+      </span>
+      <img
+        src={arrowForwardIcon}
+        alt=">"
+        className="relative z-10 w-6 h-6"
+      />
+    </div>
+  );
+
+  if (to !== "#") {
+    return <Link to={to}>{content}</Link>;
+  }
+  return (
+    <button onClick={onClick} className="w-full text-left">
+      {content}
+    </button>
+  );
+}
+
 export default function ProfilePage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
@@ -79,7 +120,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Состояния для модалки поддержки
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [supportComment, setSupportComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -187,7 +227,6 @@ export default function ProfilePage() {
   const fullName = profile.name || "Имя не указано";
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
   const phone = profile.phone ? `+${profile.phone}` : "+7 (___) ___-__-__";
-  // fallback на base_man_avatar, если avatar пустой или не задан
   const avatarUrl = (profile.avatar && isValidUrl(profile.avatar)) 
     ? profile.avatar 
     : baseManAvatar;
@@ -278,7 +317,6 @@ export default function ProfilePage() {
               label="Гайды"
               to="/profile/guides"
             />
-            {/* Пункт "Мои работы" удалён */}
             <MenuRow
               icon={notificationsIcon}
               label="Уведомления"
@@ -307,11 +345,19 @@ export default function ProfilePage() {
               label="Оставить отзыв о headband"
               to="/feedback"
             />
+            {/* Админская панель – появляется только если moderator === true */}
+            {profile.moderator && (
+              <AdminMenuRow
+                icon={Shield}
+                label="Админская панель"
+                to="/admin"
+              />
+            )}
           </div>
         </section>
       </div>
 
-      {/* Модальное окно поддержки */}
+      {/* Модальное окно поддержки – без изменений */}
       {isSupportModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
