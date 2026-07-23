@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db_session, miniapp_db_fcn, TokenTypes
-from database.responses import StatusResponse
+from backend.database import get_db_session, miniapp_db_fcn, TokenTypes
+from backend.database.responses import StatusResponse
 
 router = APIRouter(
     prefix="/admins/stats",
