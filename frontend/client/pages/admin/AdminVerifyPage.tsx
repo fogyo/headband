@@ -39,7 +39,7 @@ export default function AdminVerifyPage() {
 
       // 2. Отправляем на бэкенд
       const res = await fetch(`${baseUrl}/admins/verify_admin?chat_id=${chatId}`, {
-        method: "GET",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: hashed }),
       });
