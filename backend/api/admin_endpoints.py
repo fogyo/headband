@@ -86,7 +86,7 @@ async def dev_help(chat_id: int,
     await bot.send_message(chat_id=chat_id, text=f"Ответ от разработчика:\n {request.text} \n С уважением, \n команда headband")
     return {"status": status}
 
-@router.get("/verify_admin", response_model=StatusResponse)
+@router.post("/verify_admin", response_model=StatusResponse)
 async def verify_admin(chat_id: int,
                        request: Password,
                        session: AsyncSession = Depends(get_db_session)):
