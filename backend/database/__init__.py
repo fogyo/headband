@@ -350,7 +350,7 @@ class MasterModel(Base):
     user_link_id: Mapped[uuid.UUID]
     referrer_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)  # Кто пригласил
     referral_counted: Mapped[bool] = mapped_column(default=False) # Засчитан ли реферал
-    created_at: Mapped[date] = mapped_column(Date, default=date.today)
+    created_at: Mapped[date] = mapped_column(Date, default=date.today, nullable=True)
 
     # Relationships
     appointments: Mapped[List["AppointmentModel"]] = relationship(
