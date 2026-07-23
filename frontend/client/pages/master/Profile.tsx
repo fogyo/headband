@@ -350,7 +350,7 @@ export default function ProfilePage() {
               <AdminMenuRow
                 icon={Shield}
                 label="Админская панель"
-                to="/admin"
+                to="/admin-verify"
               />
             )}
           </div>
