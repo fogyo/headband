@@ -195,45 +195,24 @@ class UserModel(Base):
             session: AsyncSession,
             weeks: int = 5
     ) -> List[dict]:
-        """
-        Возвращает прогрессию количества пользователей за последние `weeks` недель.
-        Каждый элемент словаря: {'date_record': date (начало недели), 'users_amount': int}
-        """
-        # 1. Генерируем список начал недель за последние weeks недель (включая текущую)
+        """Возвращает количество пользователей по неделям (по одному запросу на неделю)."""
         today = date.today()
-        start_of_week = today - timedelta(days=today.weekday())  # понедельник текущей недели
+        start_of_week = today - timedelta(days=today.weekday())
         week_starts = [start_of_week - timedelta(weeks=i) for i in range(weeks - 1, -1, -1)]
-        week_starts = sorted(week_starts)
 
-        # 2. Запрос к БД: группировка по неделям с date_trunc
-        start_date = week_starts[0]  # самая ранняя дата
-
-        query = select(
-            func.date_trunc('week', cls.created_at).label('week_start'),
-            func.count(cls.id).label('count')
-        ).where(
-            cls.created_at <= start_date
-        ).group_by(
-            func.date_trunc('week', cls.created_at)
-        ).order_by(
-            func.date_trunc('week', cls.created_at)
-        )
-
-        result = await session.execute(query)
-        rows = result.all()
-
-        # Создаём словарь для быстрого доступа
-        stats = {row.week_start.date(): row.count for row in rows}
-
-        # 3. Формируем итоговый список
         progression = []
         for week_start in week_starts:
-            count = stats.get(week_start, 0)
+            week_end = week_start + timedelta(days=6)
+            query = select(func.count(cls.id)).where(
+                cls.created_at >= week_start,
+                cls.created_at <= week_end
+            )
+            result = await session.execute(query)
+            count = result.scalar() or 0
             progression.append({
-                'amount': count,
-                'date_record': week_start
+                'date_record': week_start,
+                'amount': count
             })
-
         return progression
 
     @classmethod
@@ -472,44 +451,24 @@ class MasterModel(Base):
             session: AsyncSession,
             weeks: int = 5
     ) -> List[dict]:
-        """
-        Возвращает прогрессию количества мастеров за последние `weeks` недель.
-        Каждый элемент словаря: {'date_record': date (начало недели), 'masters_amount': int}
-        """
-
+        """Возвращает количество мастеров по неделям (по одному запросу на неделю)."""
         today = date.today()
-
-        start_of_week = today - timedelta(days=today.weekday())  # weekday() 0=понедельник
+        start_of_week = today - timedelta(days=today.weekday())  # понедельник текущей недели
         week_starts = [start_of_week - timedelta(weeks=i) for i in range(weeks - 1, -1, -1)]
-
-        week_starts = sorted(week_starts)
-
-        start_date = week_starts[0]
-
-        query = select(
-            func.date_trunc('week', cls.created_at).label('week_start'),
-            func.count(cls.id).label('count')
-        ).where(
-            cls.created_at <= start_date
-        ).group_by(
-            func.date_trunc('week', cls.created_at)
-        ).order_by(
-            func.date_trunc('week', cls.created_at)
-        )
-
-        result = await session.execute(query)
-        rows = result.all()  # list of Row
-
-        stats = {row.week_start.date(): row.count for row in rows}
 
         progression = []
         for week_start in week_starts:
-            count = stats.get(week_start, 0)
+            week_end = week_start + timedelta(days=6)  # воскресенье
+            query = select(func.count(cls.id)).where(
+                cls.created_at >= week_start,
+                cls.created_at <= week_end
+            )
+            result = await session.execute(query)
+            count = result.scalar() or 0
             progression.append({
-                'amount': count,
-                'date_record': week_start
+                'date_record': week_start,
+                'amount': count
             })
-
         return progression
 
     @classmethod
