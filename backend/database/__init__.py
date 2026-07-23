@@ -2390,7 +2390,7 @@ class PreviewModel(Base):
     )
     img_url: Mapped[str] = mapped_column(String, nullable=False)
     model: Mapped[str] = mapped_column(String, nullable=False)
-    saved: Mapped[bool] = mapped_column(Boolean, default=False)
+    saved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
 
     # Новое поле: дата и время создания (с часовым поясом, автоматически проставляется на стороне БД)
     created_at: Mapped[datetime] = mapped_column(
