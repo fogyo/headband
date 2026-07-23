@@ -364,6 +364,7 @@ async def set_img(
         preview_id: uuid.UUID,
         session: AsyncSession = Depends(get_db_session)):
     preview = await miniapp_db_fcn.get_preview_by_id(session=session, preview_id=preview_id)
+    await miniapp_db_fcn.mark_saved(session=session, preview_id=preview_id)
     upd_data = {"img_url": preview.img_url}
     await miniapp_db_fcn.update_session(session_id=preview.session_id, session=session, upd_data=upd_data)
     return {"status": "success"}

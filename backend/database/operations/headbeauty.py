@@ -137,3 +137,6 @@ async def get_all_previews(session: AsyncSession, session_id: uuid.UUID):
 
 async def increase_tokens(session: AsyncSession, chat_id: int, amount: int):
     await TokenModel.add_tokens(session=session, chat_id=chat_id, amount=amount)
+
+async def mark_saved(session: AsyncSession, preview_id: uuid.UUID):
+    await PreviewModel.mark_saved(preview_id=preview_id, session=session)

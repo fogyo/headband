@@ -75,10 +75,11 @@ def run_sync(request: dict, cfg: dict):
             return {"status": "failed", "error": "No data received from AI"}
         if cfg["model"] == 1:
             preview_id = miniapp_db_fcn.create_preview_sync(session_id=request["session_id"], img_url=image_url, model="base", session=session)
-
+            token_spent = miniapp_db_fcn.spent_token_record(model="base", session=session)
         else:
             preview_id = miniapp_db_fcn.create_preview_sync(session_id=request["session_id"], img_url=image_url, model="improve",
                                                session=session)
+            token_spent = miniapp_db_fcn.spent_token_record(model="improve", session=session)
         session.commit()
         return {"status": "success",
                 "id": preview_id}

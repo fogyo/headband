@@ -167,6 +167,7 @@ class UserModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chat_id: Mapped[int] = mapped_column(BigInteger)
     username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[date] = mapped_column(Date, default=date.today)
 
     # Relationships
     appointments: Mapped[List["AppointmentModel"]] = relationship(
@@ -187,6 +188,53 @@ class UserModel(Base):
         cascade="all, delete-orphan",
         passive_deletes=True
     )
+
+    @classmethod
+    async def get_progression_users(
+            cls,
+            session: AsyncSession,
+            weeks: int = 5
+    ) -> List[dict]:
+        """
+        Возвращает прогрессию количества пользователей за последние `weeks` недель.
+        Каждый элемент словаря: {'date_record': date (начало недели), 'users_amount': int}
+        """
+        # 1. Генерируем список начал недель за последние weeks недель (включая текущую)
+        today = date.today()
+        start_of_week = today - timedelta(days=today.weekday())  # понедельник текущей недели
+        week_starts = [start_of_week - timedelta(weeks=i) for i in range(weeks - 1, -1, -1)]
+        week_starts = sorted(week_starts)
+
+        # 2. Запрос к БД: группировка по неделям с date_trunc
+        start_date = week_starts[0]  # самая ранняя дата
+
+        query = select(
+            func.date_trunc('week', cls.created_at).label('week_start'),
+            func.count(cls.id).label('count')
+        ).where(
+            cls.created_at <= start_date
+        ).group_by(
+            func.date_trunc('week', cls.created_at)
+        ).order_by(
+            func.date_trunc('week', cls.created_at)
+        )
+
+        result = await session.execute(query)
+        rows = result.all()
+
+        # Создаём словарь для быстрого доступа
+        stats = {row.week_start.date(): row.count for row in rows}
+
+        # 3. Формируем итоговый список
+        progression = []
+        for week_start in week_starts:
+            count = stats.get(week_start, 0)
+            progression.append({
+                'amount': count,
+                'date_record': week_start
+            })
+
+        return progression
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
@@ -301,7 +349,8 @@ class MasterModel(Base):
     master_link_id: Mapped[uuid.UUID]
     user_link_id: Mapped[uuid.UUID]
     referrer_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)  # Кто пригласил
-    referral_counted: Mapped[bool] = mapped_column(default=False)  # Засчитан ли реферал
+    referral_counted: Mapped[bool] = mapped_column(default=False) # Засчитан ли реферал
+    created_at: Mapped[date] = mapped_column(Date, default=date.today)
 
     # Relationships
     appointments: Mapped[List["AppointmentModel"]] = relationship(
@@ -416,6 +465,52 @@ class MasterModel(Base):
         passive_deletes=True,
         uselist=False
     )
+
+    @classmethod
+    async def get_progression_masters(
+            cls,
+            session: AsyncSession,
+            weeks: int = 5
+    ) -> List[dict]:
+        """
+        Возвращает прогрессию количества мастеров за последние `weeks` недель.
+        Каждый элемент словаря: {'date_record': date (начало недели), 'masters_amount': int}
+        """
+
+        today = date.today()
+
+        start_of_week = today - timedelta(days=today.weekday())  # weekday() 0=понедельник
+        week_starts = [start_of_week - timedelta(weeks=i) for i in range(weeks - 1, -1, -1)]
+
+        week_starts = sorted(week_starts)
+
+        start_date = week_starts[0]
+
+        query = select(
+            func.date_trunc('week', cls.created_at).label('week_start'),
+            func.count(cls.id).label('count')
+        ).where(
+            cls.created_at <= start_date
+        ).group_by(
+            func.date_trunc('week', cls.created_at)
+        ).order_by(
+            func.date_trunc('week', cls.created_at)
+        )
+
+        result = await session.execute(query)
+        rows = result.all()  # list of Row
+
+        stats = {row.week_start.date(): row.count for row in rows}
+
+        progression = []
+        for week_start in week_starts:
+            count = stats.get(week_start, 0)
+            progression.append({
+                'amount': count,
+                'date_record': week_start
+            })
+
+        return progression
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
@@ -875,6 +970,24 @@ class AppointmentModel(Base):
         query = select(cls).where(cls.master_id == master_id, cls.date == app_date).order_by(cls.start_time)
         result = await session.execute(query)
         return list(result.scalars().all())
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> int:
+        query = select(cls)
+        result = await session.execute(query)
+        return len(result.scalars().all())
+
+    @classmethod
+    async def get_all_future(cls, session: AsyncSession) -> int:
+        query = select(cls).where(cls.date>date.today())
+        result = await session.execute(query)
+        return len(result.scalars().all())
+
+    @classmethod
+    async def get_all_confirmed(cls, session: AsyncSession) -> int:
+        query = select(cls).where(cls.status == AppointmentStatus.CONFIRMED.value)
+        result = await session.execute(query)
+        return len(result.scalars().all())
 
     @classmethod
     async def get_by_master_confirmation(cls, session: AsyncSession, master_id: uuid.UUID, day: date):
@@ -1423,6 +1536,17 @@ class SubscriptionModel(Base):
         await session.flush()
         return subscription.id
 
+    @classmethod
+    async def count_active_by_level(cls, session: AsyncSession, level: int) -> int:
+        """Возвращает количество активных подписок указанного уровня на сегодняшний день."""
+        today = date.today()
+        query = select(func.count(cls.id)).where(
+            cls.level == level,
+            cls.start_date <= today,
+            cls.end_date >= today
+        )
+        result = await session.execute(query)
+        return result.scalar() or 0
 
     @classmethod
     async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):
@@ -1722,6 +1846,13 @@ class HeadbeautySessionModel(Base):
         passive_deletes=True,
         uselist=False
     )
+
+    @classmethod
+    async def count_gender_session(cls, session: AsyncSession, gender: bool) -> int:
+        """Возвращает количество мужских сессий (gender = False)."""
+        query = select(func.count(cls.id)).where(cls.gender == gender)
+        result = await session.execute(query)
+        return result.scalar() or 0
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
@@ -2259,6 +2390,7 @@ class PreviewModel(Base):
     )
     img_url: Mapped[str] = mapped_column(String, nullable=False)
     model: Mapped[str] = mapped_column(String, nullable=False)
+    saved: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Новое поле: дата и время создания (с часовым поясом, автоматически проставляется на стороне БД)
     created_at: Mapped[datetime] = mapped_column(
@@ -2287,6 +2419,27 @@ class PreviewModel(Base):
         return obj.id
 
     @classmethod
+    async def get_saved_stats_by_model(cls, session: AsyncSession, model: str) -> dict:
+        """
+        Возвращает статистику сохранённых превью для указанной модели.
+        """
+        total_query = select(func.count(cls.id)).where(cls.model == model)
+        saved_query = select(func.count(cls.id)).where(cls.saved == True, cls.model == model)
+
+        total_result = await session.execute(total_query)
+        saved_result = await session.execute(saved_query)
+
+        total = total_result.scalar() or 0
+        saved = saved_result.scalar() or 0
+        percentage = (saved / total * 100) if total > 0 else 0.0
+
+        return {
+            "model": model,
+            "total": total,
+            "saved": int(percentage),
+        }
+
+    @classmethod
     async def get_by_id(cls, session: AsyncSession, preview_id: uuid.UUID) -> Optional["PreviewModel"]:
         """Получает превью по ID"""
         query = select(cls).where(cls.id == preview_id)
@@ -2304,6 +2457,13 @@ class PreviewModel(Base):
     async def update(cls, session: AsyncSession, preview_id: uuid.UUID, new_img_url: str) -> str:
         """Обновляет URL изображения превью"""
         query = update(cls).where(cls.id == preview_id).values(img_url=new_img_url)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def mark_saved(cls, session: AsyncSession, preview_id: uuid.UUID) -> str:
+        """Обновляет URL изображения превью"""
+        query = update(cls).where(cls.id == preview_id).values(saved=True)
         await session.execute(query)
         return "success"
 
@@ -2512,3 +2672,206 @@ class SupportModel(Base):
             await session.delete(obj)
             return "success"
         return "no such support request"
+
+class UsageStatus(Enum):
+    SPENT = 1       # потрачено
+    PURCHASED = 2   # куплено
+
+class TokenTypes(Enum):
+    BASE = 1        # обычные токены
+    SUPER = 2       # супертокены
+
+class TokenUsageModel(Base):
+    __tablename__ = "token_usage"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False)          # количество (положительное для покупки, отрицательное для траты – но у нас отдельные статусы)
+    status: Mapped[int] = mapped_column(BigInteger, nullable=False)          # UsageStatus
+    token_type: Mapped[int] = mapped_column(BigInteger, nullable=False)      # TokenTypes
+    created_at: Mapped[date] = mapped_column(Date, default=date.today)       # дата автоматически
+    costage: Mapped[int] = mapped_column(BigInteger, nullable=True)
+
+    @classmethod
+    async def create(
+        cls,
+        session: AsyncSession,
+        amount: int,
+        status: UsageStatus,
+        token_type: TokenTypes
+    ) -> uuid.UUID:
+        """Создаёт запись об использовании токенов (трата или покупка)"""
+        obj = cls(
+            amount=amount,
+            status=status.value,
+            token_type=token_type.value
+        )
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def create_sync(
+            cls,
+            session,
+            amount: int,
+            status: UsageStatus,
+            token_type: TokenTypes
+    ) -> uuid.UUID:
+        """Создаёт запись об использовании токенов (трата или покупка)"""
+        obj = cls(
+            amount=amount,
+            status=status.value,
+            token_type=token_type.value
+        )
+        session.add(obj)
+        session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, usage_id: uuid.UUID) -> Optional["TokenUsageModel"]:
+        """Получает запись по id"""
+        query = select(cls).where(cls.id == usage_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(
+        cls,
+        session: AsyncSession,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List["TokenUsageModel"]:
+        """Получает все записи с пагинацией (сортировка по убыванию даты)"""
+        query = select(cls).order_by(cls.created_at.desc()).limit(limit).offset(offset)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_all_last_month(
+        cls,
+        session: AsyncSession,
+        days: int = 30,
+        token_type: Optional[TokenTypes] = None
+    ) -> dict:
+        """
+        Возвращает сумму потраченных и приобретённых токенов за последние `days` дней.
+        Если указан `token_type` – статистика только по этому типу.
+        """
+        start_date = date.today() - timedelta(days=days)
+        conditions = [cls.created_at >= start_date]
+        if token_type is not None:
+            conditions.append(cls.token_type == token_type.value)
+
+        spent = await session.execute(
+            select(func.sum(cls.amount))
+            .where(*conditions, cls.status == UsageStatus.SPENT.value)
+        )
+        purchased = await session.execute(
+            select(func.sum(cls.amount))
+            .where(*conditions, cls.status == UsageStatus.PURCHASED.value)
+        )
+        purchased_costage = await session.execute(
+            select(func.sum(cls.costage))
+            .where(*conditions, cls.status == UsageStatus.PURCHASED.value)
+        )
+
+        total_spent = int(spent.scalar() or 0)
+        total_purchased = int(purchased.scalar() or 0)
+        total_costage = int(purchased_costage.scalar() or 0)
+
+        return {
+            "total_spent": total_spent,
+            "total_purchased": total_purchased,
+            "total_purchased_costage": total_costage,
+        }
+
+    @classmethod
+    async def get_by_token_type(
+        cls,
+        session: AsyncSession,
+        token_type: TokenTypes
+    ) -> List["TokenUsageModel"]:
+        """Получает записи для конкретного типа токенов"""
+        query = select(cls).where(cls.token_type == token_type.value).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_status(
+        cls,
+        session: AsyncSession,
+        status: UsageStatus
+    ) -> List["TokenUsageModel"]:
+        """Получает записи с определённым статусом (трата или покупка)"""
+        query = select(cls).where(cls.status == status.value).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, usage_id: uuid.UUID) -> str:
+        """Удаляет запись по id"""
+        obj = await session.get(cls, usage_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such usage record"
+
+    # Статистические методы
+    @classmethod
+    async def get_total_spent_by_type(
+        cls,
+        session: AsyncSession,
+        token_type: TokenTypes
+    ) -> int:
+        """Суммарно потрачено токенов указанного типа (только SPENT)"""
+        result = await session.execute(
+            select(func.sum(cls.amount))
+            .where(
+                cls.token_type == token_type.value,
+                cls.status == UsageStatus.SPENT.value
+            )
+        )
+        total = result.scalar()
+        return int(total) if total is not None else 0
+
+    @classmethod
+    async def get_total_purchased_by_type(
+        cls,
+        session: AsyncSession,
+        token_type: TokenTypes
+    ) -> int:
+        """Суммарно куплено токенов указанного типа (только PURCHASED)"""
+        result = await session.execute(
+            select(func.sum(cls.amount))
+            .where(
+                cls.token_type == token_type.value,
+                cls.status == UsageStatus.PURCHASED.value
+            )
+        )
+        total = result.scalar()
+        return int(total) if total is not None else 0
+
+    @classmethod
+    async def get_stats_by_type(
+        cls,
+        session: AsyncSession,
+        token_type: TokenTypes
+    ) -> dict:
+        """Возвращает словарь со статистикой по конкретному типу"""
+        spent = await cls.get_total_spent_by_type(session, token_type)
+        purchased = await cls.get_total_purchased_by_type(session, token_type)
+        balance = purchased - spent  # текущий баланс (остаток)
+        return {
+            "token_type": token_type.name,
+            "total_spent": spent,
+            "total_purchased": purchased,
+            "balance": balance
+        }
+
+    @classmethod
+    async def get_stats_all(cls, session: AsyncSession) -> dict:
+        """Возвращает общую статистику по всем типам токенов"""
+        stats = {}
+        for token_type in TokenTypes:
+            stats[token_type.name] = await cls.get_stats_by_type(session, token_type)
+        return stats
