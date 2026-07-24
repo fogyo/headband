@@ -111,7 +111,7 @@ export default function AdminIndex() {
                 <span className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black text-center">
                     Статистика<br />приложения
                 </span>
-                </Link>
+             </Link>
             <div
               className="relative bg-[#FFD0DC] rounded-[20px] h-32 flex items-center justify-center shadow cursor-pointer hover:opacity-90 transition"
               style={{
@@ -119,7 +119,7 @@ export default function AdminIndex() {
                 boxShadow:
                   "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05), 36px 38px 21px rgba(0,0,0,0.01), 57px 60px 23px rgba(0,0,0,0.00)",
               }}
-              onClick={() => toast.info("Гайды (в разработке)")}
+              onClick={() => navigate("/admin/guides")}
             >
               <span className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black text-center">
                 Гайды

@@ -1,0 +1,208 @@
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useTelegramAuth } from "@/App";
+import homeIconUrl from "@/assets/home.svg";
+import backIconSrc from "@/assets/back_icon.svg";
+import videoTypeIcon from "@/assets/video_icon.svg";
+import textTypeIcon from "@/assets/text_icon.svg";
+
+const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+
+// ---------- Типы ----------
+interface ApproveGuide {
+  id: string;
+  name: string;
+  category: string;
+  type: "text" | "video";
+  created: string;
+  changed: string;
+}
+
+const mapGuideType = (guideType: number): "text" | "video" => (guideType === 1 ? "video" : "text");
+
+const formatDate = (dateStr: string | null): string => {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  const year = d.getFullYear().toString().slice(-2);
+  return `${day}.${month}.${year}`;
+};
+
+// ---------- Компонент карточки для одобрения ----------
+function GuideCardPlain({ item }: { item: ApproveGuide }) {
+  const typeIcon = item.type === "video" ? videoTypeIcon : textTypeIcon;
+  return (
+    <Link
+      to={`/guide/${item.id}?from=admin&review=true`}
+      state={{ categoryName: item.category }}
+      className="block w-full h-24 rounded-[20px] overflow-hidden"
+      style={{
+        border: "0.5px solid rgba(0,0,0,0.00)",
+        backgroundColor: "#FFE9EF",
+        boxShadow:
+          "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+      }}
+    >
+      <div className="flex h-full">
+        <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+          <div className="min-w-0">
+            <h4 className="text-[12px] font-['Sofia_Sans'] text-black leading-tight break-words">
+              {item.name}
+            </h4>
+            <p className="text-[10px] font-['Sofia_Sans'] text-black/50 leading-tight break-words">
+              {item.category}
+            </p>
+          </div>
+        </div>
+        <div className="w-[73px] h-[92px] flex-shrink-0 self-center mr-0.5">
+          <img src={typeIcon} alt={item.type} className="w-full h-full object-contain" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+export default function AdminGuidesPage() {
+  const navigate = useNavigate();
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
+
+  const [approvalGuides, setApprovalGuides] = useState<ApproveGuide[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isVerified || !chatId) {
+      if (authLoading) {
+        setLoading(true);
+        setError(null);
+      } else if (authError) {
+        setError(authError);
+        setLoading(false);
+      } else {
+        setError("Ожидание авторизации...");
+        setLoading(false);
+      }
+      return;
+    }
+
+    const fetchGuides = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${baseUrl}/admins/guides/guides_for_approve`);
+        if (!res.ok) throw new Error("Ошибка загрузки");
+        const data = await res.json();
+        if (data.status !== "success") throw new Error(data.status);
+
+        const guides: ApproveGuide[] = (data.approve_guides || []).map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          category: g.category,
+          type: mapGuideType(g.guide_type),
+          created: formatDate(g.created),
+          changed: formatDate(g.changed),
+        }));
+        setApprovalGuides(guides);
+        setError(null);
+      } catch (err: any) {
+        console.error(err);
+        setError("Не удалось загрузить гайды на одобрение");
+        toast.error(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGuides();
+  }, [chatId, isVerified, authLoading, authError]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+
+  if (authError || !isVerified) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
+
+  if (loading) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p>Загрузка...</p></div>;
+  if (error) return <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center"><p className="text-red-500">{error}</p></div>;
+
+  return (
+    <div className="min-h-screen bg-[#FFE9EF]">
+      <div className="max-w-sm mx-auto px-4 pb-10 relative">
+        {/* Кнопка Home – на главную админки */}
+        <Link
+          to="/admin"
+          className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
+        >
+          <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />
+          <img src={homeIconUrl} alt="home" className="w-6 h-6 relative z-10" />
+        </Link>
+
+        {/* Кнопка назад – в админку */}
+        <button
+          onClick={() => navigate("/admin")}
+          className="absolute top-9 left-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
+        >
+          <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />
+          <img src={backIconSrc} alt="back" className="w-6 h-6 relative z-10" />
+        </button>
+
+        <div className="pt-8 pb-2">
+          <h1
+            className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
+            style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}
+          >
+            guides
+          </h1>
+          <p
+            className="text-right text-[16px] tracking-[1.28px] text-transparent mt-[-4px]"
+            style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "0.4px #000" }}
+          >
+            version for admins
+          </p>
+        </div>
+
+        <section className="mt-8">
+          <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black">Гайды на одобрение</h2>
+          <div className="h-px bg-black w-52 mb-4" />
+
+          {approvalGuides.length === 0 ? (
+            <p className="text-black/50 text-[14px] tracking-[-0.7] italic font-['Sofia_Sans']">
+              Нет гайдов на одобрение
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {approvalGuides.map((guide) => (
+                <div key={guide.id} className="flex gap-3 items-stretch">
+                  <div className="flex-1 flex flex-col justify-between text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black py-4">
+                    <div className="flex gap-2">
+                      <span>Создан</span>
+                      <span className="ml-auto">{guide.created}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span>Изменен</span>
+                      <span className="ml-auto">{guide.changed}</span>
+                    </div>
+                  </div>
+
+                  <div className="w-44 h-24 flex-shrink-0 self-center">
+                    <GuideCardPlain item={guide} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
