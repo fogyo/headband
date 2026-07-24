@@ -56,3 +56,21 @@ async def get_all_future_appointments(session: AsyncSession):
 
 async def get_all_confirmed_appointments(session: AsyncSession):
     return await AppointmentModel.get_all_confirmed(session=session)
+
+async def get_problem_tickets(session: AsyncSession):
+    problems = await SupportModel.get_pending(session=session)
+    p = []
+    for problem in problems:
+        p.append({"problem_id": problem.id,
+                  "created": problem.created_at,
+                  "text": problem.text})
+    return p
+
+async def get_solved_tickets(session: AsyncSession):
+    problems = await SupportModel.get_solved(session=session)
+    p = []
+    for problem in problems:
+        p.append({"problem_id": problem.id,
+                  "created": problem.created_at,
+                  "text": problem.text})
+    return p

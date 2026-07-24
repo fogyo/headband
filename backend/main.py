@@ -15,7 +15,7 @@ from backend.api import create_categories, create_haircut_template, create_beard
 from backend.api.headbeauty import hb_welcome, hb_session
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 from backend.api.user import welcome_user, price, masters, booking
-from backend.api.admin import statistics, guide_moderation
+from backend.api.admin import statistics, guide_moderation, support
 
 load_dotenv()
 from backend.api.master import guides, profile, schedule, welcome, profile_endpoints
@@ -45,6 +45,7 @@ app.include_router(hb_welcome.router)
 app.include_router(hb_session.router)
 app.include_router(statistics.router)
 app.include_router(guide_moderation.router)
+app.include_router(support.router)
 
 """@asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -2605,6 +2605,13 @@ class SupportModel(Base):
         return list(result.scalars().all())
 
     @classmethod
+    async def get_solved(cls, session: AsyncSession) -> List["SupportModel"]:
+        """Получает все нерешённые заявки"""
+        query = select(cls).where(cls.status == SupportStatus.SOLVED.value).order_by(cls.created_at.asc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
     async def get_all(cls, session: AsyncSession) -> List["SupportModel"]:
         """Получает все заявки (для администрирования)"""
         query = select(cls)

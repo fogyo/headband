@@ -41,6 +41,7 @@ import AdminVerifyPage from "./pages/admin/AdminVerifyPage";
 import AdminIndex from "./pages/admin/AdminIndex";
 import AdminStatsPage from "./pages/admin/AdminStatsPage";
 import AdminGuidesPage from "./pages/admin/AdminGuidesPage";
+import AdminSupportPage from "./pages/admin/AdminSupportPage";
 
 // ---------- Провайдер ----------
 const queryClient = new QueryClient();
@@ -266,6 +267,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
             <Route path="/admin/stats" element={<AdminStatsPage />} />
             <Route path="/admin/guides" element={<AdminGuidesPage />} />
+            <Route path="/admin/support" element={<AdminSupportPage />} />
           </Routes>
         </TelegramAuthProvider>
       </BrowserRouter>
