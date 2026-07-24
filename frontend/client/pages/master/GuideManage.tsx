@@ -61,8 +61,6 @@ async function uploadFile(file: File): Promise<string> {
 export default function GuideManagePage() {
   const navigate = useNavigate();
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
-  const [videoStepId, setVideoStepId] = useState<string>("");
-  const [videoPreviewPreview, setVideoPreviewPreview] = useState<string | null>(null);
   const { id: editId } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
   const type = searchParams.get("type") || "text";
@@ -70,6 +68,7 @@ export default function GuideManagePage() {
   const location = useLocation();
   const state = location.state as { title?: string; categoryId?: string } | null;
 
+  // ---------- ВСЕ ХУКИ В САМОМ НАЧАЛЕ ----------
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [steps, setSteps] = useState<GuideStep[]>([]);
@@ -78,22 +77,8 @@ export default function GuideManagePage() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Проверка авторизации
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
-        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
-      </div>
-    );
-  }
-  if (!isVerified || !chatId) {
-    return (
-      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
-        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
-      </div>
-    );
-  }
+  const [videoStepId, setVideoStepId] = useState<string>("");
+  const [videoPreviewPreview, setVideoPreviewPreview] = useState<string | null>(null);
 
   // Загрузка категорий
   useEffect(() => {
@@ -207,7 +192,23 @@ export default function GuideManagePage() {
     fetchGuide();
   }, [isEditing, editId, type, state, navigate]);
 
-  // Управление текстовыми шагами
+  // ---------- РАННИЕ ВОЗВРАТЫ — ПОСЛЕ ВСЕХ ХУКОВ ----------
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-black font-['Sofia_Sans']">Загрузка...</p>
+      </div>
+    );
+  }
+  if (!isVerified || !chatId) {
+    return (
+      <div className="min-h-screen bg-[#FFE9EF] flex items-center justify-center">
+        <p className="text-red-500 font-['Sofia_Sans']">{authError || "Ошибка авторизации"}</p>
+      </div>
+    );
+  }
+
+  // ---------- ВСЕ ОСТАЛЬНЫЕ ФУНКЦИИ (без изменений) ----------
   const addStep = () => {
     const newStepNum = steps.length + 1;
     setSteps(prev => [
@@ -290,7 +291,6 @@ export default function GuideManagePage() {
     }
   };
 
-  // Видео гайд – обработчики
   const handleVideoFile = (file: File) => setVideoData(prev => ({ ...prev, file }));
   const handleCoverUpload = (file: File) => {
     const reader = new FileReader();
@@ -314,7 +314,6 @@ export default function GuideManagePage() {
     try {
       if (type === "text") {
         if (isEditing) {
-          // Редактирование
           const stepsToUpdate: any[] = [];
           const stepsToAdd: any[] = [];
           const stepsToDelete: string[] = [];
@@ -377,7 +376,6 @@ export default function GuideManagePage() {
           toast.success("Гайд обновлён");
           navigate("/profile/guides");
         } else {
-          // Создание
           const stepsPayload = [];
           for (let i = 0; i < steps.length; i++) {
             const step = steps[i];
@@ -412,7 +410,6 @@ export default function GuideManagePage() {
           navigate("/profile/guides");
         }
       } else {
-        // Видео гайд
         if (!videoData.file && !isEditing) {
           toast.warning("Прикрепите видеофайл");
           return;
@@ -502,6 +499,7 @@ export default function GuideManagePage() {
     );
   }
 
+  // ---------- РЕНДЕР (без изменений) ----------
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
