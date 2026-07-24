@@ -164,10 +164,8 @@ function GuideCardPlain({ item }: { item: ApproveGuide }) {
 export default function ProfileGuidesPage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
-  const [isAmbassador, setIsAmbassador] = useState(false);
   const [myGuides, setMyGuides] = useState<MyGuide[]>([]);
   const [starredGuides, setStarredGuides] = useState<LikedGuide[]>([]);
-  const [approvalGuides, setApprovalGuides] = useState<ApproveGuide[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -225,21 +223,6 @@ export default function ProfileGuidesPage() {
         }));
         setStarredGuides(liked);
 
-        // Гайды на одобрение (только для амбассадора)
-        if (data.approve_guides && data.approve_guides.length > 0) {
-          setIsAmbassador(true);
-          const approve: ApproveGuide[] = data.approve_guides.map((g: any) => ({
-            id: g.id,
-            name: g.name,
-            category: g.category,
-            type: mapGuideType(g.guide_type),
-            createdAt: formatDate(g.created),
-            updatedAt: formatDate(g.changed),
-          }));
-          setApprovalGuides(approve);
-        } else {
-          setIsAmbassador(false);
-        }
       } catch (err: any) {
         console.error(err);
         setError("Не удалось загрузить гайды");
@@ -390,45 +373,6 @@ export default function ProfileGuidesPage() {
             </button>
           </div>
         </section>
-
-        {isAmbassador && (
-          <section className="mt-10">
-            <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black"> Гайды на одобрение</h2>
-            <div className="h-px bg-black w-52 mb-4" />
-
-            {approvalGuides.length === 0 ? (
-              <p className="text-black/50 text-[14px] tracking-[-0.7] italic font-['Sofia_Sans']">
-                Нет гайдов на одобрение
-              </p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {approvalGuides.map((guide) => (
-                  <div key={guide.id} className="flex gap-3 items-stretch">
-                    <div className="flex-1 flex flex-col justify-between text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black py-4">
-                      <div className="flex gap-2">
-                        <span>Создан</span>
-                        <span className="ml-auto">{guide.createdAt}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <span>Изменен</span>
-                        <span className="ml-auto">{guide.updatedAt}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col justify-center gap-2 flex-shrink-0 invisible">
-                      <div className="relative w-10 h-10" />
-                      <div className="relative w-10 h-10" />
-                    </div>
-
-                    <div className="w-44 h-24 flex-shrink-0 self-center">
-                      <GuideCardPlain item={guide} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
 
         <section className="mt-10">
           <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black"> Отмеченные гайды</h2>

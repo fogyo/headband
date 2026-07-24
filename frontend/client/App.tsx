@@ -40,6 +40,7 @@ import AIHistoryPage from "./pages/headbeauty/HeadbeautyHistory";
 import AdminVerifyPage from "./pages/admin/AdminVerifyPage";
 import AdminIndex from "./pages/admin/AdminIndex";
 import AdminStatsPage from "./pages/admin/AdminStatsPage";
+import AdminGuidesPage from "./pages/admin/AdminGuidesPage";
 
 // ---------- Провайдер ----------
 const queryClient = new QueryClient();
@@ -264,6 +265,7 @@ const App = () => (
             <Route path="/admin" element={<AdminIndex />} />
             <Route path="*" element={<NotFound />} />
             <Route path="/admin/stats" element={<AdminStatsPage />} />
+            <Route path="/admin/guides" element={<AdminGuidesPage />} />
           </Routes>
         </TelegramAuthProvider>
       </BrowserRouter>

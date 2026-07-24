@@ -10,7 +10,7 @@ from backend.database.responses import StatusResponse
 
 router = APIRouter(
     prefix="/admins/stats",
-    tags=["Admin"])
+    tags=["Admin.Stats"])
 
 class UserRecord(BaseModel):
     amount: int

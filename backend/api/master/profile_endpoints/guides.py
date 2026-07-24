@@ -16,9 +16,6 @@ from backend.telegram_bot.bot_main import send_notification, bot
 
 
 #Requests
-class DenyRequest(BaseModel):
-    guide_id: uuid.UUID
-    comment: str
 
 class GuideTextRequest(BaseModel):
     name: str
@@ -156,29 +153,6 @@ async def get_guides_page(
         "liked_guides": liked_guides_resp,
     }
 
-
-@router.patch("/moderation/approve", response_model=StatusResponse)
-async def approve_guide(
-        guide_id: uuid.UUID,
-        session: AsyncSession = Depends(get_db_session)
-):
-    status = await miniapp_db_fcn.change_status(session=session, guide_id=guide_id, state=1)
-    guide = await miniapp_db_fcn.get_guide(guide_id=guide_id, session=session)
-    master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
-    await bot.send_message(chat_id=master.chat_id_tg, text="✅ Ваш гайд был одобрен модерацией headband. Поздравляем!")
-    return {"status": status}
-
-@router.patch("/moderation/deny", response_model=StatusResponse)
-async def deny_guide(
-        request: DenyRequest,
-        session: AsyncSession = Depends(get_db_session)
-):
-    status = await miniapp_db_fcn.change_status(session=session, guide_id=request.guide_id, state=0)
-    guide = await miniapp_db_fcn.get_guide(guide_id=request.guide_id, session=session)
-    master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
-    await bot.send_message(chat_id=master.chat_id_tg,
-                            text=f"❌ К сожалению, Ваш гайд пока не был одобрен модерацией headband по причине: {request.comment}")
-    return {"status": status}
 
 @router.post("/create_text", response_model=StatusResponse)
 async def create_guide_text(
