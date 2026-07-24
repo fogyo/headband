@@ -132,7 +132,7 @@ export default function AdminIndex() {
                 boxShadow:
                   "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05), 36px 38px 21px rgba(0,0,0,0.01), 57px 60px 23px rgba(0,0,0,0.00)",
               }}
-              onClick={() => toast.info("Поддержка (в разработке)")}
+              onClick={() => navigate("/admin/support")}
             >
               <span className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black text-center">
                 Поддержка
