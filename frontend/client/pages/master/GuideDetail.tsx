@@ -76,7 +76,7 @@ export default function GuideDetailPage() {
   const [searchParams] = useSearchParams();
   const reviewMode = searchParams.get("review") === "true";
   const from = searchParams.get("from");
-  const returnPath = from === "profile" ? "/profile/guides" : "/guides";
+  const returnPath = from === "admin" ? "/admin/guides" : (from === "profile" ? "/profile/guides" : "/guides");
   const location = useLocation();
   const categoryName = (location.state as { categoryName?: string })?.categoryName || "";
   const [videoTitle, setVideoTitle] = useState("");
@@ -219,7 +219,7 @@ export default function GuideDetailPage() {
     if (!id) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${baseUrl}/master/profile/guides/moderation/approve?guide_id=${id}`, { method: "PATCH" });
+      const res = await fetch(`${baseUrl}/admins/guides/approve?guide_id=${id}`, { method: "PATCH" });
       const data = await res.json();
       if (data.status === "success") {
         toast.success("Гайд успешно одобрен");
@@ -246,7 +246,7 @@ export default function GuideDetailPage() {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${baseUrl}/master/profile/guides/moderation/deny`, {
+      const res = await fetch(`${baseUrl}/admins/guides/deny`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guide_id: id, comment: rejectComment }),
