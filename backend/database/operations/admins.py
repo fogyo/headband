@@ -13,7 +13,8 @@ async def check_admin(chat_id: int, session: AsyncSession):
     return True
 
 async def solve_problem(problem_id: uuid.UUID, session: AsyncSession):
-    return await SupportModel.mark_solved(session=session, request_id=problem_id)
+    await SupportModel.mark_solved(session=session, request_id=problem_id)
+    return await SupportModel.get_by_id(session=session, request_id=problem_id)
 
 async def create_support_request(chat_id: int, text: str, session: AsyncSession):
     return await SupportModel.create(session=session, chat_id=chat_id, text=text)

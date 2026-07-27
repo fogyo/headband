@@ -7,6 +7,7 @@ from enum import Enum
 from typing import List, Optional, AsyncGenerator
 
 from dotenv import load_dotenv
+from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func, UniqueConstraint, \
     or_, Boolean, Time, DateTime
@@ -204,9 +205,7 @@ class UserModel(Base):
         for week_start in week_starts:
             week_end = week_start + timedelta(days=6)
             query = select(func.count(cls.id)).where(
-                cls.created_at >= week_start,
-                cls.created_at <= week_end
-            )
+                cls.created_at <= week_start)
             result = await session.execute(query)
             count = result.scalar() or 0
             progression.append({
@@ -460,9 +459,7 @@ class MasterModel(Base):
         for week_start in week_starts:
             week_end = week_start + timedelta(days=6)  # воскресенье
             query = select(func.count(cls.id)).where(
-                cls.created_at >= week_start,
-                cls.created_at <= week_end
-            )
+                cls.created_at <= week_start)
             result = await session.execute(query)
             count = result.scalar() or 0
             progression.append({
@@ -766,7 +763,10 @@ class AddressModel(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     master_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("masters.id", ondelete="CASCADE"))
-    address: Mapped[str]
+    address: Mapped[str] = mapped_column(String, nullable=False)
+    full_address: Mapped[str] = mapped_column(String, nullable=True)
+    location: Mapped[dict] = mapped_column(Geometry(geometry_type='POINT', srid=4326), nullable=False)
+    city_id: Mapped[str] = mapped_column(String, nullable=True)
 
     # Relationships
     master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="addresses")
@@ -2841,3 +2841,112 @@ class TokenUsageModel(Base):
         for token_type in TokenTypes:
             stats[token_type.name] = await cls.get_stats_by_type(session, token_type)
         return stats
+
+class CityTemplateModel(Base):
+    __tablename__ = "city_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    location: Mapped[dict] = mapped_column(Geometry(geometry_type='POINT', srid=4326), nullable=False)
+    city: Mapped[str] = mapped_column(String, nullable=False)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        """Создаёт новую запись города с точкой."""
+        obj = cls(**data)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, template_id: uuid.UUID) -> Optional["CityTemplateModel"]:
+        """Получает запись по ID."""
+        query = select(cls).where(cls.id == template_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["CityTemplateModel"]:
+        """Получает все записи."""
+        query = select(cls)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_city(cls, session: AsyncSession, city_name: str) -> Optional["CityTemplateModel"]:
+        """Ищет запись по названию города."""
+        query = select(cls).where(cls.city == city_name)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, template_id: uuid.UUID, update_data: dict) -> str:
+        """Обновляет данные записи."""
+        query = update(cls).where(cls.id == template_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, template_id: uuid.UUID) -> str:
+        """Удаляет запись по ID."""
+        obj = await session.get(cls, template_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such template"
+
+class MetroTemplateModel(Base):
+    __tablename__ = "metro_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    hex: Mapped[str] = mapped_column(String, nullable=False)   # цвет линии метро
+    location: Mapped[Geometry] = mapped_column(Geometry(geometry_type='POINT', srid=4326), nullable=False)
+    city_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("city_templates.id", ondelete="CASCADE"), nullable=False)
+
+    # Связь с городом (добавит атрибут metro_stations в CityTemplateModel через backref)
+    city: Mapped["CityTemplateModel"] = relationship("CityTemplateModel", backref="metro_stations")
+
+    @classmethod
+    async def create(cls, session: AsyncSession, data: dict) -> uuid.UUID:
+        obj = cls(**data)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, metro_id: uuid.UUID) -> Optional["MetroTemplateModel"]:
+        query = select(cls).where(cls.id == metro_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["MetroTemplateModel"]:
+        query = select(cls)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_city_id(cls, session: AsyncSession, city_id: uuid.UUID) -> List["MetroTemplateModel"]:
+        query = select(cls).where(cls.city_id == city_id)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_name_and_city(cls, session: AsyncSession, name: str, city_id: uuid.UUID) -> Optional["MetroTemplateModel"]:
+        query = select(cls).where(cls.name == name, cls.city_id == city_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def update(cls, session: AsyncSession, metro_id: uuid.UUID, update_data: dict) -> str:
+        query = update(cls).where(cls.id == metro_id).values(**update_data)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, metro_id: uuid.UUID) -> str:
+        obj = await session.get(cls, metro_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such metro station"

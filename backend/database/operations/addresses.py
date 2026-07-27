@@ -2,7 +2,8 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import AddressModel
+from backend.database import AddressModel, CityTemplateModel, MetroTemplateModel
+
 
 
 async def create_address(
@@ -53,3 +54,12 @@ async def delete_address(
 
 async def update_address(address_id: uuid.UUID, address: str, session: AsyncSession):
     return await AddressModel.update(session=session, address_id=address_id, update_data={"address": address})
+
+async def get_cities(session: AsyncSession):
+    return await CityTemplateModel.get_all(session=session)
+
+async def create_city(data: dict, session: AsyncSession):
+    return await CityTemplateModel.create(session=session, data=data)
+
+async def create_station(data: dict, session: AsyncSession):
+    return await MetroTemplateModel.create(session=session, data=data)

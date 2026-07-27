@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import database as db
 from backend import app
 from backend.api import create_categories, create_haircut_template, create_beards_template, create_hair_colors_template, \
-    create_hair_perms_template, create_admin
+    create_hair_perms_template, create_admin, create_cities
 from backend.api.headbeauty import hb_welcome, hb_session
 from backend.api.master.profile_endpoints import personal, guides, prices, schedule, notifications, earnings, works
 from backend.api.user import welcome_user, price, masters, booking
@@ -73,6 +73,7 @@ async def lifespan(app: FastAPI):
         await db.close_connection()"""
 
 async def init_db():
+    await create_cities()
     await create_admin()
     await create_categories()
     await create_haircut_template()
