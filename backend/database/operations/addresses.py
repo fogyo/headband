@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import AddressModel, CityTemplateModel, MetroTemplateModel
@@ -26,7 +27,7 @@ async def get_addresses_by_master(
     return [
         {
             "id": str(addr.id),
-            "location": addr.location.ST_AsText(),
+            "location": func.ST_AsText(addr.location),
             "full_address": addr.full_address,
             "address": addr.address
         }
@@ -64,7 +65,7 @@ async def get_cities(session: AsyncSession):
     for city in cities:
         response_data.append({"id": city.id,
                               "city": city.city,
-                              "location": city.location.ST_AsText()})
+                              "location": func.ST_AsText(city.location)})
 
 async def create_city(data: dict, session: AsyncSession):
     return await CityTemplateModel.create(session=session, data=data)
