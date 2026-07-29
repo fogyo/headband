@@ -766,7 +766,6 @@ class AddressModel(Base):
     address: Mapped[str] = mapped_column(String, nullable=False)
     full_address: Mapped[str] = mapped_column(String, nullable=True)
     location: Mapped[dict] = mapped_column(Geometry(geometry_type='POINT', srid=4326), nullable=False)
-    city_id: Mapped[str] = mapped_column(String, nullable=True)
 
     # Relationships
     master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="addresses")

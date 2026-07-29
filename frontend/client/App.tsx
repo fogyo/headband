@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { toast } from "sonner";
+import "leaflet/dist/leaflet.css";
 
 // Импорты всех страниц (оставьте как есть)
 import Index from "./pages/Index";

@@ -1,9 +1,5 @@
-import asyncio
 import logging
 import os
-import uuid
-from typing import List
-
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.filters import CommandStart, Command
@@ -23,9 +19,10 @@ MINI_APP_URL_CLIENT = os.getenv("MINI_APP_URL_CLIENT")
 MINI_APP_URL_MASTER = os.getenv("MINI_APP_URL_MASTER")
 
 storage = MemoryStorage()
-session = AiohttpSession(proxy=PROXY_URL)
-bot = Bot(token=BOT_TOKEN, session=session)
+bot = None
 dp = Dispatcher()
+
+
 
 class UserState(StatesGroup):
     role = State()
@@ -41,12 +38,6 @@ def get_main_keyboard(role: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Сменить роль", callback_data="switch_role")]
     ])
 
-def get_rating_keyboard(appointment_id: uuid.UUID) -> InlineKeyboardMarkup:
-    buttons = [
-        [InlineKeyboardButton(text=str(i), callback_data=f"rating_{i}_{appointment_id}")]
-        for i in range(1, 6)
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def get_role_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -65,11 +56,12 @@ async def cmd_start_simple(message: types.Message, state: FSMContext):
             reply_markup=get_role_keyboard()
         )
     else:
-        role_text = "Клиент" if role == "client" else "Мастер"
+        role_text = "Клиент" if role == "user" else "Мастер"
         await message.answer(
-            f"✅ Ваша роль: {role_text}\nДля получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
+            f"✅ Ваша роль: {role_text}",
             reply_markup=get_main_keyboard(role)
         )
+
 
 @dp.message(CommandStart(deep_link=True, magic=F.args))
 async def cmd_start(message: types.Message, command: CommandStart, state: FSMContext):
@@ -107,14 +99,8 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     else:
                         new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
                         active, end_date, status = await miniapp_db_fcn.get_subscription_level(master_id=new_master.id, session=session)
-                        if new_master.id == master_id:
-                            await state.update_data(role="master")
-                            logging.info("Master info added by deeplink")
-                            await message.answer(
-                                f"❌ К сожалению, по условиям нашей акции, можно использовать только чужие реферальные ссылки.\n"
-                            f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
-                                reply_markup=get_main_keyboard(role))
-                        elif (status == "no sub") and (new_master.referrer_id == None):
+
+                        if (status == "no sub") and (new_master.referrer_id == None):
                             upd_data = {"referrer_id": master_id}
                             await miniapp_db_fcn.update_master(master_id=new_master.id, update_data=upd_data, session=session)
                             await state.update_data(role="master")
@@ -123,21 +109,21 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                             f"✅ Отлично! Вы зашли по реферальной ссылке мастера.\n"
                             f"Оформите подписку для получения полного доступа ко всему функционалу. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
                             reply_markup=get_main_keyboard(role))
-                        elif (active):
+                        elif (active): 
                             await state.update_data(role="master")
                             logging.info("Master has subscription")
                             await message.answer(
                             f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
-                            f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
+                            f"Надеемся на ваше понимание! Спасибо, что выбираете headband\n",
                             reply_markup=get_main_keyboard(role))
                         else:
                             await state.update_data(role="master")
-                            logging.info("Master has activated")
+                            logging.info("Master has subscription")
                             await message.answer(
                             f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
-                            f"Надеемся на Ваше понимание! Оформите подписку для получения полного доступа ко всему функционалу \n",
+                            f"Надеемся на ваше понимание! Оформите подписку для получения полного доступа ко всему функционалу \n",
                             reply_markup=get_main_keyboard(role))
-
+                        
 
 @dp.callback_query(F.data == "switch_role")
 async def switch_role(callback: types.CallbackQuery, state: FSMContext):
@@ -149,7 +135,7 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
             if current_role is None:
                 await callback.message.edit_text(
                     "Сначала выберите роль:",
-                    reply_markup=get_role_keyboard()
+                    reply_markup=get_main_keyboard(current_role)
                 )
                 await callback.answer()
                 return
@@ -172,25 +158,6 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
             )
             await callback.answer()
 
-@dp.callback_query(F.data.startswith("rating_"))
-async def handle_rating(callback: types.CallbackQuery, state: FSMContext):
-    # 1. Получаем оценку (число от 1 до 5)
-    rating, appointment_id = int(callback.data.split("_")[1]), uuid.UUID(callback.data.split("_")[2])
-
-    async with AsyncSessionLocal() as session:
-        async with session.begin():
-            appointment = await miniapp_db_fcn.get_appointment(appointment_id=appointment_id, session=session)
-            await miniapp_db_fcn.create_rating_record(rating=rating, master_id=appointment.master_id, user_id=appointment.user_id, session=session)
-    user_data = await state.get_data()
-    role = user_data.get("role", "client")
-
-    await callback.message.edit_text(
-        f"⭐ Спасибо за вашу оценку!\n"
-        f"Для получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
-        reply_markup=get_main_keyboard(role)
-    )
-
-    await callback.answer()
 
 @dp.callback_query(F.data.in_(["role_client", "role_master"]))
 async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext):
@@ -215,6 +182,7 @@ async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext
             )
             await callback.answer()
 
+
 async def test_proxy(bot: Bot) -> bool:
     """Проверяет, работает ли прокси, запрашивая информацию о боте"""
     try:
@@ -225,10 +193,19 @@ async def test_proxy(bot: Bot) -> bool:
         logging.error(f"❌ Ошибка через прокси: {e}")
         return False
 
+
 async def start_bot():
     global bot
     session = None
     try:
+        if PROXY_URL:
+            logging.info(f"Попытка подключения через прокси: {PROXY_URL}")
+            session = AiohttpSession(proxy=PROXY_URL)
+            bot = Bot(token=BOT_TOKEN, session=session)
+        else:
+            bot = Bot(token=BOT_TOKEN)
+            logging.warning("Прокси не настроен, работаем напрямую")
+
         if not await test_proxy(bot):
             logging.error("Прокси не работает, останов.")
             await bot.session.close()
@@ -252,7 +229,8 @@ async def stop_bot():
         await bot.session.close()
     logging.info("Остановка бота завершена.")
 
-async def send_notification(bot: Bot, chat_id: int, text: str):
+async def send_notification(chat_id: int, text: str):
+    global bot
     if bot is None:
         logging.error("Бот не инициализирован, сообщение не отправлено")
         return
@@ -261,33 +239,3 @@ async def send_notification(bot: Bot, chat_id: int, text: str):
         logging.info(f"Уведомление отправлено пользователю {chat_id}")
     except Exception as e:
         logging.error(f"Не удалось отправить сообщение {chat_id}: {e}")
-
-
-sem = asyncio.Semaphore(20)
-
-async def send_single_message(chat_id: int, text: str) -> bool:
-    """Отправляет одно сообщение, логирует успех/ошибку и возвращает статус."""
-    async with sem:
-        try:
-            await bot.send_message(chat_id=chat_id, text=text)
-            logging.info(f"Notification was sent to user {chat_id}")
-            return True
-        except Exception as e:
-            logging.error(f"Notification wasn't sent to user {chat_id}: {e}")
-            return False
-
-
-async def notify_all(messages: List[dict]):
-    """Отправляет все сообщения параллельно, логируя каждую ошибку отдельно."""
-    if not messages:
-        logging.info("No messages")
-        return
-
-    tasks = [
-        send_single_message(msg["chat_id"], msg["text"])
-        for msg in messages
-    ]
-    results = await asyncio.gather(*tasks)
-
-    success_count = sum(results)
-    logging.info(f"Отправлено {success_count} из {len(messages)} уведомлений")

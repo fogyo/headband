@@ -11,6 +11,11 @@ from backend.database.responses import IDResponse, StatusResponse
 
 
 #Requests
+class City(BaseModel):
+    id: uuid.UUID
+    location: str
+    city: str
+
 class WeekTemplate(BaseModel):
     weekday: int
     start_time: time
@@ -27,12 +32,17 @@ class TemplateUpdateRequest(BaseModel):
     address_id: Optional[uuid.UUID] = None
 
 class AddressCreateRequest(BaseModel):
-    chat_id: int
     address: str
+    full_address: str
+    lat: str
+    long: str
 
 class AddressUpdateRequest(BaseModel):
     id: uuid.UUID
-    address: str
+    address: Optional[str] = None
+    full_address: Optional[str] = None
+    lat: Optional[str] = None
+    long: Optional[str] = None
 
 class WorkingDayUpdateRequest(BaseModel):
     day_date: date
@@ -57,8 +67,13 @@ class AbsenceCreateResponse(BaseModel):
     absence_id: uuid.UUID
     cancelled_appointments: List[str] = Field(default_factory=list)
 
+class CityResponse(StatusResponse):
+    cities: List[City]
+
 class AddressBaseResponse(BaseModel):
     id: uuid.UUID
+    location: str
+    full_address: str
     address: str
 
 class AddressListResponse(BaseModel):
@@ -97,6 +112,13 @@ router = APIRouter(
     tags=["Master.Profile"])
 
 
+@router.get("/cities", response_model=CityResponse)
+async def get_cities(session: AsyncSession = Depends(get_db_session)):
+    cities = await miniapp_db_fcn.get_cities(session=session)
+    return {"status": "success",
+            "cities": cities}    
+
+
 @router.get("/addresses", response_model=AddressListResponse)
 async def get_master_addresses(
     chat_id: int,
@@ -116,15 +138,19 @@ async def get_master_addresses(
 
 @router.post("/create_address", response_model=IDResponse)
 async def create_address(
+    chat_id: int,
     request: AddressCreateRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
     """Создание нового адреса"""
-    master = await miniapp_db_fcn.get_master_by_chat(chat_id=request.chat_id, session=session)
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
+    address_data = {"master_id": master_id,
+                    "address": request.address,
+                    "full_address": request.full_address,
+                    "location": f"POINT ({request.long} {request.lat})"}
     address_id = await miniapp_db_fcn.create_address(
-        master_id=master_id,
-        address=request.address,
+        address=address_data,
         session=session
     )
     return {
@@ -151,9 +177,10 @@ async def update_address(
     session: AsyncSession = Depends(get_db_session)
 ):
     """Обновление адреса"""
+    data_to_upd = request.model_dump(exclude_unset=True)
     status = await miniapp_db_fcn.update_address(
         address_id=request.id,
-        address=request.address,
+        upd_data = data_to_upd,
         session=session
     )
     return {"status": status}
