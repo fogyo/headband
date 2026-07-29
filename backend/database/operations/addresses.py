@@ -27,7 +27,7 @@ async def get_addresses_by_master(
     return [
         {
             "id": str(addr.id),
-            "location": func.ST_AsText(addr.location),
+            "location": str(addr.location),
             "full_address": addr.full_address,
             "address": addr.address
         }
@@ -65,7 +65,7 @@ async def get_cities(session: AsyncSession):
     for city in cities:
         response_data.append({"id": city.id,
                               "city": city.city,
-                              "location": func.ST_AsText(city.location)})
+                              "location": str(city.location)})
 
 async def create_city(data: dict, session: AsyncSession):
     return await CityTemplateModel.create(session=session, data=data)
