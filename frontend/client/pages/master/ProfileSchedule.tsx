@@ -355,7 +355,6 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       setSearchResults(data);
     } catch (err: any) {
       console.error(err);
-      // Показываем более информативное сообщение в зависимости от ошибки
       if (err.message.includes('403')) {
         toast.error("Доступ к геокодеру ограничен, попробуйте позже");
       } else if (err.message.includes('429')) {
@@ -571,7 +570,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       </div>
     </div>
   );
-}
+} // <-- Убедитесь, что здесь нет лишней буквы!
 
 // ---------- Основной компонент ----------
 export default function ProfileSchedulePage() {
