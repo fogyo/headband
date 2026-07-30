@@ -1957,7 +1957,7 @@ async def create_cities_and_metro():
     async with AsyncSessionLocal() as session:
         async with session.begin():
             cities = await miniapp_db_fcn.get_cities(session=session)
-            if len(cities)==0:
+            if cities == None:
                 for city in cities_templates:
                     city_id = await miniapp_db_fcn.create_city(data=city, session=session)
                     if city["city"] == "Санкт-Петербург":
