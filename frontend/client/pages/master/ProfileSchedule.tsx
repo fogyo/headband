@@ -243,7 +243,7 @@ interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
-  editingAddress: Address | null; // null – создание
+  editingAddress: Address | null;
   chatId: number;
 }
 
@@ -309,7 +309,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     }
   }, [isOpen, editingAddress]);
 
-  // Поиск адресов через Nominatim с ограничением по городу
+  // Поиск адресов через Nominatim с заголовками
   const searchAddress = useCallback(async (query: string, cityId?: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -319,21 +319,41 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     try {
       const city = cities.find(c => c.id === cityId);
       const cityName = city ? city.city : "";
-      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
+      // Формируем запрос: добавляем город, если он выбран, чтобы сузить поиск
+      let searchQueryStr = query;
       if (cityName) {
-        url += `&city=${encodeURIComponent(cityName)}`;
+        searchQueryStr = `${query}, ${cityName}`;
       }
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQueryStr)}&limit=10&addressdetails=1`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'headband v1',
+          'Accept-Language': 'ru',
+        },
+      });
+      
+      if (!response.ok) {
+        // Если ошибка, пробуем без города
+        if (cityName) {
+          const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1`;
+          const fallbackResponse = await fetch(fallbackUrl, {
+            headers: {
+              'User-Agent': 'headband v1',
+              'Accept-Language': 'ru',
+            },
+          });
+          if (fallbackResponse.ok) {
+            const data = await fallbackResponse.json();
+            setSearchResults(data);
+            return;
+          }
+        }
+        throw new Error(`HTTP ${response.status}`);
       }
-      const data = await res.json();
-      if (data.length === 0) {
-        setSearchResults([]);
-        // Не показываем тост, просто нет результатов
-      } else {
-        setSearchResults(data);
-      }
+      
+      const data = await response.json();
+      setSearchResults(data);
     } catch (err: any) {
       console.error(err);
       toast.error("Не удалось выполнить поиск адреса");
@@ -387,7 +407,6 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     setIsSaving(true);
     try {
       if (editingAddress) {
-        // Обновление
         const payload = {
           id: editingAddress.id,
           address: selectedAddress,
@@ -405,7 +424,6 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
         if (data.status !== "success") throw new Error(data.status);
         toast.success("Адрес обновлён");
       } else {
-        // Создание
         const payload = {
           address: selectedAddress,
           full_address: selectedFullAddress,
@@ -547,8 +565,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       </div>
     </div>
   );
-}
-
+}ы
 // ---------- Основной компонент ----------
 export default function ProfileSchedulePage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
