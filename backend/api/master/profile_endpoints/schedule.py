@@ -78,7 +78,7 @@ class AddressBaseResponse(BaseModel):
 
 class AddressListResponse(BaseModel):
     status: str
-    addresses: List[AddressBaseResponse]
+    addresses: Optional[List[AddressBaseResponse]] = []
 
 class WeekTemplateResp(BaseModel):
     id: uuid.UUID
@@ -131,6 +131,9 @@ async def get_master_addresses(
         master_id=master_id,
         session=session
     )
+    if len(addresses) == 0:
+        return {"status": "empty",
+                "addresses": []}
     return {
         "status": "success",
         "addresses": addresses

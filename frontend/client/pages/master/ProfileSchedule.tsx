@@ -647,9 +647,12 @@ export default function ProfileSchedulePage() {
     const res = await fetch(`${baseUrl}/master/profile/schedule/addresses?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки адресов");
     const data = await res.json();
-    if (data.status !== "success") throw new Error(data.status);
-    setAddresses(data.addresses);
-    return data.addresses;
+    // Если статус "success" или "empty" – считаем успехом
+    if (data.status === "success" || data.status === "empty") {
+      setAddresses(data.addresses || []);
+      return data.addresses;
+    }
+    throw new Error(data.status || "Неизвестная ошибка");
   };
 
   const fetchTemplate = async () => {
