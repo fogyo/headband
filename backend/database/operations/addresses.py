@@ -66,9 +66,13 @@ async def get_cities(session: AsyncSession):
         response_data.append({"id": city.id,
                               "city": city.city,
                               "location": str(city.location)})
+    return response_data
 
 async def create_city(data: dict, session: AsyncSession):
     return await CityTemplateModel.create(session=session, data=data)
 
 async def create_station(data: dict, session: AsyncSession):
     return await MetroTemplateModel.create(session=session, data=data)
+
+async def delete_city(city_id: uuid.UUID, session: AsyncSession):
+    return await CityTemplateModel.delete(template_id=city_id, session=session)
