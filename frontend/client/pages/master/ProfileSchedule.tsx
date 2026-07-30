@@ -238,7 +238,7 @@ const AddressSelect = ({
   );
 };
 
-// ---------- Компонент AddressModal (без карты) ----------
+// ---------- Компонент AddressModal (без карты, с улучшенным геокодером) ----------
 interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -309,7 +309,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     }
   }, [isOpen, editingAddress]);
 
-  // Поиск адресов через Nominatim с заголовками
+  // Поиск адресов через Nominatim с заголовками и fallback
   const searchAddress = useCallback(async (query: string, cityId?: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -319,7 +319,6 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     try {
       const city = cities.find(c => c.id === cityId);
       const cityName = city ? city.city : "";
-      // Формируем запрос: добавляем город, если он выбран, чтобы сузить поиск
       let searchQueryStr = query;
       if (cityName) {
         searchQueryStr = `${query}, ${cityName}`;
@@ -334,7 +333,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       });
       
       if (!response.ok) {
-        // Если ошибка, пробуем без города
+        // Если ошибка, пробуем без города (fallback)
         if (cityName) {
           const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1`;
           const fallbackResponse = await fetch(fallbackUrl, {
@@ -356,7 +355,14 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       setSearchResults(data);
     } catch (err: any) {
       console.error(err);
-      toast.error("Не удалось выполнить поиск адреса");
+      // Показываем более информативное сообщение в зависимости от ошибки
+      if (err.message.includes('403')) {
+        toast.error("Доступ к геокодеру ограничен, попробуйте позже");
+      } else if (err.message.includes('429')) {
+        toast.error("Слишком много запросов, подождите немного");
+      } else {
+        toast.error("Не удалось найти адрес, попробуйте изменить запрос");
+      }
       setSearchResults([]);
     } finally {
       setLoadingSearch(false);
@@ -565,7 +571,8 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       </div>
     </div>
   );
-}ы
+}
+
 // ---------- Основной компонент ----------
 export default function ProfileSchedulePage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
