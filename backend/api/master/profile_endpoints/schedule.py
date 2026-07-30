@@ -78,7 +78,7 @@ class AddressBaseResponse(BaseModel):
 
 class AddressListResponse(BaseModel):
     status: str
-    addresses: Optional[List[AddressBaseResponse]] = []
+    addresses: List
 
 class WeekTemplateResp(BaseModel):
     id: uuid.UUID
