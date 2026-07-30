@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Pencil, Plus, X } from "lucide-react";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import L from "leaflet";
 import trashIcon from "@/assets/Trash.svg";
 import backIcon from "@/assets/back_icon.svg";
 import pinIcon from "@/assets/pinIcon.png";
@@ -240,7 +238,7 @@ const AddressSelect = ({
   );
 };
 
-// ---------- Компонент AddressModal ----------
+// ---------- Компонент AddressModal (без карты) ----------
 interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -262,7 +260,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
   const [isSaving, setIsSaving] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Инициализация при открытии
+  // Загрузка городов
   useEffect(() => {
     if (!isOpen) return;
     const loadCities = async () => {
@@ -294,17 +292,16 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       const coords = parseWktPoint(editingAddress.location);
       if (coords) {
         setSelectedPosition(coords);
-        // Для поиска используем full_address, если есть
         setSearchQuery(editingAddress.full_address || editingAddress.address);
         setSelectedAddress(editingAddress.address);
         setSelectedFullAddress(editingAddress.full_address || editingAddress.address);
-        // Город можно определить по координатам (обратный геокодинг) – но пропустим, пользователь выберет сам
-        // Если нужно, можно сделать reverse geocode, но для простоты оставим как есть
       } else {
         setSelectedPosition(null);
+        setSearchQuery("");
+        setSelectedAddress("");
+        setSelectedFullAddress("");
       }
     } else {
-      // Новый адрес – сброс
       setSelectedPosition(null);
       setSearchQuery("");
       setSelectedAddress("");
@@ -312,7 +309,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     }
   }, [isOpen, editingAddress]);
 
-  // Поиск адресов через Nominatim
+  // Поиск адресов через Nominatim с ограничением по городу
   const searchAddress = useCallback(async (query: string, cityId?: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -327,12 +324,20 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
         url += `&city=${encodeURIComponent(cityName)}`;
       }
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Ошибка геокодинга");
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
-      setSearchResults(data);
-    } catch (err) {
+      if (data.length === 0) {
+        setSearchResults([]);
+        // Не показываем тост, просто нет результатов
+      } else {
+        setSearchResults(data);
+      }
+    } catch (err: any) {
       console.error(err);
-      toast.error("Не удалось найти адрес");
+      toast.error("Не удалось выполнить поиск адреса");
+      setSearchResults([]);
     } finally {
       setLoadingSearch(false);
     }
@@ -364,32 +369,10 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     setSearchResults([]);
   };
 
-  // Компонент для управления картой (клик для установки маркера)
-  const MapClickHandler = () => {
-    useMapEvents({
-      click(e) {
-        const { lat, lng } = e.latlng;
-        setSelectedPosition([lat, lng]);
-        // Получаем адрес по координатам (reverse geocode)
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
-          .then(res => res.json())
-          .then(data => {
-            if (data && data.display_name) {
-              setSearchQuery(data.display_name);
-              setSelectedAddress(data.address?.road || data.display_name.split(",")[0] || data.display_name);
-              setSelectedFullAddress(data.display_name);
-            }
-          })
-          .catch(console.error);
-      }
-    });
-    return null;
-  };
-
   // Сохранение
   const handleSave = async () => {
     if (!selectedPosition) {
-      toast.warning("Выберите местоположение на карте");
+      toast.warning("Выберите адрес из списка");
       return;
     }
     if (!selectedAddress.trim()) {
@@ -450,8 +433,6 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
   };
 
   if (!isOpen) return null;
-
-  const defaultCenter: [number, number] = selectedPosition || [55.7558, 37.6173]; // Москва
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
@@ -534,35 +515,11 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
                 ))}
               </ul>
             )}
-          </div>
-
-          {/* Карта */}
-          <div className="relative w-full h-64 rounded-[10px] overflow-hidden shadow-md">
-            <MapContainer
-              center={defaultCenter}
-              zoom={13}
-              style={{ width: "100%", height: "100%" }}
-              scrollWheelZoom={true}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              />
-              {selectedPosition && (
-                <Marker
-                  position={selectedPosition}
-                  draggable={true}
-                  eventHandlers={{
-                    dragend: (e) => {
-                      const marker = e.target;
-                      const pos = marker.getLatLng();
-                      setSelectedPosition([pos.lat, pos.lng]);
-                    },
-                  }}
-                />
-              )}
-              <MapClickHandler />
-            </MapContainer>
+            {searchQuery && !loadingSearch && searchResults.length === 0 && (
+              <p className="mt-1 text-[14px] font-['Sofia_Sans'] text-black/50 text-center">
+                Ничего не найдено. Попробуйте изменить запрос.
+              </p>
+            )}
           </div>
 
           {/* Кнопки */}
@@ -647,7 +604,6 @@ export default function ProfileSchedulePage() {
     const res = await fetch(`${baseUrl}/master/profile/schedule/addresses?chat_id=${chatId}`);
     if (!res.ok) throw new Error("Ошибка загрузки адресов");
     const data = await res.json();
-    // Если статус "success" или "empty" – считаем успехом
     if (data.status === "success" || data.status === "empty") {
       setAddresses(data.addresses || []);
       return data.addresses;
@@ -689,7 +645,7 @@ export default function ProfileSchedulePage() {
     setAbsences(data.absences || []);
   };
 
-  // Адреса: создание/обновление/удаление (старые методы заменяются модалкой)
+  // Адреса: создание/обновление/удаление
   const deleteAddress = async (addressId: string) => {
     const res = await fetch(`${baseUrl}/master/profile/schedule/delete_address/${addressId}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Ошибка удаления");
@@ -700,10 +656,6 @@ export default function ProfileSchedulePage() {
   const startEditAddress = (idx: number) => {
     setEditingAddress(addresses[idx]);
     setIsAddressModalOpen(true);
-  };
-
-  const saveAddressEdit = async () => {
-    // Старый метод не используется
   };
 
   const addNewAddress = () => {
@@ -932,7 +884,6 @@ export default function ProfileSchedulePage() {
           <div className="h-px bg-black w-56 mb-4" />
 
           {!hasAddresses ? (
-            // Нет адресов – только кнопка добавления
             <div className="flex justify-center">
               <button
                 onClick={addNewAddress}
@@ -948,7 +899,6 @@ export default function ProfileSchedulePage() {
               </button>
             </div>
           ) : (
-            // Есть адреса – показываем полный интерфейс
             <>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {addresses.map((addr, idx) => (
@@ -961,29 +911,16 @@ export default function ProfileSchedulePage() {
                         "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
                     }}
                   >
-                    {editingAddressIndex === idx ? (
-                      <input
-                        autoFocus
-                        value={addressDraft}
-                        onChange={(e) => setAddressDraft(e.target.value)}
-                        onBlur={saveAddressEdit}
-                        onKeyDown={(e) => e.key === "Enter" && saveAddressEdit()}
-                        className="bg-transparent text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black outline-none border-b border-black/20 flex-1"
-                      />
-                    ) : (
-                      <>
-                        <img src={pinIcon} alt="pin" className="w-8 h-8 rounded object-cover" />
-                        <span className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black flex-1 truncate">
-                          {addr.full_address || addr.address}
-                        </span>
-                        <button
-                          onClick={() => startEditAddress(idx)}
-                          className="absolute top-1 right-1 p-0.5"
-                        >
-                          <Pencil className="w-3.5 h-3.5 text-black/100" />
-                        </button>
-                      </>
-                    )}
+                    <img src={pinIcon} alt="pin" className="w-8 h-8 rounded object-cover" />
+                    <span className="text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black flex-1 truncate">
+                      {addr.full_address || addr.address}
+                    </span>
+                    <button
+                      onClick={() => startEditAddress(idx)}
+                      className="absolute top-1 right-1 p-0.5"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-black/100" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1006,7 +943,6 @@ export default function ProfileSchedulePage() {
         {/* Остальные секции – только если есть адреса */}
         {hasAddresses && (
           <>
-            {/* Шаблон рабочей недели */}
             <section className="mt-10">
               <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black">Шаблон рабочей недели</h2>
               <div className="h-px bg-black w-56 mb-4" />
@@ -1092,7 +1028,6 @@ export default function ProfileSchedulePage() {
               </div>
             </section>
 
-            {/* Изменить конкретный день */}
             <section className="mt-10">
               <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black">Изменить конкретный<br /> день</h2>
               <div className="h-px bg-black w-56 mb-4" />
@@ -1141,7 +1076,6 @@ export default function ProfileSchedulePage() {
               </div>
             </section>
 
-            {/* Установить период отсутствия */}
             <section className="mt-10">
               <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black">Установить период<br /> отсутствия</h2>
               <div className="h-px bg-black w-56 mb-4" />
