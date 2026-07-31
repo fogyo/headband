@@ -259,6 +259,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const isSelecting = useRef(false);
 
   // Загрузка городов
   useEffect(() => {
@@ -382,7 +383,11 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      // Не запускаем поиск, если поле поиска содержит только адрес, который мы уже выбрали (чтобы избежать лишних запросов)
+      // Если мы только что выбрали адрес, не запускаем поиск
+      if (isSelecting.current) {
+        debounceTimer.current = null;
+        return;
+      }
       if (searchQuery) {
         searchAddress(searchQuery, selectedCityId);
       } else {
@@ -393,17 +398,25 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
   }, [searchQuery, selectedCityId, searchAddress]);
-
   // Выбор адреса из результатов – НЕ обновляем searchQuery, чтобы не вызывать повторный поиск
   const selectSearchResult = (result: any) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
     setSelectedPosition([lat, lng]);
-    // НЕ меняем searchQuery – оставляем введённый пользователем текст
-    // setSearchQuery(result.display_name); // <-- УБРАТЬ
-    setSelectedAddress(result.display_name.split(",")[0] || result.display_name);
+    // Обновляем searchQuery, чтобы поле ввода показывало выбранный адрес
+    const shortAddress = result.display_name.split(",")[0] || result.display_name;
+    setSearchQuery(shortAddress);
+    setSelectedAddress(shortAddress);
     setSelectedFullAddress(result.display_name);
     setSearchResults([]);
+    // Отменяем запланированный поиск
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    // Устанавливаем флаг, чтобы предотвратить запуск поиска по этому изменению
+    isSelecting.current = true;
+    // Через 200 мс сбрасываем флаг (этого времени достаточно, чтобы useEffect с debounce не сработал)
+    setTimeout(() => {
+      isSelecting.current = false;
+    }, 200);
   };
 
   // Сохранение
