@@ -563,11 +563,6 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
                 ))}
               </ul>
             )}
-            {searchQuery && !loadingSearch && searchResults.length === 0 && (
-              <p className="mt-1 text-[14px] font-['Sofia_Sans'] text-black/50 text-center">
-                Ничего не найдено. Попробуйте изменить запрос.
-              </p>
-            )}
           </div>
 
           {/* Кнопки */}
