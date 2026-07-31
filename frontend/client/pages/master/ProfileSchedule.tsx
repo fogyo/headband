@@ -238,7 +238,7 @@ const AddressSelect = ({
   );
 };
 
-// ---------- Компонент AddressModal (без карты, с улучшенным геокодером) ----------
+// ---------- Компонент AddressModal (исправленный) ----------
 interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -292,24 +292,34 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       const coords = parseWktPoint(editingAddress.location);
       if (coords) {
         setSelectedPosition(coords);
-        setSearchQuery(editingAddress.full_address || editingAddress.address);
-        setSelectedAddress(editingAddress.address);
-        setSelectedFullAddress(editingAddress.full_address || editingAddress.address);
       } else {
         setSelectedPosition(null);
-        setSearchQuery("");
-        setSelectedAddress("");
-        setSelectedFullAddress("");
+      }
+      // Отображаем короткий адрес в поле поиска
+      setSearchQuery(editingAddress.address || editingAddress.full_address || "");
+      setSelectedAddress(editingAddress.address || "");
+      setSelectedFullAddress(editingAddress.full_address || "");
+      // Подгружаем город, если есть city_id
+      if (editingAddress.city_id) {
+        setSelectedCityId(editingAddress.city_id);
+      } else {
+        // fallback – оставляем текущий выбранный город (первый)
+        if (cities.length > 0 && !selectedCityId) {
+          setSelectedCityId(cities[0].id);
+        }
       }
     } else {
       setSelectedPosition(null);
       setSearchQuery("");
       setSelectedAddress("");
       setSelectedFullAddress("");
+      if (cities.length > 0 && !selectedCityId) {
+        setSelectedCityId(cities[0].id);
+      }
     }
-  }, [isOpen, editingAddress]);
+  }, [isOpen, editingAddress, cities]);
 
-  // Поиск адресов через Nominatim с заголовками и fallback
+  // Поиск адресов через Nominatim
   const searchAddress = useCallback(async (query: string, cityId?: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -333,7 +343,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       });
       
       if (!response.ok) {
-        // Если ошибка, пробуем без города (fallback)
+        // Fallback без города
         if (cityName) {
           const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1`;
           const fallbackResponse = await fetch(fallbackUrl, {
@@ -372,6 +382,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
+      // Не запускаем поиск, если поле поиска содержит только адрес, который мы уже выбрали (чтобы избежать лишних запросов)
       if (searchQuery) {
         searchAddress(searchQuery, selectedCityId);
       } else {
@@ -383,12 +394,13 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     };
   }, [searchQuery, selectedCityId, searchAddress]);
 
-  // Выбор адреса из результатов
+  // Выбор адреса из результатов – НЕ обновляем searchQuery, чтобы не вызывать повторный поиск
   const selectSearchResult = (result: any) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
     setSelectedPosition([lat, lng]);
-    setSearchQuery(result.display_name);
+    // НЕ меняем searchQuery – оставляем введённый пользователем текст
+    // setSearchQuery(result.display_name); // <-- УБРАТЬ
     setSelectedAddress(result.display_name.split(",")[0] || result.display_name);
     setSelectedFullAddress(result.display_name);
     setSearchResults([]);
@@ -570,7 +582,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
       </div>
     </div>
   );
-} // <-- Убедитесь, что здесь нет лишней буквы!
+}// <-- Убедитесь, что здесь нет лишней буквы!
 
 // ---------- Основной компонент ----------
 export default function ProfileSchedulePage() {
