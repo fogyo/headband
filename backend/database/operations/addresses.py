@@ -52,7 +52,7 @@ async def delete_address(
 
 
 async def update_address(address_id: uuid.UUID, upd_data: dict, session: AsyncSession):
-    if upd_data["long"] == None or upd_data["lat"] == None:
+    if upd_data["long"] != None and upd_data["lat"] != None:
         location = f"POINT ({upd_data["long"]} {upd_data["lat"]})"
         upd_data.pop("long")
         upd_data.pop("lat") 
