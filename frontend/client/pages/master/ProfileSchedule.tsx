@@ -297,7 +297,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
         setSelectedPosition(null);
       }
       // Отображаем короткий адрес в поле поиска
-      setSearchQuery(editingAddress.address || editingAddress.full_address || "");
+      setSearchQuery(editingAddress.full_address || editingAddress.address || "");
       setSelectedAddress(editingAddress.address || "");
       setSelectedFullAddress(editingAddress.full_address || "");
       // Подгружаем город, если есть city_id
@@ -404,7 +404,7 @@ function AddressModal({ isOpen, onClose, onSaved, editingAddress, chatId }: Addr
     const lng = parseFloat(result.lon);
     setSelectedPosition([lat, lng]);
     // Обновляем searchQuery, чтобы поле ввода показывало выбранный адрес
-    const shortAddress = result.display_name.split(",")[0] || result.display_name;
+    const shortAddress = result.display_name;
     setSearchQuery(shortAddress);
     setSelectedAddress(shortAddress);
     setSelectedFullAddress(result.display_name);
