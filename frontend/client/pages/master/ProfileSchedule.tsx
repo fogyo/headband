@@ -230,7 +230,7 @@ const AddressSelect = ({
       >
         {addresses.map((addr) => (
           <option key={addr.id} value={addr.id}>
-            {addr.full_address || addr.address}
+            {addr.address || addr.full_address}
           </option>
         ))}
       </select>
