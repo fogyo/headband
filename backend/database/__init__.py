@@ -635,6 +635,13 @@ class WorkingDayModel(Base):
         query = select(cls).where(cls.master_id == master_id, cls.day_date == day_date)
         result = await session.execute(query)
         return result.scalars().first()
+    
+    @classmethod
+    async def get_by_address(cls, address_id: uuid.UUID, session: AsyncSession) -> List[uuid.UUID]:
+        query = select(cls.id).where(and_(cls.address_id==address_id, or_(date.today()<cls.day_date, and_(cls.day_date==date.today(), datetime.now<cls.start_time))))
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
 
     @classmethod
     async def get_by_master_id(cls, session: AsyncSession, master_id: uuid.UUID):
@@ -922,6 +929,12 @@ class AppointmentModel(Base):
         session.add(appointment)
         await session.flush()
         return "success"
+    
+    @classmethod
+    async def get_all_users_by_wds(cls, wd_ids: List[uuid.UUID], session: AsyncSession) -> List[uuid.UUID]:
+        query = select(cls.user_id).where(cls.working_day_id.in_(wd_ids))  
+        result = await session.execute(query)
+        return list(result.scalars().all())      
 
     @classmethod
     async def get_by_master_and_date(cls, session: AsyncSession, master_id: uuid.UUID, app_date: date) -> List[AppointmentModel]:

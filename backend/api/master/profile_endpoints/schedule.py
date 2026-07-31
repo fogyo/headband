@@ -180,12 +180,14 @@ async def update_address(
     session: AsyncSession = Depends(get_db_session)
 ):
     """Обновление адреса"""
+    
     data_to_upd = request.model_dump(exclude_unset=True)
     status = await miniapp_db_fcn.update_address(
         address_id=request.id,
         upd_data = data_to_upd,
         session=session
     )
+    status = await miniapp_db_fcn.get_all_appointments_by_address(address_id=request.id, session=session)
     return {"status": status}
 
 @router.post("/set_template", response_model=StatusResponse)
@@ -340,20 +342,3 @@ async def delete_absence(
 
     return {"status": status}
 
-@router.patch("/update_absence", response_model=StatusResponse)
-async def update_absence(absence: AbsenceUpdateRequest,
-                        session: AsyncSession = Depends(get_db_session)
-):
-    """
-    Изменить период отсутствия.
-    Записи, которые были отменены, НЕ восстанавливаются.
-    """
-    status = await miniapp_db_fcn.update_absence(
-        update_data=absence,
-        session=session
-    )
-
-    if status != "success":
-        raise HTTPException(status_code=404, detail=status)
-
-    return {"status": status}

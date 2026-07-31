@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from unicodedata import category
 
 from backend.api.master.schedule import AppointmentResponse
-from backend.database import MasterModel, SubscriptionModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
+from backend.database import MasterModel, SubscriptionModel, UserModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
     AppointmentModel, MasterAbsenceModel, AddressModel, CategoryModel
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
     _get_week_dates
-
+from backend.telegram_bot.bot_main import bot
 
 async def get_possible_start_time(
         master_id: uuid.UUID,
@@ -224,4 +224,10 @@ async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession) -
     """Отмена записи"""
     return await AppointmentModel.delete(session=session, appointment_id=appointment_id)
 
-
+async def get_all_appointments_by_address(address_id: uuid.UUID, session: AsyncSession):
+    wd_ids = await WorkingDayModel.get_by_address(address_id=address_id, session=session)
+    users = await AppointmentModel.get_all_users_by_wds(wd_ids=wd_ids, session=session)
+    for uid in users:
+        user = await UserModel.get_by_id(user_id=uid, session=session)
+        await bot.send_message(chat_id = user.chat_id, text=f"Мастер поменял адрес записи, проверьте информацию в карточке записи в нашем mini-app")
+    return "success"

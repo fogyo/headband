@@ -3,8 +3,8 @@ from datetime import time, timedelta, datetime, date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import AppointmentModel, PriceModel
-
+from backend.database import AppointmentModel, PriceModel, UserModel
+from backend.telegram_bot.bot_main import bot
 
 def _int_minutes_to_time(minutes: int) -> time:
     """Перевод int минут в класс time"""
@@ -75,7 +75,10 @@ async def _cancel_conflicting_appointments_for_date(
 
         # Конфликт: встреча выходит за новые границы
         if app_start < start_int or app_end > end_int:
+            user = await UserModel.get_by_id(user_id=apt.user_id, session=session)
+            await bot.send_message(chat_id=user.chat_id, text="Мастер отменил Вашу запись из-за непредвиденных обстоятельств.\nПредлагем записаться на другое свободное время!")
             await AppointmentModel.delete(session=session, appointment_id=apt.id)
+            
     return "success"
 
 
@@ -83,7 +86,8 @@ async def _cancel_appointments_in_date_range(
         session: AsyncSession,
         master_id: uuid.UUID,
         start_date: date,
-        end_date: date
+        end_date: date,
+        reason: str
 ):
     """Отменяет все записи мастера в диапазоне дат"""
     cancelled = []
@@ -91,6 +95,8 @@ async def _cancel_appointments_in_date_range(
     appointments = await AppointmentModel.get_by_date_range(session=session, master_id=master_id, start_date=start_date, end_date=end_date)
 
     for apt in appointments:
+        user = await UserModel.get_by_id(user_id=apt.user_id, session=session)
+        await bot.send_message(chat_id=user.chat_id, text=f"Мастер отменил Вашу запись по причине: {reason}.\nПредлагем записаться на другое свободное время!")    
         await AppointmentModel.delete(session=session, appointment_id=apt.id)
         cancelled.append(str(apt.id))
 

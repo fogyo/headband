@@ -6,10 +6,10 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.master.profile_endpoints.schedule import WorkingDayUpdateRequest
-from backend.database import WorkingDayModel, WeekTemplateModel, MasterAbsenceModel, AddressModel
+from backend.database import AppointmentModel, UserModel, WorkingDayModel, WeekTemplateModel, MasterAbsenceModel, AddressModel
 from backend.database.operations.utils import _cancel_conflicting_appointments_for_date, \
     _cancel_appointments_in_date_range
-
+from backend.telegram_bot.bot_main import bot
 
 async def create_working_day(
         master_id: uuid.UUID,
@@ -185,6 +185,13 @@ async def update_working_day(
             new_start=request.start_time,
             new_end=request.end_time
         )
+        if request.address_id!=working_day.address_id:
+            wd_id = []
+            wd_id.append(working_day.id)
+            users = await AppointmentModel.get_all_users_by_wds(wd_ids=wd_id, session=session)
+            for uid in users:
+                user = await UserModel.get_by_id(user_id=uid, session=session)
+                await bot.send_message(chat_id=user.chat_id, text=f"Мастер изменил адрес Вашей записи на {working_day.day_date}, проверьте информацию в карточке записи в нашем mini-app")
 
         await WorkingDayModel.update(
             session=session,
@@ -214,7 +221,8 @@ async def create_absence(
             session=session,
             master_id=master_id,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            reason=reason if reason!=None else "Не указана"
         )
         absence_id = await MasterAbsenceModel.create(
             session=session,
