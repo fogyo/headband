@@ -29,7 +29,7 @@ async def get_addresses_by_master(
             "id": str(addr.id),
             "location": str(addr.location),
             "full_address": addr.full_address,
-            "address": f"{(addr.full_address).split(",")[0]},{(addr.full_address).split(",")[1]},{(addr.full_address).split(",")[2]}"
+            "address": f"{(addr.full_address).split(",")[0]},{(addr.full_address).split(",")[1]},{(addr.full_address).split(",")[2]}" if addr.full_address != None else addr.address
         }
         for addr in addresses
     ]
