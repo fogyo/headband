@@ -27,7 +27,7 @@ async def create_working_day(
         "end_time": end_time,
         "address_id": address
     }
-    return await WorkingDayModel.create(session=session, data=data)
+    return await WorkingDayModel.create(session=session, data=data, master_id=master_id)
 
 
 async def set_weekday_template(

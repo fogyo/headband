@@ -25,7 +25,14 @@ class MasterResponse(BaseModel):
 
 class MasterPageResponse(StatusResponse):
     const_masters: List[MasterResponse]
-    partner_masters: List[MasterResponse]
+
+class PartnerCity(BaseModel):
+    city_id: uuid.UUID
+    name: str
+    master_num: int
+
+class PartnerCityResponse(StatusResponse):
+    partner_by_city: List[PartnerCity]
 
 @router.get("/", response_model=MasterPageResponse)
 async def get_master(chat_id: int,
@@ -52,21 +59,22 @@ async def get_master(chat_id: int,
                             "partner": level == 2}
                 cm_response.append(response)
 
-    am_response = []
-    partner_masters = await miniapp_db_fcn.get_partners(session=session)
-    for p in partner_masters:
-        master_id = p.id
-        if await miniapp_db_fcn.check_category(master_id=master_id, category_ids=category_ids, session=session):
-            average, rates = await miniapp_db_fcn.get_rating(master_id=master_id, session=session)
-            response = {"id": master_id,
-                        "name": p.full_name,
-                        "avatar": f"{s3_domain}{p.avatar}",
-                        "rating": average,
-                        "rates": rates,
-                        "partner": True}
-
-            am_response.append(response)
-
     return {"status": "success",
-            "const_masters": cm_response,
-            "partner_masters": am_response}
+            "const_masters": cm_response}
+
+@router.get("/partner_masters_by_city", response_model=PartnerCityResponse)
+async def get_master_by_city(session: AsyncSession = Depends(get_db_session)):
+    cities = await miniapp_db_fcn.get_cities(session=session)
+    resp = []
+    for city in cities:
+        master_by_city = []
+        addresses = await miniapp_db_fcn.get_addresses_by_range(range=30000, session=session, center_location=city["location"])
+        for address in addresses:
+            active, end, level = await miniapp_db_fcn.get_subscription_level(master_id=address.master_id, session=session)
+            if active and level == 2:
+                master_by_city.append(address.master_id)
+        resp.append({"city_id": city["id"],
+                     "name": city["city"],
+                     "master_num": len(set(master_by_city))})
+    return {"status": "success",
+            "partner_by_city": resp}

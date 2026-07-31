@@ -6,6 +6,8 @@ from doctest import master
 from enum import Enum
 from typing import List, Optional, AsyncGenerator
 
+from geoalchemy2.functions import ST_DWithin, ST_GeomFromText
+
 from dotenv import load_dotenv
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import UUID
@@ -814,6 +816,29 @@ class AddressModel(Base):
             await session.delete(obj)
             return "success"
         return "no such address"
+
+    @classmethod
+    async def get_within_radius(
+        cls,
+        session: AsyncSession,
+        center_location: str,
+        range: int
+    ) -> List["AddressModel"]:
+        """
+        Возвращает все адреса, находящиеся в радиусе radius_meters от точки (center_lon, center_lat).
+        """
+        # Преобразуем в географический объект с SRID 4326
+        center_geom = func.ST_SetSRID(func.ST_GeomFromText(center_location), 4326)
+
+        query = select(cls).where(
+            ST_DWithin(
+                func.ST_Transform(cls.location, 4326),  # убедимся, что SRID верный
+                center_geom,
+                range
+            )
+        )
+        result = await session.execute(query)
+        return list(result.scalars().all())
 
     @classmethod
     async def update(cls, session: AsyncSession, address_id: uuid.UUID, update_data: dict) -> str:

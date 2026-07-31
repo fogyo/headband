@@ -49,7 +49,8 @@ async def delete_address(
     """Удаление адреса"""
     return await AddressModel.delete(session=session, address_id=address_id)
 
-
+async def get_addresses_by_range(range: int, session: AsyncSession, center_location: str):
+    return await AddressModel.get_within_radius(range=range, session=session, center_location=center_location)
 
 async def update_address(address_id: uuid.UUID, upd_data: dict, session: AsyncSession):
     if upd_data["long"] != None and upd_data["lat"] != None:
