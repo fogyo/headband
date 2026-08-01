@@ -77,3 +77,9 @@ async def create_station(data: dict, session: AsyncSession):
 
 async def delete_city(city_id: uuid.UUID, session: AsyncSession):
     return await CityTemplateModel.delete(template_id=city_id, session=session)
+
+async def get_all_stations_by_city(city_id: uuid.UUID, session: AsyncSession):
+    return await MetroTemplateModel.get_by_city_id(city_id=city_id, session=session)
+
+async def get_metro_by_id(station_id: uuid.UUID, session: AsyncSession):
+    return await MetroTemplateModel.get_by_id(metro_id=station_id, session=session)
