@@ -85,7 +85,7 @@ export default function AIHistoryPage() {
 
       // ✅ Переход на страницу категорий
       if (gender !== undefined && gender !== null) {
-        navigate(`/headbeauty-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
+        navigate(`/headbeauty-hair-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
           state: {
             gender,
             img_url: currentPreviewUrl, // обновлённая картинка
