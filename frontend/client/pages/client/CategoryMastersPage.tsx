@@ -325,26 +325,24 @@ export default function CategoryMastersPage() {
         </div>
 
         {/* Ваши мастера */}
-        {hasRegular && (
-          <section className="mt-8">
-            <h2 className="text-[32px] tracking-[-1.6px] font-['Sofia_Sans'] text-black">Ваши мастера</h2>
-            <div className="h-px bg-black w-[210px] mb-4" />
+        <section className="mt-8">
+          <h2 className="text-[32px] tracking-[-1.6px] font-['Sofia_Sans'] text-black">Ваши мастера</h2>
+          <div className="h-px bg-black w-[210px] mb-4" />
+          {hasRegular ? (
             <div className="grid grid-cols-2 gap-4">
               {regularMasters.map((master) => (
                 <MasterCard key={master.id} master={master} />
               ))}
             </div>
-          </section>
-        )}
-
-        {!hasRegular && !hasPartners && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <img src={emptyMastersIcon} alt="Нет мастеров" className="w-40 h-40 mb-4" />
-            <p className="text-black/50 text-center font-['Sofia_Sans'] text-lg">
-              Нет мастеров в этой категории
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8">
+              <img src={emptyMastersIcon} alt="Нет мастеров" className="w-32 h-32 mb-3" />
+              <p className="text-black/50 text-center font-['Sofia_Sans'] text-base">
+                Пока здесь пусто
+              </p>
+            </div>
+          )}
+        </section>
 
         {/* Партнеры */}
         <section className="mt-10">
@@ -432,7 +430,7 @@ export default function CategoryMastersPage() {
                         <div
                           key={city.city_id}
                           onClick={() => handleCityClick(city.city_id)}
-                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] rounded-[10px] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                           style={{
                             border: "0.5px solid rgba(0,0,0,0.00)",
                             boxShadow:
@@ -471,7 +469,7 @@ export default function CategoryMastersPage() {
                         <div
                           key={metro.metro_id}
                           onClick={() => handleMetroClick(metro.metro_id)}
-                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] rounded-[10px] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                           style={{
                             border: "0.5px solid rgba(0,0,0,0.00)",
                             boxShadow:
