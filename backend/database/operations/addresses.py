@@ -64,7 +64,7 @@ async def get_cities(session: AsyncSession):
     cities = await CityTemplateModel.get_all(session=session)
     response_data = []
     for city in cities:
-        point = wkb.loads(bytes.fromhex(city.location))
+        point = wkb.loads(bytes.fromhex(str(city.location)))
         response_data.append({"id": city.id,
                               "city": city.city,
                               "location": f"POINT ({point.x} {point.y})"})

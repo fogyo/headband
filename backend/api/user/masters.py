@@ -99,7 +99,7 @@ async def get_master_by_metro(parental_category: str, city_id: uuid.UUID, sessio
     category_ids = await miniapp_db_fcn.get_all_categories_parental(parental_name=parental_category, session=session)
     for metro in metros:
         master_by_metro = []
-        point = wkb.loads(bytes.fromhex(metro.location))
+        point = wkb.loads(bytes.fromhex(str(metro.location)))
         metro_location = f"POINT ({point.x} {point.y})"
         addresses = await miniapp_db_fcn.get_addresses_by_range(range=2000, session=session, center_location=metro_location)
         for address in addresses:
@@ -117,7 +117,7 @@ async def get_master_by_metro(parental_category: str, city_id: uuid.UUID, sessio
 @router.get("/partner_masters_by_station", response_model=MasterPageResponse)
 async def get_partner_near_concrete_station(parental_category: str, metro_id: uuid.UUID, session: AsyncSession = Depends(get_db_session)):
     metro = await miniapp_db_fcn.get_metro_by_id(station_id=metro_id, session=session)
-    point = wkb.loads(bytes.fromhex(metro.location))
+    point = wkb.loads(bytes.fromhex(str(metro.location)))
     metro_location = f"POINT ({point.x} {point.y})"
     addresses = await miniapp_db_fcn.get_addresses_by_range(range=2000, session=session, center_location=metro_location)
     category_ids = await miniapp_db_fcn.get_all_categories_parental(parental_name=parental_category, session=session)
