@@ -6,7 +6,7 @@ from doctest import master
 from enum import Enum
 from typing import List, Optional, AsyncGenerator
 
-from geoalchemy2.functions import ST_DWithin, ST_GeomFromText
+from geoalchemy2.functions import ST_DWithin, ST_GeomFromText, ST_GeogFromWKB
 
 from dotenv import load_dotenv
 from geoalchemy2 import Geometry
@@ -828,7 +828,7 @@ class AddressModel(Base):
         Возвращает все адреса, находящиеся в радиусе radius_meters от точки (center_lon, center_lat).
         """
         # Преобразуем в географический объект с SRID 4326
-        center_geom = func.ST_SetSRID(func.ST_GeomFromText(center_location), 4326)
+        center_geom = func.ST_SetSRID(func.ST_GeomFromWKB(center_location), 4326)
 
         query = select(cls).where(
             ST_DWithin(
