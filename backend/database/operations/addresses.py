@@ -4,7 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import AddressModel, CityTemplateModel, MetroTemplateModel
-
+from shapely import wkb
 
 
 async def create_address(
@@ -64,9 +64,10 @@ async def get_cities(session: AsyncSession):
     cities = await CityTemplateModel.get_all(session=session)
     response_data = []
     for city in cities:
+        point = wkb.loads(bytes.fromhex(city.location))
         response_data.append({"id": city.id,
                               "city": city.city,
-                              "location": str(city.location)})
+                              "location": f"POINT ({point.x} {point.y})"})
     return response_data
 
 async def create_city(data: dict, session: AsyncSession):
