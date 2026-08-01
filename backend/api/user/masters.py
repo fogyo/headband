@@ -99,7 +99,7 @@ async def get_master_by_metro(parental_category: str, city_id: uuid.UUID, sessio
         master_by_metro = []
         addresses = await miniapp_db_fcn.get_addresses_by_range(range=2000, session=session, center_location=str(metro.location))
         for address in addresses:
-            check = await miniapp_db_fcn.check_category(master_id=address.master_id, category_ids=category_ids, session=session):
+            check = await miniapp_db_fcn.check_category(master_id=address.master_id, category_ids=category_ids, session=session)
             active, end, level = await miniapp_db_fcn.get_subscription_level(master_id=address.master_id, session=session)
             if active and level == 2 and check:
                 master_by_metro.append(address.master_id)
@@ -118,7 +118,7 @@ async def get_partner_near_concrete_station(parental_category: str, metro_id: uu
     master_ids = []
     for address in addresses:
             active, end, level = await miniapp_db_fcn.get_subscription_level(master_id=address.master_id, session=session)
-            check = await miniapp_db_fcn.check_category(master_id=address.master_id, category_ids=category_ids, session=session):
+            check = await miniapp_db_fcn.check_category(master_id=address.master_id, category_ids=category_ids, session=session)
             if active and level == 2 and check:
                 master_ids.append(address.master_id)
     master_ids = list(set(master_ids))
