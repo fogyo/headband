@@ -141,14 +141,9 @@ export default function AIStylePage() {
       // Обновляем список сессий (но не ждём, чтобы не блокировать переход)
       fetchSessions();
 
-      navigate(`/headbeauty-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
-        state: {
-          gender,
-          img_url: sessionImgUrl,
-          session_id: sessionId,
-          task_id: taskId,
-        },
-      });
+      navigate(`/headbeauty-hair-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
+  state: { gender, img_url: sessionImgUrl, session_id: sessionId, task_id: taskId },
+    });
       toast.success("Сессия создана, анализ запущен");
     } catch (err: any) {
       console.error(err);
@@ -168,13 +163,8 @@ export default function AIStylePage() {
   };
 
   const selectSession = (session: Session) => {
-    navigate(`/headbeauty-category/${session.gender ? "female" : "male"}?session_id=${session.id}`, {
-      state: {
-        gender: session.gender,
-        img_url: session.img_url,
-        session_id: session.id,
-        task_id: "atomic_operation",
-      },
+    navigate(`/headbeauty-hair-category/${session.gender ? "female" : "male"}?session_id=${session.id}`, {
+  state: { gender: session.gender, img_url: session.img_url, session_id: session.id, task_id: "atomic_operation" },
     });
   };
 

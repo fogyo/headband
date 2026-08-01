@@ -255,7 +255,6 @@ const App = () => (
             <Route path="/booking/:masterId" element={<MasterPriceListPage />} />
             <Route path="/booking/:masterId/:serviceId" element={<BookAppointmentPage />} />
             <Route path="/headbeauty" element={<HeadbeautyIndexPage />} />
-            <Route path="/headbeauty-category/:gender" element={<AICategoryPage />} />
             <Route path="/headbeauty-hair-category/:gender" element={<AIHairCatsPage />} />
             <Route path="/headbeauty-hair/:gender" element={<AIHairPage />} />
             <Route path="/headbeauty-beard/:gender" element={<AIBeardPage />} />
