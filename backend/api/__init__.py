@@ -2027,7 +2027,7 @@ async def create_hair_colors_template():
 async def create_hair_perms_template():
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            perms = await miniapp_db_fcn.get_perms(session=session)
-            if len(perms) == 0:
+            perms_exis = await miniapp_db_fcn.get_perms(session=session)
+            if len(perms_exis) == 0:
                 for perm in perms:
                     await miniapp_db_fcn.create_perm_template(data=perm, session=session)
