@@ -107,7 +107,7 @@ async def get_master_by_metro(parental_category: str, city_id: uuid.UUID, sessio
             active, end, level = await miniapp_db_fcn.get_subscription_level(master_id=address.master_id, session=session)
             if active and level == 2 and check:
                 master_by_metro.append(address.master_id)
-        resp.append({"city_id": metro.id,
+        resp.append({"metro_id": metro.id,
                      "name": metro.name,
                      "hex": metro.hex,
                      "master_num": len(set(master_by_metro))})
