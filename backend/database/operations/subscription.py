@@ -127,3 +127,6 @@ async def get_all_links(session: AsyncSession):
 
 async def get_by_id_dev_link(link: uuid.UUID, session: AsyncSession):
     return await UniqueDevReferalLinksModel.get_by_id(session=session, link_id=link)
+
+async def activate_dev_link(link: uuid.UUID, session: AsyncSession):
+    return await UniqueDevReferalLinksModel.activate(session=session, link_id=link)
