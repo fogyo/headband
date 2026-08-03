@@ -107,7 +107,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
 
                 dev_link = await miniapp_db_fcn.get_by_id_dev_link(link=ref_code, session=session)
                 if dev_link!=None:
-                    if dev_link.status == 2:
+                    if dev_link.status == 1:
                         await message.answer(
                         f"❌ К сожалению ссылка была активирована ранее.\n"
                         f"С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже.",
