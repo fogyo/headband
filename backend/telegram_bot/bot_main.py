@@ -117,7 +117,6 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
                         await state.update_data(role="master")
                         await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
-                        logging.info("Master created by dev deeplink")
                         await miniapp_db_fcn.activate_dev_link(link=dev_link.id, session=session)
                         await message.answer(
                         f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана.\n"
@@ -128,7 +127,6 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
                         await state.update_data(role="master")
                         await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=new_master.id, session=session)
-                        logging.info("Master renewed by dev deeplink")
                         await miniapp_db_fcn.activate_dev_link(link=dev_link.id, session=session)
                         await message.answer(
                         f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика.\n"
