@@ -458,7 +458,7 @@ export default function CategoryMastersPage() {
                             {city.master_num}
                           </span>
                           {loadingMetros && selectedCityId === city.city_id && (
-                            <span className="ml-2 text-black/50">Поиск партнеров в этом городе...</span>
+                            <span className="ml-2 text-black/50">⏳</span>
                           )}
                         </div>
                       ))}
