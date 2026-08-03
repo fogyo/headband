@@ -114,6 +114,7 @@ export default function CategoryMastersPage() {
   const [modalStep, setModalStep] = useState<"city" | "metro" | "masters">("city");
   const [cities, setCities] = useState<City[]>([]);
   const [metros, setMetros] = useState<Metro[]>([]);
+  const [metroSearchQuery, setMetroSearchQuery] = useState("");
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
   const [selectedMetroId, setSelectedMetroId] = useState<string | null>(null);
   const [loadingCities, setLoadingCities] = useState(false);
@@ -193,7 +194,6 @@ export default function CategoryMastersPage() {
   // Загрузка метро для выбранного города
   const loadMetros = async (cityId: string) => {
     if (!category) return;
-    setLoadingMetros(true);
     try {
       const url = `${baseUrl}/users/master/partner_masters_amount_by_metro?parental_category=${encodeURIComponent(category)}&city_id=${cityId}`;
       const res = await fetch(url);
@@ -202,6 +202,7 @@ export default function CategoryMastersPage() {
       if (data.status === "success") {
         setMetros(data.partner_by_metro);
         setModalStep("metro");
+        setMetroSearchQuery(""); // сброс поиска при переходе
       } else {
         throw new Error("Нет станций метро");
       }
@@ -257,9 +258,11 @@ export default function CategoryMastersPage() {
 
   // Обработчики кликов в модалке
   const handleCityClick = (cityId: string) => {
-    setSelectedCityId(cityId);
-    loadMetros(cityId);
-  };
+  if (loadingMetros) return; // не даём кликать повторно
+  setSelectedCityId(cityId);
+  setLoadingMetros(true); // показываем загрузку сразу
+  loadMetros(cityId);
+};
 
   const handleMetroClick = (metroId: string) => {
     setSelectedMetroId(metroId);
@@ -275,6 +278,7 @@ export default function CategoryMastersPage() {
     setCities([]);
     setMetros([]);
     setModalStep("city");
+    setMetroSearchQuery("")
   };
 
   // Открытие модалки
@@ -286,6 +290,7 @@ export default function CategoryMastersPage() {
   // Закрытие модалки
   const closeModal = () => {
     setShowModal(false);
+    setMetroSearchQuery("")
     // Не сбрасываем состояния, чтобы при повторном открытии не загружать всё заново
   };
 
@@ -430,7 +435,9 @@ export default function CategoryMastersPage() {
                         <div
                           key={city.city_id}
                           onClick={() => handleCityClick(city.city_id)}
-                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                          className={`flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow ${
+                            loadingMetros && selectedCityId === city.city_id ? "opacity-50 pointer-events-none" : ""
+                          }`}
                           style={{
                             border: "0.5px solid rgba(0,0,0,0.00)",
                             boxShadow:
@@ -459,38 +466,61 @@ export default function CategoryMastersPage() {
 
               {modalStep === "metro" && (
                 <>
+                  {/* Поле поиска */}
+                  <div className="relative mb-3">
+                    <div
+                      className="bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3"
+                      style={{
+                        border: "0.5px solid rgba(0,0,0,0.00)",
+                        boxShadow:
+                          "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Поиск станции..."
+                        value={metroSearchQuery}
+                        onChange={(e) => setMetroSearchQuery(e.target.value)}
+                        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50"
+                      />
+                    </div>
+                  </div>
+
                   {loadingMetros ? (
                     <p className="text-center text-black/50">Загрузка станций...</p>
                   ) : metros.length === 0 ? (
                     <p className="text-center text-black/50">Нет станций метро с партнерами</p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {metros.map((metro) => (
-                        <div
-                          key={metro.metro_id}
-                          onClick={() => handleMetroClick(metro.metro_id)}
-                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                          style={{
-                            border: "0.5px solid rgba(0,0,0,0.00)",
-                            boxShadow:
-                              "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            {/* Круг цвета линии метро */}
-                            <div
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: metro.hex || "#888" }}
-                            />
-                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-                              {metro.name}
+                      {metros
+                        .filter((metro) =>
+                          metro.name.toLowerCase().includes(metroSearchQuery.toLowerCase())
+                        )
+                        .map((metro) => (
+                          <div
+                            key={metro.metro_id}
+                            onClick={() => handleMetroClick(metro.metro_id)}
+                            className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                            style={{
+                              border: "0.5px solid rgba(0,0,0,0.00)",
+                              boxShadow:
+                                "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: metro.hex || "#888" }}
+                              />
+                              <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                                {metro.name}
+                              </span>
+                            </div>
+                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
+                              {metro.master_num}
                             </span>
                           </div>
-                          <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
-                            {metro.master_num}
-                          </span>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   )}
                 </>
