@@ -470,7 +470,7 @@ export default function CategoryMastersPage() {
                   {/* Поле поиска – фиксируется сверху */}
                   <div className="sticky top-0 bg-[#FFE9EF] z-10 pb-3">
                     <div
-                      className="bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3"
+                      className="bg-[#FFE9EF] h-11 shadow flex items-center px-3"
                       style={{
                         border: "0.5px solid rgba(0,0,0,0.00)",
                         boxShadow:
