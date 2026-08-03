@@ -432,35 +432,33 @@ export default function CategoryMastersPage() {
                   ) : (
                     <div className="flex flex-col gap-2">
                       {cities.map((city) => (
-                        <div
-                          key={city.city_id}
-                          onClick={() => handleCityClick(city.city_id)}
-                          className={`flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow ${
-                            loadingMetros && selectedCityId === city.city_id ? "opacity-50 pointer-events-none" : ""
-                          }`}
-                          style={{
-                            border: "0.5px solid rgba(0,0,0,0.00)",
-                            boxShadow:
-                              "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            {/* Иконка города (заглушка) */}
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
-                              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                              <circle cx="12" cy="9" r="3" />
-                            </svg>
-                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-                              {city.name}
-                            </span>
-                          </div>
+                       <div
+                        key={city.city_id}
+                        onClick={() => handleCityClick(city.city_id)}
+                        className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                        style={{
+                          border: "0.5px solid rgba(0,0,0,0.00)",
+                          boxShadow:
+                            "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                            <circle cx="12" cy="9" r="3" />
+                          </svg>
+                          <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                            {city.name}
+                          </span>
+                        </div>
+                        {loadingMetros && selectedCityId === city.city_id ? (
+                          <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">⏳</span>
+                        ) : (
                           <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
                             {city.master_num}
                           </span>
-                          {loadingMetros && selectedCityId === city.city_id && (
-                            <span className="ml-2 text-black/50">⏳</span>
-                          )}
-                        </div>
+                        )}
+                      </div>
                       ))}
                     </div>
                   )}

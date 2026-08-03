@@ -305,7 +305,11 @@ export default function AdminPanelPage() {
                     key={idx}
                     className="flex items-center text-[12px] font-['Sofia_Sans'] text-black py-1.5 border-b border-black/5 last:border-0"
                   >
-                    <div className="flex-1 truncate">{item.link}</div>
+                    <div className="flex-1 truncate">
+                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-black hover:underline">
+                            ссылка
+                        </a>
+                     </div>
                     <div className="w-16 text-center">{item.level === 1 ? "BASE" : "PARTNER"}</div>
                     <div className="w-20 text-center">
                       <span
