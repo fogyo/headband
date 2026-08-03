@@ -118,7 +118,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         await state.update_data(role="master")
                         await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
                         logging.info("Master created by dev deeplink")
-                        await miniapp_db_fcn.activate_dev_link(dev_link.id, session=session)
+                        await miniapp_db_fcn.activate_dev_link(link=dev_link.id, session=session)
                         await message.answer(
                         f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана.\n"
                         f"Также Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже.",
@@ -129,7 +129,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         await state.update_data(role="master")
                         await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=new_master.id, session=session)
                         logging.info("Master renewed by dev deeplink")
-                        await miniapp_db_fcn.activate_dev_link(dev_link.id, session=session)
+                        await miniapp_db_fcn.activate_dev_link(link=dev_link.id, session=session)
                         await message.answer(
                         f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика.\n"
                         f"Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже.",
