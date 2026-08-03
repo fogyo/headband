@@ -3,8 +3,8 @@ import uuid
 from datetime import date, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.database import SubscriptionModel, MasterModel, MasterReferralModel, SubLevel, SubscriptionBankModel
+import logging
+from backend.database import SubscriptionModel, MasterModel, MasterReferralModel, SubLevel, SubscriptionBankModel, UniqueDevReferalLinksModel
 
 
 async def create_subscription(
@@ -91,6 +91,15 @@ def extend_subscription_sync(
         SubscriptionBankModel.decrease_partner_sub_sync(session=session, master_id=master_id)
     return end_date
 
+async def add_to_sub_bank(level: int, master_id: uuid.UUID, session: AsyncSession):
+    if level == 1:
+        status = await SubscriptionBankModel.add_base_sub(session=session, master_id=master_id, amount=1)
+        return "success"
+    elif level == 2:
+        status = await SubscriptionBankModel.add_partner_sub(session=session, master_id=master_id, amount=1)
+        return "success"
+    logging.info("No sub level")
+    return "error"
 
 async def get_subscription_level(
         master_id: uuid.UUID,
@@ -109,3 +118,12 @@ async def get_subscription_level(
         return False, subscription.end_date, subscription.level
 
     return True, subscription.end_date, subscription.level
+
+async def generate_link_free_month(level: int, session: AsyncSession):
+    return await UniqueDevReferalLinksModel.create(level=level, session=session)
+
+async def get_all_links(session: AsyncSession):
+    return await UniqueDevReferalLinksModel.get_all(session=session)
+
+async def get_by_id_dev_link(link: uuid.UUID, session: AsyncSession):
+    return await UniqueDevReferalLinksModel.get_by_id(session=session, link_id=link)

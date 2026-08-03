@@ -1978,6 +1978,10 @@ async def create_admin():
             admin_check = await miniapp_db_fcn.check_admin(chat_id=980609742, session=session)
             if not admin_check:
                 await miniapp_db_fcn.create_admin(chat_id=980609742, password=os.getenv("PASSWORD"), session=session)
+            else: 
+                admin = await miniapp_db_fcn.get_admin_by_id(chat_id=980609742, session=session)
+                upd_data = {"creator": True}
+                await miniapp_db_fcn.update_admin(upd_data=upd_data, session=session, admin_id=admin.id)
 
 async def create_categories():
     async with AsyncSessionLocal() as session:

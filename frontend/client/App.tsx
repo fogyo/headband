@@ -30,7 +30,6 @@ import CategoryMastersPage from "./pages/client/CategoryMastersPage";
 import MasterPriceListPage from "./pages/client/MasterPriceListPage";
 import BookAppointmentPage from "./pages/client/BookAppointmentsPage";
 import HeadbeautyIndexPage from "./pages/headbeauty/IndexHeadbeauty";
-import AICategoryPage from "./pages/headbeauty/HeadbeautyCategory";
 import AIHairCatsPage from "./pages/headbeauty/HairHeadbeautyCategory";
 import AIHairPage from "./pages/headbeauty/HaircutHeadbeauty";
 import AIBeardPage from "./pages/headbeauty/BeardHeadbeauty";
@@ -43,6 +42,7 @@ import AdminIndex from "./pages/admin/AdminIndex";
 import AdminStatsPage from "./pages/admin/AdminStatsPage";
 import AdminGuidesPage from "./pages/admin/AdminGuidesPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
+import AdminPanelPage from "./pages/admin/AdminPanelPage";
 
 // ---------- Провайдер ----------
 const queryClient = new QueryClient();
@@ -268,6 +268,7 @@ const App = () => (
             <Route path="/admin/stats" element={<AdminStatsPage />} />
             <Route path="/admin/guides" element={<AdminGuidesPage />} />
             <Route path="/admin/support" element={<AdminSupportPage />} />
+            <Route path="/admin/panel" element={<AdminPanelPage />} />
           </Routes>
         </TelegramAuthProvider>
       </BrowserRouter>

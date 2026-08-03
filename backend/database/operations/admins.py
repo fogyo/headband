@@ -12,6 +12,9 @@ async def check_admin(chat_id: int, session: AsyncSession):
         return False
     return True
 
+async def get_admin_by_id(chat_id: int, session: AsyncSession):
+    return await AdminModel.get_by_chat_id(chat_id=chat_id, session=session)
+
 async def solve_problem(problem_id: uuid.UUID, session: AsyncSession):
     await SupportModel.mark_solved(session=session, request_id=problem_id)
     return await SupportModel.get_by_id(session=session, request_id=problem_id)
@@ -24,6 +27,16 @@ async def verify_admin(chat_id: int, password: str, session: AsyncSession):
 
 async def create_admin(chat_id: int, password: str, session: AsyncSession):
     return await AdminModel.create(chat_id=chat_id, session=session, password=password)
+
+async def delete_admin(chat_id: int, session: AsyncSession):
+    admin = await AdminModel.get_by_chat_id(chat_id=chat_id, session=session)
+    return await AdminModel.delete(session=session, admin_id=admin.id)
+
+async def update_admin(upd_data: dict, admin_id: uuid.UUID, session: AsyncSession):
+    return await AdminModel.update(session=session, admin_id=admin_id, update_data=upd_data)
+
+async def get_all_admins(session: AsyncSession):
+    return await AdminModel.get_all(session=session)
 
 def spent_token_record(model: str, session):
     if model=="base":

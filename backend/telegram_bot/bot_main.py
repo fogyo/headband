@@ -104,6 +104,31 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
             async with session.begin():
                 chat_id = message.from_user.id
                 username = message.from_user.username
+
+                dev_link = await miniapp_db_fcn.get_by_id_dev_link(link=ref_code, session=session)
+                if dev_link!=None:
+                    if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
+                        status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
+                        await state.update_data(role="master")
+                        await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
+                        logging.info("Master created by dev deeplink")
+                        await message.answer(
+                        f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана.\n"
+                        f"Также Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже."
+                        reply_markup=get_main_keyboard(role)
+                    )
+                    else: 
+                        new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                        await state.update_data(role="master")
+                        await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=new_master.id, session=session)
+                        logging.info("Master created by dev deeplink")
+                        await message.answer(
+                        f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика.\n"
+                        f"Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже."
+                        reply_markup=get_main_keyboard(role)
+                    )
+
+
                 invited_role, master_id = await miniapp_db_fcn.get_referral_owner(link_id=ref_code, session=session)
                 if invited_role=="client":
                     if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
@@ -118,13 +143,13 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         reply_markup=get_main_keyboard(role)
                     )
                 elif invited_role=="master":
-                    if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                    if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
                         await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
                         await state.update_data(role="master")
                         logging.info("Master created by deeplink")
                         await message.answer(
                         f"✅ Отлично! Вы зашли по реферальной ссылке мастера. Ваша учетная запись была создана.\n"
-                        f"Оформите подписку для получения полного доступа ко всему функционалу. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
+                        f"Оформите подписку, чтобы клиенты могли записываться к Вам. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
                         reply_markup=get_main_keyboard(role)
                     )
                     else:
@@ -135,7 +160,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                             logging.info("Master info added by deeplink")
                             await message.answer(
                                 f"❌ К сожалению, по условиям нашей акции, можно использовать только чужие реферальные ссылки.\n"
-                            f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
+                                f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
                                 reply_markup=get_main_keyboard(role))
                         elif (status == "no sub") and (new_master.referrer_id == None):
                             upd_data = {"referrer_id": master_id}
@@ -144,7 +169,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                             logging.info("Master info added by deeplink")
                             await message.answer(
                             f"✅ Отлично! Вы зашли по реферальной ссылке мастера.\n"
-                            f"Оформите подписку для получения полного доступа ко всему функционалу. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
+                            f"Оформите подписку, чтобы клиенты могли записываться к Вам. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
                             reply_markup=get_main_keyboard(role))
                         elif (active):
                             await state.update_data(role="master")
@@ -158,7 +183,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                             logging.info("Master has activated")
                             await message.answer(
                             f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
-                            f"Надеемся на Ваше понимание! Оформите подписку для получения полного доступа ко всему функционалу \n",
+                            f"Надеемся на Ваше понимание! Оформите подписку, чтобы клиенты могли записываться к Вам.\n",
                             reply_markup=get_main_keyboard(role))
 
 

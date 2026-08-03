@@ -139,6 +139,13 @@ class AdminModel(Base):
         query = select(cls).where(cls.id == admin_id)
         result = await session.execute(query)
         return result.scalars().first()
+    
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> Optional[List["AdminModel"]]:
+        """Получает администратора по id"""
+        query = select(cls)
+        result = await session.execute(query)
+        return list(result.scalars().all())
 
     @classmethod
     async def update(cls, session: AsyncSession, admin_id: uuid.UUID, update_data: dict) -> str:
@@ -2987,3 +2994,73 @@ class MetroTemplateModel(Base):
             await session.delete(obj)
             return "success"
         return "no such metro station"
+
+class LinkStatus(Enum):
+    ACTIVATED = 1
+    INACTIVATED = 2
+
+
+class UniqueDevReferalLinksModel(Base):
+    __tablename__ = "unique_dev_referal_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    level: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[int] = mapped_column(BigInteger, nullable=False, default=LinkStatus.INACTIVATED.value)
+    created_at: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
+
+    @classmethod
+    async def create(cls, session: AsyncSession, level: int) -> uuid.UUID:
+        """Создаёт новую реферальную ссылку с указанным уровнем (статус по умолчанию INACTIVATED)."""
+        obj = cls(level=level)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, link_id: uuid.UUID) -> Optional["UniqueDevReferalLinksModel"]:
+        query = select(cls).where(cls.id == link_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> List["UniqueDevReferalLinksModel"]:
+        query = select(cls).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_active(cls, session: AsyncSession) -> List["UniqueDevReferalLinksModel"]:
+        """Возвращает все ссылки со статусом ACTIVATED."""
+        query = select(cls).where(cls.status == LinkStatus.ACTIVATED.value).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_level(cls, session: AsyncSession, level: int) -> List["UniqueDevReferalLinksModel"]:
+        query = select(cls).where(cls.level == level).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def update_status(cls, session: AsyncSession, link_id: uuid.UUID, new_status: LinkStatus) -> str:
+        query = update(cls).where(cls.id == link_id).values(status=new_status.value)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def activate(cls, session: AsyncSession, link_id: uuid.UUID) -> str:
+        """Устанавливает статус ACTIVATED."""
+        return await cls.update_status(session, link_id, LinkStatus.ACTIVATED)
+
+    @classmethod
+    async def deactivate(cls, session: AsyncSession, link_id: uuid.UUID) -> str:
+        """Устанавливает статус INACTIVATED."""
+        return await cls.update_status(session, link_id, LinkStatus.INACTIVATED)
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, link_id: uuid.UUID) -> str:
+        obj = await session.get(cls, link_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such link"
