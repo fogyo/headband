@@ -98,7 +98,6 @@ async def add_to_sub_bank(level: int, master_id: uuid.UUID, session: AsyncSessio
     elif level == 2:
         status = await SubscriptionBankModel.add_partner_sub(session=session, master_id=master_id, amount=1)
         return "success"
-    logging.info("No sub level")
     return "error"
 
 async def get_subscription_level(
