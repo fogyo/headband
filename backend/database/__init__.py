@@ -3050,7 +3050,7 @@ class UniqueDevReferalLinksModel(Base):
     @classmethod
     async def activate(cls, session: AsyncSession, link_id: uuid.UUID) -> str:
         """Устанавливает статус ACTIVATED."""
-        return await cls.update_status(session, link_id, LinkStatus.ACTIVATED)
+        return await cls.update_status(session=session, link_id=link_id, new_status=LinkStatus.ACTIVATED)
 
     @classmethod
     async def deactivate(cls, session: AsyncSession, link_id: uuid.UUID) -> str:
