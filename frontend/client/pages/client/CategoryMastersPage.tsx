@@ -457,6 +457,9 @@ export default function CategoryMastersPage() {
                           <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
                             {city.master_num}
                           </span>
+                          {loadingMetros && selectedCityId === city.city_id && (
+                            <span className="ml-2 text-black/50">Поиск партнеров в этом городе...</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -469,7 +472,7 @@ export default function CategoryMastersPage() {
                   {/* Поле поиска */}
                   <div className="relative mb-3">
                     <div
-                      className="bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3"
+                      className="bg-[#FFE9EF] h-11 shadow flex items-center px-3"
                       style={{
                         border: "0.5px solid rgba(0,0,0,0.00)",
                         boxShadow:
