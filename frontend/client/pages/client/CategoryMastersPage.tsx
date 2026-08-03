@@ -467,10 +467,10 @@ export default function CategoryMastersPage() {
 
               {modalStep === "metro" && (
                 <>
-                  {/* Поле поиска */}
-                  <div className="relative mb-3">
+                  {/* Поле поиска – фиксируется сверху */}
+                  <div className="sticky top-0 bg-[#FFE9EF] z-10 pb-3">
                     <div
-                      className="bg-[#FFE9EF] h-11 shadow flex items-center px-3"
+                      className="bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3"
                       style={{
                         border: "0.5px solid rgba(0,0,0,0.00)",
                         boxShadow:
@@ -487,43 +487,46 @@ export default function CategoryMastersPage() {
                     </div>
                   </div>
 
-                  {loadingMetros ? (
-                    <p className="text-center text-black/50">Загрузка станций...</p>
-                  ) : metros.length === 0 ? (
-                    <p className="text-center text-black/50">Нет станций метро с партнерами</p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {metros
-                        .filter((metro) =>
-                          metro.name.toLowerCase().includes(metroSearchQuery.toLowerCase())
-                        )
-                        .map((metro) => (
-                          <div
-                            key={metro.metro_id}
-                            onClick={() => handleMetroClick(metro.metro_id)}
-                            className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                            style={{
-                              border: "0.5px solid rgba(0,0,0,0.00)",
-                              boxShadow:
-                                "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
-                            }}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-4 h-4 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: metro.hex || "#888" }}
-                              />
-                              <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-                                {metro.name}
+                  {/* Список станций с прокруткой */}
+                  <div className="overflow-y-auto max-h-[50vh]">
+                    {loadingMetros ? (
+                      <p className="text-center text-black/50 py-4">Загрузка станций...</p>
+                    ) : metros.length === 0 ? (
+                      <p className="text-center text-black/50 py-4">Нет станций метро с партнерами</p>
+                    ) : (
+                      <div className="flex flex-col gap-2 pb-2">
+                        {metros
+                          .filter((metro) =>
+                            metro.name.toLowerCase().includes(metroSearchQuery.toLowerCase())
+                          )
+                          .map((metro) => (
+                            <div
+                              key={metro.metro_id}
+                              onClick={() => handleMetroClick(metro.metro_id)}
+                              className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                              style={{
+                                border: "0.5px solid rgba(0,0,0,0.00)",
+                                boxShadow:
+                                  "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-4 h-4 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: metro.hex || "#888" }}
+                                />
+                                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                                  {metro.name}
+                                </span>
+                              </div>
+                              <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
+                                {metro.master_num}
                               </span>
                             </div>
-                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
-                              {metro.master_num}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
+                          ))}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
