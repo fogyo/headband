@@ -115,10 +115,10 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     )
                     elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
                         status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
-                        await state.update_data(role="master")
                         await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
                         dev_link.status = 2
                         await session.flush()
+                        await state.update_data(role="master")
                         await message.answer(
                         f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана.\n"
                         f"Также Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже.",
@@ -126,10 +126,10 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     )
                     elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) != None: 
                         new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
-                        await state.update_data(role="master")
                         await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=new_master.id, session=session)
                         dev_link.status = 2
                         await session.flush()
+                        await state.update_data(role="master")
                         await message.answer(
                         f"✅ Отлично! Вы зашли по реферальной ссылке от разработчика.\n"
                         f"Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже.",
