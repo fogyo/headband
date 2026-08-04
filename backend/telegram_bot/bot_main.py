@@ -116,11 +116,11 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
                         status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
                         status = await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
-                        dev_link.status = 2
+                        await miniapp_db_fcn.activate_dev_link(link=uuid.UUID(ref_code), session=session)
                         await session.flush()
                         await state.update_data(role="master")
                         await message.answer(
-                        f"✅ Отлично {status}! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана.\n"
+                        f"✅ Отлично {dev_link.status}! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана.\n"
                         f"Также Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже.",
                         reply_markup=get_main_keyboard(role)
                     )
@@ -131,7 +131,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         await session.flush()
                         await state.update_data(role="master")
                         await message.answer(
-                        f"✅ Отлично {status}! Вы зашли по реферальной ссылке от разработчика.\n"
+                        f"✅ Отлично {dev_link.status}! Вы зашли по реферальной ссылке от разработчика.\n"
                         f"Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Настройки->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\nС функционалом приложения Вы можете ознакомиться по ссылке ниже.",
                         reply_markup=get_main_keyboard(role)
                     )
