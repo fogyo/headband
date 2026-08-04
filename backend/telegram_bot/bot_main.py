@@ -116,7 +116,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
                         status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
                         status = await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
-                        await miniapp_db_fcn.activate_dev_link(link=uuid.UUID(ref_code), session=session)
+                        dev_link.status = 1
                         await session.flush()
                         await state.update_data(role="master")
                         await message.answer(
@@ -127,7 +127,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) != None: 
                         new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
                         status = await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=new_master.id, session=session)
-                        dev_link.status = 2
+                        dev_link.status = 1
                         await session.flush()
                         await state.update_data(role="master")
                         await message.answer(
