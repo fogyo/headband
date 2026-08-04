@@ -137,7 +137,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                     )
 
                 else:
-                    invited_role, master_id = await miniapp_db_fcn.get_referral_owner(link_id=ref_code, session=session)
+                    invited_role, master_id = await miniapp_db_fcn.get_referral_owner(link_id=uuid.UUID(ref_code), session=session)
                     if invited_role=="client":
                         if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
                             await miniapp_db_fcn.create_user(chat_id=chat_id, username=username, session=session)
