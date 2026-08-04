@@ -105,7 +105,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                 chat_id = message.from_user.id
                 username = message.from_user.username
 
-                dev_link = await miniapp_db_fcn.get_by_id_dev_link(link=ref_code, session=session)
+                dev_link = await miniapp_db_fcn.get_by_id_dev_link(link=uuid.UUID(ref_code), session=session)
                 if dev_link!=None:
                     if dev_link.status == 1:
                         await message.answer(
