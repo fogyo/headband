@@ -136,63 +136,63 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         reply_markup=get_main_keyboard(role)
                     )
 
-
-                invited_role, master_id = await miniapp_db_fcn.get_referral_owner(link_id=ref_code, session=session)
-                if invited_role=="client":
-                    if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
-                        await miniapp_db_fcn.create_user(chat_id=chat_id, username=username, session=session)
-                    user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
-                    status = await miniapp_db_fcn.make_relationship_user_to_master(master_id=master_id, user_id=user_id, session=session)
-                    await state.update_data(role="client")
-                    logging.info("User added by deeplink")
-                    await message.answer(
-                        f"✅ Отлично! Вы добавлены в список постоянных клиентов мастера. Для Вас это означает, что Вы будете при записи видеть этого мастера в первую очередь\n"
-                        f"Для получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
-                        reply_markup=get_main_keyboard(role)
-                    )
-                elif invited_role=="master":
-                    if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
-                        await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
-                        await state.update_data(role="master")
-                        logging.info("Master created by deeplink")
+                else:
+                    invited_role, master_id = await miniapp_db_fcn.get_referral_owner(link_id=ref_code, session=session)
+                    if invited_role=="client":
+                        if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
+                            await miniapp_db_fcn.create_user(chat_id=chat_id, username=username, session=session)
+                        user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
+                        status = await miniapp_db_fcn.make_relationship_user_to_master(master_id=master_id, user_id=user_id, session=session)
+                        await state.update_data(role="client")
+                        logging.info("User added by deeplink")
                         await message.answer(
-                        f"✅ Отлично! Вы зашли по реферальной ссылке мастера. Ваша учетная запись была создана.\n"
-                        f"Оформите подписку, чтобы клиенты могли записываться к Вам. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
-                        reply_markup=get_main_keyboard(role)
-                    )
-                    else:
-                        new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
-                        active, end_date, status = await miniapp_db_fcn.get_subscription_level(master_id=new_master.id, session=session)
-                        if new_master.id == master_id:
+                            f"✅ Отлично! Вы добавлены в список постоянных клиентов мастера. Для Вас это означает, что Вы будете при записи видеть этого мастера в первую очередь\n"
+                            f"Для получения доступа к полному функционалу откройте наш MiniApp по ссылке ниже",
+                            reply_markup=get_main_keyboard(role)
+                        )
+                    elif invited_role=="master":
+                        if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
+                            await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
                             await state.update_data(role="master")
-                            logging.info("Master info added by deeplink")
+                            logging.info("Master created by deeplink")
                             await message.answer(
-                                f"❌ К сожалению, по условиям нашей акции, можно использовать только чужие реферальные ссылки.\n"
+                            f"✅ Отлично! Вы зашли по реферальной ссылке мастера. Ваша учетная запись была создана.\n"
+                            f"Оформите подписку, чтобы клиенты могли записываться к Вам. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
+                            reply_markup=get_main_keyboard(role)
+                        )
+                        else:
+                            new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                            active, end_date, status = await miniapp_db_fcn.get_subscription_level(master_id=new_master.id, session=session)
+                            if new_master.id == master_id:
+                                await state.update_data(role="master")
+                                logging.info("Master info added by deeplink")
+                                await message.answer(
+                                    f"❌ К сожалению, по условиям нашей акции, можно использовать только чужие реферальные ссылки.\n"
+                                    f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
+                                    reply_markup=get_main_keyboard(role))
+                            elif (status == "no sub") and (new_master.referrer_id == None):
+                                upd_data = {"referrer_id": master_id}
+                                await miniapp_db_fcn.update_master(master_id=new_master.id, update_data=upd_data, session=session)
+                                await state.update_data(role="master")
+                                logging.info("Master info added by deeplink")
+                                await message.answer(
+                                f"✅ Отлично! Вы зашли по реферальной ссылке мастера.\n"
+                                f"Оформите подписку, чтобы клиенты могли записываться к Вам. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
+                                reply_markup=get_main_keyboard(role))
+                            elif (active):
+                                await state.update_data(role="master")
+                                logging.info("Master has subscription")
+                                await message.answer(
+                                f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
                                 f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
                                 reply_markup=get_main_keyboard(role))
-                        elif (status == "no sub") and (new_master.referrer_id == None):
-                            upd_data = {"referrer_id": master_id}
-                            await miniapp_db_fcn.update_master(master_id=new_master.id, update_data=upd_data, session=session)
-                            await state.update_data(role="master")
-                            logging.info("Master info added by deeplink")
-                            await message.answer(
-                            f"✅ Отлично! Вы зашли по реферальной ссылке мастера.\n"
-                            f"Оформите подписку, чтобы клиенты могли записываться к Вам. Это также необходимо для получения бонусов пригласившему Вас мастеру!",
-                            reply_markup=get_main_keyboard(role))
-                        elif (active):
-                            await state.update_data(role="master")
-                            logging.info("Master has subscription")
-                            await message.answer(
-                            f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
-                            f"Надеемся на Ваше понимание! Спасибо, что выбираете headband\n",
-                            reply_markup=get_main_keyboard(role))
-                        else:
-                            await state.update_data(role="master")
-                            logging.info("Master has activated")
-                            await message.answer(
-                            f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
-                            f"Надеемся на Ваше понимание! Оформите подписку, чтобы клиенты могли записываться к Вам.\n",
-                            reply_markup=get_main_keyboard(role))
+                            else:
+                                await state.update_data(role="master")
+                                logging.info("Master has activated")
+                                await message.answer(
+                                f"❌ К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n"
+                                f"Надеемся на Ваше понимание! Оформите подписку, чтобы клиенты могли записываться к Вам.\n",
+                                reply_markup=get_main_keyboard(role))
                 await session.commit()
 
 
