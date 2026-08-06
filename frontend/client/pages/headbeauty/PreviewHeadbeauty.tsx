@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import homeIconSrc from "@/assets/home.svg";
 import backIconSrc from "@/assets/back_icon.svg";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import tokenIcon from "@/assets/silver_coin.png";
 import superTokenIcon from "@/assets/gold_coin.png";
@@ -34,6 +35,9 @@ export default function AIPreviewPage() {
   const [historyPreviews, setHistoryPreviews] = useState<any[]>([]);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { chatId, isVerified } = useTelegramAuth();
+
+  // Состояние для сворачивания
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const getStoredTaskId = (): string | null => {
     try {
@@ -154,7 +158,6 @@ export default function AIPreviewPage() {
     removeStoredTaskId();
     setIsGenerating(false);
     if (previewId && imgUrl) {
-      // Переход в историю генераций
       navigate(`/headbeauty-history?session_id=${sessionId}`, {
         state: {
           session_id: sessionId,
@@ -195,7 +198,6 @@ export default function AIPreviewPage() {
       await moveImageToS3(previewId);
       const imgUrl = await fetchReadyPreview(previewId);
 
-      // Не сохраняем в состоянии, а сразу переходим в историю
       finishGeneration(previewId, imgUrl);
     } catch (err: any) {
       console.error(err);
@@ -229,7 +231,6 @@ export default function AIPreviewPage() {
     await startGenerationProcess();
   };
 
-  // Проверка активной задачи при монтировании
   useEffect(() => {
     const storedTaskId = getStoredTaskId();
     if (storedTaskId) {
@@ -250,6 +251,8 @@ export default function AIPreviewPage() {
     }
   }, [sessionId]);
 
+  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
+
   const backgroundImage = (location.state as any)?.img_url || "https://placehold.co/375x789";
   const isGenerateDisabled = isGenerating || !tokens || (mode === 1 && tokens.token <= 0) || (mode === 2 && tokens.super_tokens <= 0);
 
@@ -258,90 +261,108 @@ export default function AIPreviewPage() {
       <img src={backgroundImage} alt="preview background" className="absolute inset-0 w-full h-full object-cover" />
 
       <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
+        {/* Триггер для сворачивания */}
+        <div
+          className="flex justify-center cursor-pointer mb-2"
+          onClick={toggleCollapse}
+        >
+          <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
+            {isCollapsed ? (
+              <ChevronUp className="w-5 h-5 text-black/50" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-black/50" />
+            )}
+          </div>
+        </div>
+
         <h3 className="text-[24px] font-['Aclonica'] text-black text-center mb-4" style={{ fontFamily: "Aclonica, sans-serif" }}>
           headbeauty AI
         </h3>
 
-        <div className="flex flex-col items-center gap-4 mt-4">
-          <div className="flex bg-[#FFE9EF] rounded-[10px] p-1 shadow-md gap-2 w-full">
-            <div className="flex flex-col items-center flex-1">
+        {/* Основной контент – скрывается при сворачивании */}
+        {!isCollapsed && (
+          <div className="flex flex-col items-center gap-4 mt-4">
+            <div className="flex bg-[#FFE9EF] rounded-[10px] p-1 shadow-md gap-2 w-full">
+              <div className="flex flex-col items-center flex-1">
+                <button
+                  onClick={() => setMode(1)}
+                  className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
+                    mode === 1 ? "bg-black text-white" : "text-black/60 hover:text-black"
+                  }`}
+                >
+                  Обычная
+                </button>
+                {tokens && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <img src={tokenIcon} alt="токены" className="w-4 h-4" />
+                    <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.token}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col items-center flex-1">
+                <button
+                  onClick={() => setMode(2)}
+                  className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
+                    mode === 2 ? "bg-black text-white" : "text-black/60 hover:text-black"
+                  }`}
+                >
+                  Улучшенная
+                </button>
+                {tokens && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <img src={superTokenIcon} alt="супертокены" className="w-4 h-4" />
+                    <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.super_tokens}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 w-full">
               <button
-                onClick={() => setMode(1)}
-                className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
-                  mode === 1 ? "bg-black text-white" : "text-black/60 hover:text-black"
-                }`}
+                onClick={handleGenerate}
+                disabled={isGenerateDisabled}
+                className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                }}
               >
-                Обычная
+                {isGenerating ? "Выполняется генерация..." : "Получить результат"}
               </button>
-              {tokens && (
-                <div className="flex items-center gap-1 mt-1">
-                  <img src={tokenIcon} alt="токены" className="w-4 h-4" />
-                  <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.token}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col items-center flex-1">
               <button
-                onClick={() => setMode(2)}
-                className={`px-4 py-2 rounded-[8px] text-[14px] font-['Sofia_Sans'] tracking-[-0.7px] transition-all w-full ${
-                  mode === 2 ? "bg-black text-white" : "text-black/60 hover:text-black"
-                }`}
+                onClick={() =>
+                  navigate(`/headbeauty-history?session_id=${sessionId}`, {
+                    state: {
+                      session_id: sessionId,
+                      img_url: "",
+                      preview_id: null,
+                      gender: gender,
+                    },
+                  })
+                }
+                disabled={historyPreviews.length === 0}
+                className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                }}
               >
-                Улучшенная
+                История генераций
               </button>
-              {tokens && (
-                <div className="flex items-center gap-1 mt-1">
-                  <img src={superTokenIcon} alt="супертокены" className="w-4 h-4" />
-                  <span className="text-[14px] font-['Sofia_Sans'] text-black/80">x {tokens.super_tokens}</span>
-                </div>
-              )}
             </div>
+
+            {isGenerating && (
+              <div className="flex items-center gap-2 text-[14px] font-['Sofia_Sans'] text-black/70">
+                <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                <span>выполняется генерация...</span>
+              </div>
+            )}
           </div>
+        )}
 
-          <div className="flex gap-3 w-full">
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerateDisabled}
-              className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              }}
-            >
-              {isGenerating ? "Выполняется генерация..." : "Получить результат"}
-            </button>
-            <button
-              onClick={() =>
-                navigate(`/headbeauty-history?session_id=${sessionId}`, {
-                  state: {
-                    session_id: sessionId,
-                    img_url: "",
-                    preview_id: null,
-                    gender: gender,
-                  },
-                })
-              }
-              disabled={historyPreviews.length === 0}
-              className="flex-1 relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow-sm text-[16px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              }}
-            >
-              История генераций
-            </button>
-          </div>
-
-          {isGenerating && (
-            <div className="flex items-center gap-2 text-[14px] font-['Sofia_Sans'] text-black/70">
-              <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-              <span>выполняется генерация...</span>
-            </div>
-          )}
-        </div>
-
+        {/* Кнопки Home и Back – всегда видны */}
         <button
           onClick={() => navigate("/")}
           className="absolute top-6 right-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"

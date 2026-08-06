@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import homeIconSrc from "@/assets/home.svg";
 import backIconSrc from "@/assets/back_icon.svg";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
@@ -16,12 +17,13 @@ export default function AIHistoryPage() {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const sessionId = searchParams.get("session_id") || (location.state as any)?.session_id || "";
-  const gender = (location.state as any)?.gender; // получаем пол из state
+  const gender = (location.state as any)?.gender;
 
   const [historyPreviews, setHistoryPreviews] = useState<Preview[]>([]);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string>("");
   const [selectedPreviewId, setSelectedPreviewId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const fetchHistory = async () => {
     if (!sessionId) {
@@ -83,19 +85,17 @@ export default function AIHistoryPage() {
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status);
 
-      // ✅ Переход на страницу категорий
       if (gender !== undefined && gender !== null) {
         navigate(`/headbeauty-hair-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
           state: {
             gender,
-            img_url: currentPreviewUrl, // обновлённая картинка
+            img_url: currentPreviewUrl,
             session_id: sessionId,
             task_id: "atomic_operation",
           },
           replace: true,
         });
       } else {
-        // Если пол не известен – возвращаемся на главную headbeauty
         navigate(`/headbeauty?session_id=${sessionId}`, { replace: true });
       }
     } catch (err: any) {
@@ -103,6 +103,8 @@ export default function AIHistoryPage() {
       toast.error(err.message || "Ошибка установки");
     }
   };
+
+  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
   if (loading) {
     return (
@@ -123,73 +125,93 @@ export default function AIHistoryPage() {
       />
 
       <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
+        {/* Триггер для сворачивания */}
+        <div
+          className="flex justify-center cursor-pointer mb-2"
+          onClick={toggleCollapse}
+        >
+          <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
+            {isCollapsed ? (
+              <ChevronUp className="w-5 h-5 text-black/50" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-black/50" />
+            )}
+          </div>
+        </div>
+
         <h3 className="text-[24px] font-['Aclonica'] text-black text-center mb-4" style={{ fontFamily: "Aclonica, sans-serif" }}>
           headbeauty AI
         </h3>
 
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black/70">
-            {selectedPreviewId ? "Выбранное превью" : "Нет выбранного превью"}
-          </span>
-          {selectedPreviewId && (
-            <button
-              onClick={handleSetImage}
-              className="bg-[#FFE9EF] rounded-[10px] py-1.5 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black"
-              style={{
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              }}
-            >
-              Установить эту картинку
-            </button>
-          )}
-        </div>
-
-        <div className="mt-2 rounded-[10px] p-2 overflow-hidden"
-          style={{
-            boxShadow:
-              "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-            border: "0.5px solid rgba(0,0,0,0.00)",
-          }}
-        >
-          <div className="overflow-x-auto no-scrollbar">
-            <div className="flex gap-4 pb-0">
-              {historyPreviews.length > 0 ? (
-                historyPreviews.map((item) => (
-                  <div
-                    key={item.preview_id}
-                    onClick={() => handleHistoryClick(item.preview_id)}
-                    className={`flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer transition-all ${
-                      selectedPreviewId === item.preview_id ? "ring-2 ring-black" : ""
-                    }`}
-                    style={{
-                      boxShadow:
-                        "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                      border: "0.5px solid rgba(0,0,0,0.00)",
-                    }}
-                  >
-                    <div className="w-full h-20 rounded-[5px] overflow-hidden">
-                      <img
-                        src={item.img_url}
-                        alt="preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-black/50 text-center w-full text-[14px] font-['Sofia_Sans']">
-                  История превью пуста
-                </p>
+        {/* Блок с историей и кнопкой – скрывается при isCollapsed */}
+        {!isCollapsed && (
+          <>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black/70">
+                {selectedPreviewId ? "Выбранное превью" : "Нет выбранного превью"}
+              </span>
+              {selectedPreviewId && (
+                <button
+                  onClick={handleSetImage}
+                  className="bg-[#FFE9EF] rounded-[10px] py-1.5 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black"
+                  style={{
+                    border: "0.5px solid rgba(0,0,0,0.00)",
+                    boxShadow:
+                      "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                  }}
+                >
+                  Установить эту картинку
+                </button>
               )}
             </div>
-          </div>
-        </div>
 
+            <div className="mt-2 rounded-[10px] p-2 overflow-hidden"
+              style={{
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                border: "0.5px solid rgba(0,0,0,0.00)",
+              }}
+            >
+              <div className="overflow-x-auto no-scrollbar">
+                <div className="flex gap-4 pb-0">
+                  {historyPreviews.length > 0 ? (
+                    historyPreviews.map((item) => (
+                      <div
+                        key={item.preview_id}
+                        onClick={() => handleHistoryClick(item.preview_id)}
+                        className={`flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer transition-all ${
+                          selectedPreviewId === item.preview_id ? "ring-2 ring-black" : ""
+                        }`}
+                        style={{
+                          boxShadow:
+                            "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                          border: "0.5px solid rgba(0,0,0,0.00)",
+                        }}
+                      >
+                        <div className="w-full h-20 rounded-[5px] overflow-hidden">
+                          <img
+                            src={item.img_url}
+                            alt="preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-black/50 text-center w-full text-[14px] font-['Sofia_Sans']">
+                      История превью пуста
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Кнопки навигации (без изменений) */}
         <button
           onClick={() => navigate("/")}
           className="absolute top-6 right-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"

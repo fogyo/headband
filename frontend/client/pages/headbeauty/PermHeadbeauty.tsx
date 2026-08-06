@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import homeIconSrc from "@/assets/home.svg";
 import backIconSrc from "@/assets/back_icon.svg";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
@@ -25,6 +26,7 @@ export default function AIPermPage() {
   const [allPerms, setAllPerms] = useState<Perm[]>([]);
   const [loading, setLoading] = useState(true);
   const effectiveSessionId = sessionId || state?.session_id || "";
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Загрузка фонового изображения
   useEffect(() => {
@@ -77,10 +79,12 @@ export default function AIPermPage() {
         style_id: perm.id,
         generation_type: 4,
         img_url: imgUrl,
-        gender: gender, // ✅ добавляем гендер
+        gender: gender,
       },
     });
   };
+
+  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
   if (loading) {
     return (
@@ -99,53 +103,70 @@ export default function AIPermPage() {
       />
 
       <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
+        {/* Триггер для сворачивания */}
+        <div
+          className="flex justify-center cursor-pointer mb-2"
+          onClick={toggleCollapse}
+        >
+          <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
+            {isCollapsed ? (
+              <ChevronUp className="w-5 h-5 text-black/50" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-black/50" />
+            )}
+          </div>
+        </div>
+
         <h3 className="text-[24px] font-['Aclonica'] text-black text-center mb-4" style={{ fontFamily: "Aclonica, sans-serif" }}>
           headbeauty AI
         </h3>
 
-        <div className="mt-2 rounded-[10px] p-2 overflow-hidden"
-          style={{
-            boxShadow:
-              "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-            border: "0.5px solid rgba(0,0,0,0.00)",
-          }}
-        >
-          <div className="overflow-x-auto no-scrollbar">
-            <div className="flex gap-4 pb-0">
-              {allPerms.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handlePermClick(item)}
-                  className="flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
-                  style={{
-                    boxShadow:
-                      "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                    border: "0.5px solid rgba(0,0,0,0.00)",
-                  }}
-                >
-                  <div className="w-full h-20 rounded-[5px] overflow-hidden">
-                    <img
-                      src={item.img_url}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
-                      }}
-                    />
+        {/* Основной контент – скрывается при сворачивании */}
+        {!isCollapsed && (
+          <div className="mt-2 rounded-[10px] p-2 overflow-hidden"
+            style={{
+              boxShadow:
+                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              border: "0.5px solid rgba(0,0,0,0.00)",
+            }}
+          >
+            <div className="overflow-x-auto no-scrollbar">
+              <div className="flex gap-4 pb-0">
+                {allPerms.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => handlePermClick(item)}
+                    className="flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
+                    style={{
+                      boxShadow:
+                        "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                      border: "0.5px solid rgba(0,0,0,0.00)",
+                    }}
+                  >
+                    <div className="w-full h-20 rounded-[5px] overflow-hidden">
+                      <img
+                        src={item.img_url}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
+                        }}
+                      />
+                    </div>
+                    <div className="mt-1 text-center flex items-center justify-center h-6">
+                      <p className="text-[12px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
+                        {item.name}
+                      </p>
+                    </div>
                   </div>
-                  <div className="mt-1 text-center flex items-center justify-center h-6">
-                    <p className="text-[12px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
-                      {item.name}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {allPerms.length === 0 && !loading && (
-                <p className="text-black/50 text-center w-full">Нет доступных завивок</p>
-              )}
+                ))}
+                {allPerms.length === 0 && !loading && (
+                  <p className="text-black/50 text-center w-full">Нет доступных завивок</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <button
           onClick={() => navigate("/")}

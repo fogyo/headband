@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import homeIconSrc from "@/assets/home.svg";
 import backIconSrc from "@/assets/back_icon.svg";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
@@ -73,6 +74,9 @@ export default function AIHairPage() {
   const [isHairTypeModalOpen, setIsHairTypeModalOpen] = useState(false);
   const [selectedHairTypes, setSelectedHairTypes] = useState<string[]>([]);
   const [isUpdatingHairType, setIsUpdatingHairType] = useState(false);
+
+  // Состояние для сворачивания
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Загрузка параметров лица
   const fetchFaceParams = async () => {
@@ -301,9 +305,7 @@ export default function AIHairPage() {
       if (data.status !== "success") throw new Error(data.status);
       toast.success("Тип волос обновлён");
       setIsHairTypeModalOpen(false);
-      // Перезагружаем параметры
       await fetchFaceParams();
-      // Сбрасываем рекомендации, так как они устарели
       setRecommendedHaircuts([]);
       setIsGettingRecommendations(false);
     } catch (err: any) {
@@ -313,6 +315,8 @@ export default function AIHairPage() {
       setIsUpdatingHairType(false);
     }
   };
+
+  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
   const recommendedIds = new Set(recommendedHaircuts.map(h => h.id));
   const otherHaircuts = allHaircuts.filter(h => !recommendedIds.has(h.id));
@@ -333,8 +337,8 @@ export default function AIHairPage() {
         className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {/* Полупрозрачная панель с параметрами лица */}
-      {faceParameters && (
+      {/* Полупрозрачная панель с параметрами лица – скрывается при сворачивании */}
+      {!isCollapsed && faceParameters && (
         <div className="absolute top-8 right-4 z-30 bg-[#FFE9EF]/80 backdrop-blur-sm rounded-[10px] p-3 shadow-md max-w-[180px]">
           <p className="text-[11px] font-['Sofia_Sans'] text-black/80 tracking-[-0.6px] leading-tight">
             <span className="font-semibold">Лицо:</span> {faceParameters.face_type}
@@ -367,135 +371,154 @@ export default function AIHairPage() {
       )}
 
       <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
+        {/* Триггер для сворачивания */}
+        <div
+          className="flex justify-center cursor-pointer mb-2"
+          onClick={toggleCollapse}
+        >
+          <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
+            {isCollapsed ? (
+              <ChevronUp className="w-5 h-5 text-black/50" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-black/50" />
+            )}
+          </div>
+        </div>
+
         <h3 className="text-[24px] font-['Aclonica'] text-black text-center mb-4" style={{ fontFamily: "Aclonica, sans-serif" }}>
           headbeauty AI
         </h3>
 
-        {/* Горизонтальный скролл с вертикальными заголовками */}
-        <div className="mt-2 rounded-[10px] p-2 overflow-hidden"
-          style={{
-            boxShadow:
-              "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-            border: "0.5px solid rgba(0,0,0,0.00)",
-          }}
-        >
-          <div className="overflow-x-auto no-scrollbar">
-            <div className="flex gap-0 pb-0 items-stretch">
-              {/* Блок Recommended – всегда виден */}
-              <div className="flex-shrink-0 flex items-stretch">
-                <div className="sticky left-0 bg-[#FFE9EF] z-10 pr-2 flex items-center">
-                  <span className="text-[16px] font-['MuseoModerno'] text-black/100 tracking-[-0.8px] whitespace-nowrap" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
-                    Recommended
-                  </span>
-                </div>
-                <div className="flex gap-4 pl-0 pr-10 items-center">
-                  {recommendedHaircuts.length > 0 ? (
-                    recommendedHaircuts.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => handleHaircutClick(item)}
-                        className="flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
-                        style={{
-                          boxShadow:
-                            "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                          border: "0.5px solid rgba(0,0,0,0.00)",
-                        }}
-                      >
-                        <div className="w-full h-20 rounded-[5px] overflow-hidden">
-                          <img
-                            src={item.img_url}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
+        {/* Основной контент – скрывается при сворачивании */}
+        {!isCollapsed && (
+          <>
+            {/* Горизонтальный скролл с вертикальными заголовками */}
+            <div className="mt-2 rounded-[10px] p-2 overflow-hidden"
+              style={{
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                border: "0.5px solid rgba(0,0,0,0.00)",
+              }}
+            >
+              <div className="overflow-x-auto no-scrollbar">
+                <div className="flex gap-0 pb-0 items-stretch">
+                  {/* Блок Recommended – всегда виден */}
+                  <div className="flex-shrink-0 flex items-stretch">
+                    <div className="sticky left-0 bg-[#FFE9EF] z-10 pr-2 flex items-center">
+                      <span className="text-[16px] font-['MuseoModerno'] text-black/100 tracking-[-0.8px] whitespace-nowrap" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
+                        Recommended
+                      </span>
+                    </div>
+                    <div className="flex gap-4 pl-0 pr-10 items-center">
+                      {recommendedHaircuts.length > 0 ? (
+                        recommendedHaircuts.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => handleHaircutClick(item)}
+                            className="flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
+                            style={{
+                              boxShadow:
+                                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                              border: "0.5px solid rgba(0,0,0,0.00)",
                             }}
-                          />
-                        </div>
-                        <div className="mt-1 text-center flex items-center justify-center h-6">
-                          <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
-                            {item.name}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex-shrink-0 w-36 flex items-center justify-center p-2">
-                      {!faceAnalysisDone ? (
-                        <span className="text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black/50 text-center">
-                          Анализ лица...
-                        </span>
-                      ) : isGettingRecommendations ? (
-                        <span className="text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black/50 text-center">
-                          Загрузка...
-                        </span>
+                          >
+                            <div className="w-full h-20 rounded-[5px] overflow-hidden">
+                              <img
+                                src={item.img_url}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
+                                }}
+                              />
+                            </div>
+                            <div className="mt-1 text-center flex items-center justify-center h-6">
+                              <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
+                                {item.name}
+                              </p>
+                            </div>
+                          </div>
+                        ))
                       ) : (
-                        <button
-                          onClick={handleGetRecommendations}
-                          disabled={!faceAnalysisDone}
-                          className="bg-[#FFE9EF] rounded-[10px] py-2 px-3 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{
-                            border: "0.5px solid rgba(0,0,0,0.00)",
-                            boxShadow:
-                              "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                          }}
-                        >
-                          Получить рекомендации
-                        </button>
+                        <div className="flex-shrink-0 w-36 flex items-center justify-center p-2">
+                          {!faceAnalysisDone ? (
+                            <span className="text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black/50 text-center">
+                              Анализ лица...
+                            </span>
+                          ) : isGettingRecommendations ? (
+                            <span className="text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black/50 text-center">
+                              Загрузка...
+                            </span>
+                          ) : (
+                            <button
+                              onClick={handleGetRecommendations}
+                              disabled={!faceAnalysisDone}
+                              className="bg-[#FFE9EF] rounded-[10px] py-2 px-3 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black disabled:opacity-50 disabled:cursor-not-allowed"
+                              style={{
+                                border: "0.5px solid rgba(0,0,0,0.00)",
+                                boxShadow:
+                                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                              }}
+                            >
+                              Получить рекомендации
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Блок All – всегда виден */}
+                  {otherHaircuts.length > 0 && (
+                    <div className="flex-shrink-0 flex items-stretch">
+                      <div className="sticky left-0 bg-[#FFE9EF] z-10 pr-2 flex items-center">
+                        <span className="text-[16px] font-['MuseoModerno'] text-black/100 tracking-[-0.8px] whitespace-nowrap" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
+                          All
+                        </span>
+                      </div>
+                      <div className="flex gap-4 pl-0 pr-0">
+                        {otherHaircuts.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => handleHaircutClick(item)}
+                            className="flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
+                            style={{
+                              boxShadow:
+                                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                              border: "0.5px solid rgba(0,0,0,0.00)",
+                            }}
+                          >
+                            <div className="w-full h-20 rounded-[5px] overflow-hidden">
+                              <img
+                                src={item.img_url}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
+                                }}
+                              />
+                            </div>
+                            <div className="mt-1 text-center flex items-center justify-center h-6">
+                              <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
+                                {item.name}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {allHaircuts.length === 0 && !loading && (
+                    <p className="text-black/50 text-center w-full">Нет доступных стрижек</p>
                   )}
                 </div>
               </div>
-
-              {/* Блок All – всегда виден */}
-              {otherHaircuts.length > 0 && (
-                <div className="flex-shrink-0 flex items-stretch">
-                  <div className="sticky left-0 bg-[#FFE9EF] z-10 pr-2 flex items-center">
-                    <span className="text-[16px] font-['MuseoModerno'] text-black/100 tracking-[-0.8px] whitespace-nowrap" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
-                      All
-                    </span>
-                  </div>
-                  <div className="flex gap-4 pl-0 pr-0">
-                    {otherHaircuts.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => handleHaircutClick(item)}
-                        className="flex-shrink-0 w-28 bg-[#FFE9EF] p-2 shadow-md cursor-pointer"
-                        style={{
-                          boxShadow:
-                            "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                          border: "0.5px solid rgba(0,0,0,0.00)",
-                        }}
-                      >
-                        <div className="w-full h-20 rounded-[5px] overflow-hidden">
-                          <img
-                            src={item.img_url}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "https://placehold.co/160x100/FFE9EF/333?text=No+image";
-                            }}
-                          />
-                        </div>
-                        <div className="mt-1 text-center flex items-center justify-center h-6">
-                          <p className="text-[14px] font-['Sofia_Sans'] text-black tracking-[-0.6px] leading-tight line-clamp-2">
-                            {item.name}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {allHaircuts.length === 0 && !loading && (
-                <p className="text-black/50 text-center w-full">Нет доступных стрижек</p>
-              )}
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* Кнопки Home и Back */}
+        {/* Кнопки Home и Back – всегда видны */}
         <button
           onClick={() => navigate("/")}
           className="absolute top-6 right-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
@@ -512,7 +535,7 @@ export default function AIHairPage() {
         </button>
       </div>
 
-      {/* Модальное окно выбора типа волос */}
+      {/* Модальное окно выбора типа волос (без изменений) */}
       {isHairTypeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
