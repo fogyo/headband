@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import tokenIcon from "@/assets/silver_coin.png";
 import superTokenIcon from "@/assets/gold_coin.png";
 import { useTelegramAuth } from "@/App";
+import { useSwipeCollapse } from "@/hooks/useSwipeCollapse";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -37,8 +38,8 @@ export default function AIPreviewPage() {
   const { chatId, isVerified } = useTelegramAuth();
 
   // Состояние для сворачивания
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
+  
+  const { isCollapsed, handlers, toggleCollapse } = useSwipeCollapse(false);
   const getStoredTaskId = (): string | null => {
     try {
       const data = JSON.parse(localStorage.getItem(TASK_STORAGE_KEY) || "{}");
@@ -251,8 +252,6 @@ export default function AIPreviewPage() {
     }
   }, [sessionId]);
 
-  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
-
   const backgroundImage = (location.state as any)?.img_url || "https://placehold.co/375x789";
   const isGenerateDisabled = isGenerating || !tokens || (mode === 1 && tokens.token <= 0) || (mode === 2 && tokens.super_tokens <= 0);
 
@@ -263,17 +262,17 @@ export default function AIPreviewPage() {
       <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
         {/* Триггер для сворачивания */}
         <div
-          className="flex justify-center cursor-pointer mb-2"
-          onClick={toggleCollapse}
+          className="flex justify-center items-center py-2 cursor-pointer touch-none"
+          {...handlers}
+          onClick={toggleCollapse} // для десктопа (запасной вариант)
         >
-          <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
-            {isCollapsed ? (
-              <ChevronUp className="w-5 h-5 text-black/0" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-black/0" />
+          <div className="w-12 h-1 bg-black/30 rounded-full transition-transform duration-200">
+            {isCollapsed && (
+              <div className="w-full h-full bg-black/30 rounded-full" />
             )}
           </div>
         </div>
+
 
         <h3 className="text-[24px] font-['Aclonica'] text-black text-center mb-4" style={{ fontFamily: "Aclonica, sans-serif" }}>
           headbeauty AI

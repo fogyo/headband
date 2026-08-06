@@ -4,6 +4,7 @@ import homeIconSrc from "@/assets/home.svg";
 import backIconSrc from "@/assets/back_icon.svg";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { useSwipeCollapse } from "@/hooks/useSwipeCollapse";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -26,7 +27,8 @@ export default function AIPermPage() {
   const [allPerms, setAllPerms] = useState<Perm[]>([]);
   const [loading, setLoading] = useState(true);
   const effectiveSessionId = sessionId || state?.session_id || "";
-  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const { isCollapsed, handlers, toggleCollapse } = useSwipeCollapse(false);
 
   // Загрузка фонового изображения
   useEffect(() => {
@@ -84,7 +86,6 @@ export default function AIPermPage() {
     });
   };
 
-  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
   if (loading) {
     return (
@@ -104,15 +105,14 @@ export default function AIPermPage() {
 
       <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
         {/* Триггер для сворачивания */}
-        <div
-          className="flex justify-center cursor-pointer mb-2"
-          onClick={toggleCollapse}
+         <div
+          className="flex justify-center items-center py-2 cursor-pointer touch-none"
+          {...handlers}
+          onClick={toggleCollapse} // для десктопа (запасной вариант)
         >
-          <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
-            {isCollapsed ? (
-              <ChevronUp className="w-5 h-5 text-black/0" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-black/0" />
+          <div className="w-12 h-1 bg-black/30 rounded-full transition-transform duration-200">
+            {isCollapsed && (
+              <div className="w-full h-full bg-black/30 rounded-full" />
             )}
           </div>
         </div>

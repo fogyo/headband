@@ -7,6 +7,7 @@ import beardIcon from "@/assets/ai_hair_beard_icon.svg";
 import coloringIcon from "@/assets/ai_hair_coloring_icon.svg";
 import permIcon from "@/assets/ai_hair_styling_icon.svg";
 import { ChevronUp, ChevronDown } from "lucide-react";
+import { useSwipeCollapse } from "@/hooks/useSwipeCollapse";
 
 const femaleHairCategories = [
   { label: "Стрижки", image: haircutIcon, route: "hair" },
@@ -37,7 +38,7 @@ export default function AIHairCatsPage() {
   const categories = gender ? femaleHairCategories : maleHairCategories;
 
   // Состояние для сворачивания плашки
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { isCollapsed, handlers, toggleCollapse } = useSwipeCollapse(false);
 
   const handleCategoryClick = (route: string) => {
     navigate(`/headbeauty-${route}/${selectedGender}?session_id=${effectiveSessionId}`, {
@@ -50,7 +51,6 @@ export default function AIHairCatsPage() {
     });
   };
 
-  const toggleCollapse = () => setIsCollapsed(!isCollapsed);
 
   return (
     <div className="relative w-full mx-auto h-screen overflow-hidden bg-[#FFE9EF]">
@@ -62,14 +62,13 @@ export default function AIHairCatsPage() {
       <div className="absolute bottom-0 left-0 right-0 bg-[#FFE9EF] rounded-t-[20px] px-4 pt-6 pb-2">
         {/* Триггер для сворачивания */}
         <div
-          className="flex justify-center cursor-pointer mb-2"
-          onClick={toggleCollapse}
+          className="flex justify-center items-center py-2 cursor-pointer touch-none"
+          {...handlers}
+          onClick={toggleCollapse} // для десктопа (запасной вариант)
         >
-          <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
-            {isCollapsed ? (
-              <ChevronUp className="w-5 h-5 text-black/0" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-black/0" />
+          <div className="w-12 h-1 bg-black/30 rounded-full transition-transform duration-200">
+            {isCollapsed && (
+              <div className="w-full h-full bg-black/30 rounded-full" />
             )}
           </div>
         </div>
