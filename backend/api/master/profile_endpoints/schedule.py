@@ -255,7 +255,7 @@ async def get_working_day(chat_id: int,
             "day": day,
             "start_time": day_resp.start_time,
             "end_time": day_resp.end_time,
-            "address": await miniapp_db_fcn.get_address_by_id(id=day_resp.address_id, session=session)}
+            "address": (await miniapp_db_fcn.get_address_by_id(id=day_resp.address_id, session=session)).address}
 
 @router.patch("/working_day/update", response_model=StatusResponse)
 async def update_working_day(

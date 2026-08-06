@@ -40,7 +40,7 @@ async def get_address_by_id(
 ):
     """Получение всех адресов мастера"""
     address = await AddressModel.get_by_id(session=session, address_id=id)
-    return address.address
+    return address
 
 async def delete_address(
     address_id: uuid.UUID,
@@ -84,3 +84,6 @@ async def get_all_stations_by_city(city_id: uuid.UUID, session: AsyncSession):
 
 async def get_metro_by_id(station_id: uuid.UUID, session: AsyncSession):
     return await MetroTemplateModel.get_by_id(metro_id=station_id, session=session)
+
+async def find_nearest_station(point: str, city_id: uuid.UUID, session: AsyncSession):
+    return await MetroTemplateModel.find_nearest(point=point, city_id=city_id, session=session)

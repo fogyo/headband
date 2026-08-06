@@ -32,18 +32,22 @@ class PartnerCity(BaseModel):
     city_id: uuid.UUID
     name: str
     master_num: int
+    addresses: List[uuid.UUID]
 
 class PartnerMetro(BaseModel):
     metro_id: uuid.UUID
     name: str
     hex: str
-    master_num: int
+    addresses: List[uuid.UUID]
 
 class PartnerMetroResponse(StatusResponse):
     partner_by_metro: List[PartnerMetro]
 
 class PartnerCityResponse(StatusResponse):
     partner_by_city: List[PartnerCity]
+
+class AddressListRequest(BaseModel):
+    addresses: List[uuid.UUID]
 
 @router.get("/", response_model=MasterPageResponse)
 async def get_master(chat_id: int,
@@ -80,53 +84,60 @@ async def get_master_by_city(parental_category: str, session: AsyncSession = Dep
     category_ids = await miniapp_db_fcn.get_all_categories_parental(parental_name=parental_category, session=session)
     for city in cities:
         master_by_city = []
+        address_by_city = []
         addresses = await miniapp_db_fcn.get_addresses_by_range(range=30000, session=session, center_location=city["location"])
         for address in addresses:
             check = await miniapp_db_fcn.check_category(master_id=address.master_id, category_ids=category_ids, session=session)
             active, end, level = await miniapp_db_fcn.get_subscription_level(master_id=address.master_id, session=session)
             if active and level == 2 and check:
                 master_by_city.append(address.master_id)
+                address_by_city.append(address.id)
         resp.append({"city_id": city["id"],
                      "name": city["city"],
-                     "master_num": len(set(master_by_city))})
+                     "master_num": len(set(master_by_city)),
+                     "addresses": address_by_city})
     return {"status": "success",
             "partner_by_city": resp}
 
 @router.get("/partner_masters_amount_by_metro", response_model=PartnerMetroResponse)
-async def get_master_by_metro(parental_category: str, city_id: uuid.UUID, session: AsyncSession = Depends(get_db_session)):
-    metros = await miniapp_db_fcn.get_all_stations_by_city(city_id=city_id, session=session)
+async def get_master_by_metro(city_id: uuid.UUID, 
+                              request: AddressListRequest,
+                              session: AsyncSession = Depends(get_db_session)):
+    
+    async def add_or_create(metro: dict, resp: List, address_numerator: List, address_id: uuid.UUID):
+        if metro["name"] in address_numerator:
+            index = address_numerator.index(metro["name"])
+            resp[index]["addresses"].append(address_id)
+        else: 
+            address_numerator.append(metro["name"])
+            addresses = []
+            addresses.append(address_id)
+            resp.append({"metro_id": metro["id"],
+                        "name": metro["name"],
+                        "hex": metro["hex"],
+                        "addresses": addresses})
+        return resp, address_numerator
+    
     resp = []
-    category_ids = await miniapp_db_fcn.get_all_categories_parental(parental_name=parental_category, session=session)
-    for metro in metros:
-        master_by_metro = []
-        point = wkb.loads(bytes.fromhex(str(metro.location)))
-        metro_location = f"POINT ({point.x} {point.y})"
-        addresses = await miniapp_db_fcn.get_addresses_by_range(range=2000, session=session, center_location=metro_location)
-        for address in addresses:
-            check = await miniapp_db_fcn.check_category(master_id=address.master_id, category_ids=category_ids, session=session)
-            active, end, level = await miniapp_db_fcn.get_subscription_level(master_id=address.master_id, session=session)
-            if active and level == 2 and check:
-                master_by_metro.append(address.master_id)
-        resp.append({"metro_id": metro.id,
-                     "name": metro.name,
-                     "hex": metro.hex,
-                     "master_num": len(set(master_by_metro))})
+    address_numerator = []
+    addresses = request.addresses
+    for address_id in addresses:
+        address = await miniapp_db_fcn.get_address_by_id(id=address_id, session=session)
+        point = wkb.loads(bytes.fromhex(str(address.location)))
+        address_location = f"POINT ({point.x} {point.y})"
+        metro_dict = await miniapp_db_fcn.find_nearest_station(point=address_location, city_id=city_id, session=session)
+        resp, address_numerator = await add_or_create(metro=metro_dict, resp=resp, address_numerator=address_numerator, address_id=address_id)
     return {"status": "success",
             "partner_by_metro": resp}     
 
 @router.get("/partner_masters_by_station", response_model=MasterPageResponse)
-async def get_partner_near_concrete_station(parental_category: str, metro_id: uuid.UUID, session: AsyncSession = Depends(get_db_session)):
-    metro = await miniapp_db_fcn.get_metro_by_id(station_id=metro_id, session=session)
-    point = wkb.loads(bytes.fromhex(str(metro.location)))
-    metro_location = f"POINT ({point.x} {point.y})"
-    addresses = await miniapp_db_fcn.get_addresses_by_range(range=2000, session=session, center_location=metro_location)
-    category_ids = await miniapp_db_fcn.get_all_categories_parental(parental_name=parental_category, session=session)
+async def get_partner_near_concrete_station(metro_id: uuid.UUID, 
+                                            request: AddressListRequest,
+                                            session: AsyncSession = Depends(get_db_session)):
+    addresses = request.addresses
     master_ids = []
     for address in addresses:
-            active, end, level = await miniapp_db_fcn.get_subscription_level(master_id=address.master_id, session=session)
-            check = await miniapp_db_fcn.check_category(master_id=address.master_id, category_ids=category_ids, session=session)
-            if active and level == 2 and check:
-                master_ids.append(address.master_id)
+        master_ids.append(address.master_id)
     master_ids = list(set(master_ids))
     resp = []
     for master_id in master_ids:

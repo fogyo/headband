@@ -30,20 +30,23 @@ interface MasterApiResponse {
 
 interface MastersResponse {
   status: string;
-  masters: MasterApiResponse[]; // только постоянные мастера
+  masters: MasterApiResponse[];
 }
 
+// Изменён интерфейс City – добавлено поле addresses
 interface City {
   city_id: string;
   name: string;
   master_num: number;
+  addresses: string[]; // список ID адресов
 }
 
+// Изменён интерфейс Metro – убрано master_num, добавлено addresses
 interface Metro {
   metro_id: string;
   name: string;
   hex: string;
-  master_num: number;
+  addresses: string[]; // список ID адресов для этой станции
 }
 
 // Вспомогательные функции
@@ -107,7 +110,7 @@ export default function CategoryMastersPage() {
 
   // Состояния для партнеров
   const [partnerMasters, setPartnerMasters] = useState<Master[]>([]);
-  const [partnerSelected, setPartnerSelected] = useState(false); // true, если выбрана станция и показаны мастера
+  const [partnerSelected, setPartnerSelected] = useState(false);
 
   // Модальное окно
   const [showModal, setShowModal] = useState(false);
@@ -185,24 +188,28 @@ export default function CategoryMastersPage() {
     } catch (err: any) {
       console.error(err);
       toast.error("Не удалось загрузить города");
-      // Если нет городов, закрываем модалку?
     } finally {
       setLoadingCities(false);
     }
   };
 
-  // Загрузка метро для выбранного города
-  const loadMetros = async (cityId: string) => {
+  // Загрузка метро для выбранного города – теперь принимает список адресов
+  const loadMetros = async (cityId: string, addresses: string[]) => {
     if (!category) return;
+    setLoadingMetros(true);
     try {
       const url = `${baseUrl}/users/master/partner_masters_amount_by_metro?parental_category=${encodeURIComponent(category)}&city_id=${cityId}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addresses }),
+      });
       if (!res.ok) throw new Error("Ошибка загрузки метро");
       const data = await res.json();
       if (data.status === "success") {
         setMetros(data.partner_by_metro);
         setModalStep("metro");
-        setMetroSearchQuery(""); // сброс поиска при переходе
+        setMetroSearchQuery("");
       } else {
         throw new Error("Нет станций метро");
       }
@@ -214,13 +221,17 @@ export default function CategoryMastersPage() {
     }
   };
 
-  // Загрузка мастеров для выбранной станции
-  const loadMastersByStation = async (metroId: string) => {
+  // Загрузка мастеров для выбранной станции – теперь принимает список адресов
+  const loadMastersByStation = async (metroId: string, addresses: string[]) => {
     if (!category) return;
     setLoadingPartnerMasters(true);
     try {
       const url = `${baseUrl}/users/master/partner_masters_by_station?parental_category=${encodeURIComponent(category)}&metro_id=${metroId}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addresses }),
+      });
       if (!res.ok) throw new Error("Ошибка загрузки партнеров");
       const data = await res.json();
       if (data.status === "success") {
@@ -235,7 +246,7 @@ export default function CategoryMastersPage() {
         }));
         setPartnerMasters(partners);
         setPartnerSelected(true);
-        setShowModal(false); // закрываем модалку
+        setShowModal(false);
         toast.success(`Найдено ${partners.length} партнеров`);
       } else if (data.status === "empty") {
         toast.info("Нет партнеров рядом с этой станцией");
@@ -257,19 +268,20 @@ export default function CategoryMastersPage() {
   };
 
   // Обработчики кликов в модалке
-  const handleCityClick = (cityId: string) => {
-  if (loadingMetros) return; // не даём кликать повторно
-  setSelectedCityId(cityId);
-  setLoadingMetros(true); // показываем загрузку сразу
-  loadMetros(cityId);
-};
-
-  const handleMetroClick = (metroId: string) => {
-    setSelectedMetroId(metroId);
-    loadMastersByStation(metroId);
+  const handleCityClick = (cityId: string, addresses: string[]) => {
+    if (loadingMetros) return;
+    setSelectedCityId(cityId);
+    setLoadingMetros(true);
+    // Передаём адреса города в loadMetros
+    loadMetros(cityId, addresses);
   };
 
-  // Сброс выбора партнеров (возврат к кнопке)
+  const handleMetroClick = (metroId: string, addresses: string[]) => {
+    setSelectedMetroId(metroId);
+    loadMastersByStation(metroId, addresses);
+  };
+
+  // Сброс выбора партнеров
   const resetPartners = () => {
     setPartnerMasters([]);
     setPartnerSelected(false);
@@ -278,20 +290,17 @@ export default function CategoryMastersPage() {
     setCities([]);
     setMetros([]);
     setModalStep("city");
-    setMetroSearchQuery("")
+    setMetroSearchQuery("");
   };
 
-  // Открытие модалки
   const openModal = () => {
     setShowModal(true);
     loadCities();
   };
 
-  // Закрытие модалки
   const closeModal = () => {
     setShowModal(false);
-    setMetroSearchQuery("")
-    // Не сбрасываем состояния, чтобы при повторном открытии не загружать всё заново
+    setMetroSearchQuery("");
   };
 
   if (authLoading || loadingRegular) {
@@ -355,7 +364,6 @@ export default function CategoryMastersPage() {
           <div className="h-px bg-black w-[210px] mb-4" />
 
           {!partnerSelected && (
-            // Кнопка "Найти мастеров поблизости"
             <div className="flex justify-center mt-4">
               <button
                 onClick={openModal}
@@ -373,7 +381,6 @@ export default function CategoryMastersPage() {
 
           {partnerSelected && (
             <>
-              {/* Кнопка "Сменить район" */}
               <div className="flex justify-end mb-4">
                 <button
                   onClick={resetPartners}
@@ -432,33 +439,33 @@ export default function CategoryMastersPage() {
                   ) : (
                     <div className="flex flex-col gap-2">
                       {cities.map((city) => (
-                       <div
-                        key={city.city_id}
-                        onClick={() => handleCityClick(city.city_id)}
-                        className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                        style={{
-                          border: "0.5px solid rgba(0,0,0,0.00)",
-                          boxShadow:
-                            "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
-                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                            <circle cx="12" cy="9" r="3" />
-                          </svg>
-                          <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-                            {city.name}
-                          </span>
+                        <div
+                          key={city.city_id}
+                          onClick={() => handleCityClick(city.city_id, city.addresses)}
+                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                          style={{
+                            border: "0.5px solid rgba(0,0,0,0.00)",
+                            boxShadow:
+                              "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
+                              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                              <circle cx="12" cy="9" r="3" />
+                            </svg>
+                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                              {city.name}
+                            </span>
+                          </div>
+                          {loadingMetros && selectedCityId === city.city_id ? (
+                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">⏳</span>
+                          ) : (
+                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
+                              {city.master_num}
+                            </span>
+                          )}
                         </div>
-                        {loadingMetros && selectedCityId === city.city_id ? (
-                          <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">⏳</span>
-                        ) : (
-                          <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
-                            {city.master_num}
-                          </span>
-                        )}
-                      </div>
                       ))}
                     </div>
                   )}
@@ -467,7 +474,6 @@ export default function CategoryMastersPage() {
 
               {modalStep === "metro" && (
                 <>
-                  {/* Поле поиска – фиксируется сверху */}
                   <div className="sticky top-0 bg-[#FFE9EF] z-10 pb-3">
                     <div
                       className="bg-[#FFE9EF] h-11 shadow flex items-center px-3"
@@ -487,7 +493,6 @@ export default function CategoryMastersPage() {
                     </div>
                   </div>
 
-                  {/* Список станций с прокруткой */}
                   <div className="overflow-y-auto max-h-[50vh]">
                     {loadingMetros ? (
                       <p className="text-center text-black/50 py-4">Загрузка станций...</p>
@@ -502,7 +507,7 @@ export default function CategoryMastersPage() {
                           .map((metro) => (
                             <div
                               key={metro.metro_id}
-                              onClick={() => handleMetroClick(metro.metro_id)}
+                              onClick={() => handleMetroClick(metro.metro_id, metro.addresses)}
                               className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
                               style={{
                                 border: "0.5px solid rgba(0,0,0,0.00)",
@@ -519,9 +524,7 @@ export default function CategoryMastersPage() {
                                   {metro.name}
                                 </span>
                               </div>
-                              <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
-                                {metro.master_num}
-                              </span>
+                              {/* Убираем отображение количества мастеров у станции */}
                             </div>
                           ))}
                       </div>

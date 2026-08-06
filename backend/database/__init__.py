@@ -6,13 +6,13 @@ from doctest import master
 from enum import Enum
 from typing import List, Optional, AsyncGenerator
 
-from geoalchemy2.functions import ST_DWithin, ST_GeomFromText, ST_GeogFromWKB
+from geoalchemy2.functions import ST_DWithin, ST_GeomFromText, ST_GeogFromWKB, ST_Distance, ST_SetSRID
 
 from dotenv import load_dotenv
-from geoalchemy2 import Geometry
+from geoalchemy2 import Geometry, Geography
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, text, delete, and_, func, UniqueConstraint, \
-    or_, Boolean, Time, DateTime
+    or_, Boolean, Time, DateTime, cast
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
 from datetime import time, date, datetime, timedelta
@@ -2994,6 +2994,49 @@ class MetroTemplateModel(Base):
             await session.delete(obj)
             return "success"
         return "no such metro station"
+    
+    @classmethod
+    async def find_nearest(
+        cls,
+        session: AsyncSession,
+        point: str,
+        city_id: Optional[uuid.UUID] = None
+    ):
+        """
+        Находит ближайшую станцию метро к точке (lon, lat).
+        Возвращает словарь с объектом станции и расстоянием в метрах.
+        Если city_id указан, ограничивает поиск по городу.
+        """
+        # Формируем WKT-строку точки и создаём геометрию'
+        center_geom = func.ST_SetSRID(func.ST_GeomFromText(point), 4326)
+
+        # Запрос: выбираем станцию и расстояние в метрах (через каст в Geography)
+        query = select(
+            cls,
+            ST_Distance(
+                cast(cls.location, Geography),
+                cast(center_geom, Geography)
+            ).label('distance')
+        )
+        if city_id is not None:
+            query = query.where(cls.city_id == city_id)
+
+        query = query.order_by('distance').limit(1)
+
+        result = await session.execute(query)
+        row = result.first()
+        if not row:
+            return None
+
+        station = row[0]         # объект MetroTemplateModel
+        distance = row.distance   # расстояние в метрах (float)
+
+        return {
+            'distance': distance,
+            'name': station.name,
+            'hex': station.hex,
+            'id': station.id,
+        }
 
 class LinkStatus(Enum):
     ACTIVATED = 1
