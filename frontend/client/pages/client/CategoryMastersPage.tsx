@@ -198,7 +198,7 @@ export default function CategoryMastersPage() {
     if (!category) return;
     setLoadingMetros(true);
     try {
-      const url = `${baseUrl}/users/master/partner_masters_amount_by_metro?parental_category=${encodeURIComponent(category)}&city_id=${cityId}`;
+      const url = `${baseUrl}/users/master/partner_masters_amount_by_metro?city_id=${cityId}`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -226,7 +226,7 @@ export default function CategoryMastersPage() {
     if (!category) return;
     setLoadingPartnerMasters(true);
     try {
-      const url = `${baseUrl}/users/master/partner_masters_by_station?parental_category=${encodeURIComponent(category)}&metro_id=${metroId}`;
+      const url = `${baseUrl}/users/master/partner_masters_by_station`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -434,44 +434,45 @@ export default function CategoryMastersPage() {
                 <>
                   {loadingCities ? (
                     <p className="text-center text-black/50">Загрузка городов...</p>
-                  ) : cities.length === 0 ? (
+                  ) : cities.filter(city => city.master_num > 0).length === 0 ? (
                     <p className="text-center text-black/50">Нет городов с партнерами</p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {cities.map((city) => (
-                        <div
-                          key={city.city_id}
-                          onClick={() => handleCityClick(city.city_id, city.addresses)}
-                          className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                          style={{
-                            border: "0.5px solid rgba(0,0,0,0.00)",
-                            boxShadow:
-                              "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
-                              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                              <circle cx="12" cy="9" r="3" />
-                            </svg>
-                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-                              {city.name}
-                            </span>
+                      {cities
+                        .filter(city => city.master_num > 0)
+                        .map((city) => (
+                          <div
+                            key={city.city_id}
+                            onClick={() => handleCityClick(city.city_id, city.addresses)}
+                            className="flex items-center justify-between px-4 py-3 bg-[#FFE9EF] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                            style={{
+                              border: "0.5px solid rgba(0,0,0,0.00)",
+                              boxShadow:
+                                "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                                <circle cx="12" cy="9" r="3" />
+                              </svg>
+                              <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                                {city.name}
+                              </span>
+                            </div>
+                            {loadingMetros && selectedCityId === city.city_id ? (
+                              <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">⏳</span>
+                            ) : (
+                              <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
+                                {city.master_num}
+                              </span>
+                            )}
                           </div>
-                          {loadingMetros && selectedCityId === city.city_id ? (
-                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">⏳</span>
-                          ) : (
-                            <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">
-                              {city.master_num}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   )}
                 </>
               )}
-
               {modalStep === "metro" && (
                 <>
                   <div className="sticky top-0 bg-[#FFE9EF] z-10 pb-3">

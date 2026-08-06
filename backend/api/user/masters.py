@@ -131,8 +131,7 @@ async def get_master_by_metro(city_id: uuid.UUID,
             "partner_by_metro": resp}     
 
 @router.get("/partner_masters_by_station", response_model=MasterPageResponse)
-async def get_partner_near_concrete_station(metro_id: uuid.UUID, 
-                                            request: AddressListRequest,
+async def get_partner_near_concrete_station(request: AddressListRequest,
                                             session: AsyncSession = Depends(get_db_session)):
     addresses = request.addresses
     master_ids = []
