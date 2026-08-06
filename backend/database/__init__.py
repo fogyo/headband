@@ -2720,7 +2720,7 @@ class TokenUsageModel(Base):
         return obj.id
 
     @classmethod
-    async def create_sync(
+    def create_sync(
             cls,
             session,
             amount: int,
