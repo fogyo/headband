@@ -268,9 +268,9 @@ export default function AIPreviewPage() {
         >
           <div className="w-10 h-1 bg-black/20 rounded-full flex items-center justify-center">
             {isCollapsed ? (
-              <ChevronUp className="w-5 h-5 text-black/50" />
+              <ChevronUp className="w-5 h-5 text-black/0" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-black/50" />
+              <ChevronDown className="w-5 h-5 text-black/0" />
             )}
           </div>
         </div>
