@@ -78,13 +78,7 @@ export default function AIHairCatsPage() {
         </h3>
 
         {/* Блок категорий – скрывается при isCollapsed */}
-        <div
-          className="overflow-hidden transition-all duration-400 ease-in-out"
-          style={{
-            maxHeight: isCollapsed ? "0px" : "800px",
-            opacity: isCollapsed ? 0 : 1,
-          }}
-        >
+        {!isCollapsed && (
           <div className="flex justify-center flex-nowrap gap-2 px-2 pb-4 min-h-[120px]">
             {categories.map((cat, idx) => (
               <div
@@ -104,7 +98,8 @@ export default function AIHairCatsPage() {
               </div>
             ))}
           </div>
-        </div>
+        )}
+
         {/* Кнопки навигации (без изменений) */}
         <button
           onClick={() => navigate("/")}
