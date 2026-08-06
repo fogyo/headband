@@ -129,3 +129,9 @@ async def get_by_id_dev_link(link: uuid.UUID, session: AsyncSession):
 
 async def activate_dev_link(link: uuid.UUID, session: AsyncSession):
     return await UniqueDevReferalLinksModel.activate(session=session, link_id=link)
+
+async def get_unused_subs(master_id: uuid.UUID, session: AsyncSession):
+    return await SubscriptionBankModel.get_balance(session=session, master_id=master_id)
+
+async def change_sub_level(master_id: uuid.UUID, session: AsyncSession):
+    return await SubscriptionBankModel.set_change_level(master_id=master_id, session=session)

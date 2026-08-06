@@ -1,30 +1,63 @@
+
+import asyncio
 import logging
 import os
+import uuid
+from typing import List
 
-from aiogram import Bot, Dispatcher, types
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.filters import CommandStart, Command
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from dotenv import load_dotenv
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 BOT_URL = os.getenv('BOT_URL')
+PROXY_URL = os.getenv('PROXY_URL')
+
+storage = MemoryStorage()
+session = AiohttpSession(proxy=PROXY_URL)
+bot = Bot(token=BOT_TOKEN, session=session)
+dp = Dispatcher()
 
 
+async def start_bot():
+    global bot
+    session = None
+    try:
+        if not await test_proxy(bot):
+            logging.error("Прокси не работает, останов.")
+            await bot.session.close()
+            return
 
-'''async def handle_deeplink(message: types.Message, args: str, session: AsyncSession):
-    user = message.from_user
-    chat = message.chat
-    logging.info(args)
-    user_category, res = await db_functions.user_master_deeplink(args=args, session=session)
-    if user_category == 0:
-        status = await db_functions.create_master(user=user, chat=chat, organization_id=res, session=session)
-        logging.info(f"{status} master with id {chat.id}")
-        if status.__eq__("error"):
-            return "Создать мастера не получилось"
-        return "Мастер добавлен в организацию, добро пожаловать!"
-    elif user_category == 1:
-        status = await db_functions.create_user(user, chat, res)
-        logging.info(f"{status} user with id {chat.id}")
-        return "Добро пожаловать, для ознакомления с ассортиментом зайдите в tg mini app"
-    return "Ссылка недействительна"'''
+        await bot.delete_webhook(drop_pending_updates=True)
+        logging.info("Бот успешно запущен.")
+        await dp.start_polling(bot)
 
+    except Exception as e:
+        logging.error(f"Критическая ошибка при запуске бота: {e}")
+        if "Connector is closed" in str(e):
+            logging.error("Не удалось установить соединение. Проверьте URL и порт прокси.")
+        if session:
+            await session.close()
+
+async def test_proxy(bot: Bot) -> bool:
+    """Проверяет, работает ли прокси, запрашивая информацию о боте"""
+    try:
+        me = await bot.get_me()
+        logging.info(f"✅ Прокси работает! Бот подключён: @{me.username}")
+        return True
+    except Exception as e:
+        logging.error(f"❌ Ошибка через прокси: {e}")
+        return False
+
+async def stop_bot():
+    """Корректная остановка бота"""
+    await dp.stop_polling()
+    if bot and hasattr(bot, 'session') and bot.session:
+        await bot.session.close()
+    logging.info("Остановка бота завершена.")

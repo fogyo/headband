@@ -2592,9 +2592,9 @@ class SubscriptionBankModel(Base):
         return "success"
 
     @classmethod
-    async def set_change_level(cls, session: AsyncSession, master_id: uuid.UUID, value: bool) -> str:
+    async def set_change_level(cls, session: AsyncSession, master_id: uuid.UUID) -> str:
         """Устанавливает флаг разрешения смены уровня"""
-        query = update(cls).where(cls.master_id == master_id).values(change_level=value)
+        query = update(cls).where(cls.master_id == master_id).values(change_level=not cls.change_level)
         await session.execute(query)
         return "success"
 
