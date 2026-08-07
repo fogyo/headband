@@ -23,7 +23,7 @@ logging.getLogger().addHandler(all_handler)
 logging.getLogger().setLevel(logging.INFO)
 
 from backend import database as db
-from backend.telegram_bot import stop_bot, start_bot
+from backend.telegram_bot.bot_main import stop_bot, start_bot
 
 
 
