@@ -243,7 +243,7 @@ async def handle_rating(callback: types.CallbackQuery, state: FSMContext):
 class ActivationState(StatesGroup):
     choosing_level = State()
 
-@dp.callback_query(F.data == "subscriptions_menu")
+@dp.callback_query(F.data == "subs_menu")
 async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     role = user_data.get("role")

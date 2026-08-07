@@ -30,7 +30,7 @@ def get_main_keyboard(role: str) -> InlineKeyboardMarkup:
 
 def get_payments_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Подписки", callback_data="subscriptions_menu")],
+        [InlineKeyboardButton(text="📋 Подписки", callback_data="subs_menu")],
         [InlineKeyboardButton(text="🪙 Токены", callback_data="tokens_menu")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
     ])
