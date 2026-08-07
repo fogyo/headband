@@ -8,20 +8,6 @@ import uvicorn
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-LOG_BUFFER = deque(maxlen=5000)
-
-class AllLogHandler(logging.Handler):
-    def emit(self, record):
-        log_entry = self.format(record)
-        # Сохраняем кортеж (уровень, сообщение) для фильтрации
-        LOG_BUFFER.append((record.levelno, log_entry))
-
-all_handler = AllLogHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-all_handler.setFormatter(formatter)
-logging.getLogger().addHandler(all_handler)
-logging.getLogger().setLevel(logging.INFO)
-
 
 logging.basicConfig(
     level=logging.INFO,

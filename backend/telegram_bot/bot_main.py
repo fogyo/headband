@@ -340,7 +340,7 @@ class ActivationState(StatesGroup):
 async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     role = user_data.get("role")
-    
+    logging.info("subs_click")
     # Если роль не мастер – показываем сообщение и возвращаемся в платежи
     if role != "master":
         await callback.message.edit_text(
@@ -354,7 +354,7 @@ async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext)
     async with AsyncSessionLocal() as session:
         async with session.begin():
             # 1. Получаем мастера
-            master = await miniapp_db_fcn.get_master_by_chat(chat_id, session)
+            master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
             if not master:
                 await callback.message.edit_text(
                     "❌ Вы не зарегистрированы как мастер. Сначала выберите роль 'Мастер'.",
@@ -362,7 +362,7 @@ async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext)
                 )
                 await callback.answer()
                 return
-            active, end_date, status = await miniapp_db_fcn.get_subscription_level(master.id, session)
+            active, end_date, status = await miniapp_db_fcn.get_subscription_level(master_id=master.id, session=session)
 
             sub_bank = await miniapp_db_fcn.get_unused_subs(master_id=master.id, session=session)
 
