@@ -8,8 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import IDResponse, StatusResponse
-from backend.telegram_bot import bot
-from backend.telegram_bot.bot_main import handle_rating
+from backend.telegram_bot.bot_main import handle_rating, bot
 
 
 #Requests
