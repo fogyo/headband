@@ -15,7 +15,7 @@ from aiogram.fsm.context import FSMContext
 
 from backend.telegram_bot.keyboards import get_main_keyboard, get_payments_keyboard, get_role_keyboard, get_subscriptions_keyboard
 
-from backend.database import miniapp_db_fcn, AsyncSessionLocal
+
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 BOT_URL = os.getenv('BOT_URL')
@@ -63,6 +63,7 @@ async def stop_bot():
         await bot.session.close()
     logging.info("Остановка бота завершена.")
 
+from backend.database import miniapp_db_fcn, AsyncSessionLocal
 
 class UserState(StatesGroup):
     role = State()
