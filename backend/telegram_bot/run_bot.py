@@ -1,6 +1,6 @@
 import asyncio
 from dotenv import load_dotenv
-from backend.telegram_bot import start_bot, stop_bot
+from backend.telegram_bot.bot_main import start_bot, stop_bot
 
 load_dotenv()
 

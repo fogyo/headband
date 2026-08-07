@@ -123,7 +123,7 @@ def run_server_process():
 def run_bot_process():
     logging.info("Бот запущен")
     async def start_bot():
-        from backend.telegram_bot import start_bot
+        from backend.telegram_bot.bot_main import start_bot
         await start_bot()
     asyncio.run(start_bot())
 
