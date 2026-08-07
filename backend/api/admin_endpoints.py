@@ -6,7 +6,7 @@ from fastapi import Depends, APIRouter
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend import LOG_BUFFER
+
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
 from backend.model.bg_factory import task_manager
@@ -90,7 +90,7 @@ async def verify_admin(chat_id: int,
     return {"status": "error"}
 
 
-@router.get("/logs")
+"""@router.get("/logs")
 async def get_logs():
     return {"status": "success",
-            "logs": [msg for _, msg in LOG_BUFFER]}
+            "logs": [msg for _, msg in LOG_BUFFER]}"""
