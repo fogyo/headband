@@ -14,7 +14,6 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 from backend.telegram_bot.keyboards import get_main_keyboard, get_payments_keyboard, get_role_keyboard, get_subscriptions_keyboard
-from backend.telegram_bot import dp, bot
 
 from backend.database import miniapp_db_fcn, AsyncSessionLocal
 
