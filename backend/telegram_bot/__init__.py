@@ -22,7 +22,7 @@ PROXY_URL = os.getenv('PROXY_URL')
 storage = MemoryStorage()
 session = AiohttpSession(proxy=PROXY_URL)
 bot = Bot(token=BOT_TOKEN, session=session)
-dp = Dispatcher()
+
 
 
 async def start_bot():
