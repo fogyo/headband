@@ -22,8 +22,9 @@ PROXY_URL = os.getenv('PROXY_URL')
 storage = MemoryStorage()
 session = AiohttpSession(proxy=PROXY_URL)
 bot = Bot(token=BOT_TOKEN, session=session)
+dp = Dispatcher()
 
-
+from backend.telegram_bot import bot_main
 
 async def start_bot():
     global bot
