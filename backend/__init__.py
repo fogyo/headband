@@ -3,7 +3,7 @@ import logging
 from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
-
+import sys
 import uvicorn
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
@@ -21,6 +21,13 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 all_handler.setFormatter(formatter)
 logging.getLogger().addHandler(all_handler)
 logging.getLogger().setLevel(logging.INFO)
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout  # чтобы точно в stdout, а не stderr
+)
 
 from backend import database as db
 from backend.telegram_bot.bot_main import stop_bot, start_bot
