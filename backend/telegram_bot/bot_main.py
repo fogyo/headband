@@ -104,7 +104,8 @@ def get_subscriptions_keyboard(active: bool, has_unused: bool = False) -> Inline
     keyboard = []
     keyboard.append([InlineKeyboardButton(text="Купить месяц базовой подписки", callback_data="buy_base")])
     keyboard.append([InlineKeyboardButton(text="Купить месяц партнёрской подписки", callback_data="buy_partner")])
-    
+    keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="payments_menu")])
+
     if has_unused:
         keyboard.append([InlineKeyboardButton(text="✅ Активировать подписку", callback_data="activate_sub")])
     elif active: 
