@@ -543,7 +543,7 @@ async def handle_tokens_menu(callback: types.CallbackQuery, state: FSMContext):
     chat_id = callback.from_user.id
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            await miniapp_db_fcn.check_token_model(chat_id=chat_id, session=session):
+            await miniapp_db_fcn.check_token_model(chat_id=chat_id, session=session)
             token, super_token = await miniapp_db_fcn.get_tokens_amount(chat_id=chat_id, session=session)
             await callback.message.edit_text(
                 f"🪙 Раздел токенов\n\nНа Вашем счету:\nТокенов: {token}\nСупер токенов: {super_token}\n\nВыберите, что хотите приобрести:",
