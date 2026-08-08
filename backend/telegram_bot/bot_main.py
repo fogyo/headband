@@ -24,6 +24,7 @@ session = AiohttpSession(proxy=PROXY_URL)
 bot = Bot(token=BOT_TOKEN, session=session)
 dp = Dispatcher()
 
+#------------BOT MAIN FUNC------------
 async def start_bot():
     global bot
     session = None
@@ -67,6 +68,9 @@ from backend.database import miniapp_db_fcn, AsyncSessionLocal
 MINI_APP_URL_CLIENT = os.getenv("MINI_APP_URL_CLIENT")
 MINI_APP_URL_MASTER = os.getenv("MINI_APP_URL_MASTER")
 
+
+#------------BOT KEYBOARDS------------
+
 def get_main_keyboard(role: str) -> InlineKeyboardMarkup:
     if role == "client":
         app_url = MINI_APP_URL_CLIENT
@@ -99,7 +103,6 @@ def get_role_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Мастер", callback_data="role_master")]
     ])
 
-
 def get_subscriptions_keyboard(active: bool, has_unused: bool = False) -> InlineKeyboardMarkup:
     keyboard = []
     keyboard.append([InlineKeyboardButton(text="Купить месяц базовой подписки", callback_data="buy_base")])
@@ -113,8 +116,71 @@ def get_subscriptions_keyboard(active: bool, has_unused: bool = False) -> Inline
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+def get_activation_level_keyboard(available_levels: List[str]) -> InlineKeyboardMarkup:
+    """
+    Возвращает клавиатуру с кнопками для каждого доступного уровня подписки.
+    Если уровень только один, клавиатура всё равно будет содержать одну кнопку,
+    либо можно сразу активировать, но здесь сделаем с одной кнопкой.
+    """
+    buttons = []
+    for level in available_levels:
+        level_display = "базовая" if level == "base" else "партнёрская" if level == "partner" else level
+        buttons.append([InlineKeyboardButton(
+            text=f"📦 Активировать {level_display}",
+            callback_data=f"activate_confirm_{level}"
+        )])
+    # Добавляем кнопку "Назад"
+    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="subscriptions_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def get_tokens_main_keyboard() -> InlineKeyboardMarkup:
+    """Главное меню раздела Токены"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🪙 Купить токены", callback_data="buy_tokens")],
+        [InlineKeyboardButton(text="⭐ Купить супер токены", callback_data="buy_super_tokens")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="payments_menu")]
+    ])
+
+def get_token_packages_keyboard(token_type: str) -> InlineKeyboardMarkup:
+    """
+    Возвращает клавиатуру с пакетами токенов.
+    token_type: 'regular' или 'super'
+    """
+    if token_type == "regular":
+        packages = [
+            ("1 токен", "1", "10"),
+            ("5 токенов", "5", "45"),
+            ("10 токенов", "10", "85"),
+            ("25 токенов", "25", "200"),
+            ("50 токенов", "50", "375"),
+            ("100 токенов", "100", "650"),
+        ]
+        prefix = "regular"
+    else:  # super
+        packages = [
+            ("1 супер токен", "1", "25"),
+            ("5 супер токенов", "5", "100"),
+            ("10 супер токенов", "10", "175"),
+            ("50 супер токенов", "50", "800"),
+        ]
+        prefix = "super"
+
+    keyboard = []
+    for label, amount, price in packages:
+        callback_data = f"buy_{prefix}_{amount}"  # например, buy_regular_100
+        keyboard.append([InlineKeyboardButton(
+            text=f"{label} – {price} руб.",
+            callback_data=callback_data
+        )])
+    # Кнопка назад (в главное меню токенов)
+    keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="tokens_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
 class UserState(StatesGroup):
     role = State()
+
+
+#------------BOT START------------
 
 @dp.message(CommandStart(deep_link=False))
 async def cmd_start_simple(message: types.Message, state: FSMContext):
@@ -234,6 +300,9 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 reply_markup=get_main_keyboard(role))
                 await session.commit()
 
+
+#------------BOT UTIL COMMANDS------------
+
 @dp.callback_query(F.data.in_(["role_client", "role_master"]))
 async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext):
     async with AsyncSessionLocal() as session:
@@ -337,6 +406,9 @@ async def handle_rating(callback: types.CallbackQuery, state: FSMContext):
 class ActivationState(StatesGroup):
     choosing_level = State()
 
+
+#------------SUBSCRIPTION COMMANDS------------
+
 @dp.callback_query(F.data == "subs_menu")
 async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
@@ -388,7 +460,6 @@ async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext)
     
     await callback.answer()
 
-
 @dp.callback_query(F.data == "change_level")
 async def change_subscription_level(callback: types.CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
@@ -415,7 +486,6 @@ async def change_subscription_level(callback: types.CallbackQuery, state: FSMCon
         reply_markup=get_payments_keyboard()
     )
     await callback.answer()
-
 
 @dp.callback_query(F.data == "activate_sub")
 async def activate_subscription(callback: types.CallbackQuery, state: FSMContext):
@@ -465,23 +535,70 @@ async def activate_subscription(callback: types.CallbackQuery, state: FSMContext
             await session.commit()
     await callback.answer()
 
+#------------BOT TOKEN COMMANDS------------
 
-def get_activation_level_keyboard(available_levels: List[str]) -> InlineKeyboardMarkup:
-    """
-    Возвращает клавиатуру с кнопками для каждого доступного уровня подписки.
-    Если уровень только один, клавиатура всё равно будет содержать одну кнопку,
-    либо можно сразу активировать, но здесь сделаем с одной кнопкой.
-    """
-    buttons = []
-    for level in available_levels:
-        level_display = "базовая" if level == "base" else "партнёрская" if level == "partner" else level
-        buttons.append([InlineKeyboardButton(
-            text=f"📦 Активировать {level_display}",
-            callback_data=f"activate_confirm_{level}"
-        )])
-    # Добавляем кнопку "Назад"
-    buttons.append([InlineKeyboardButton(text="🔙 Назад", callback_data="subscriptions_menu")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+@dp.callback_query(F.data == "tokens_menu")
+async def handle_tokens_menu(callback: types.CallbackQuery, state: FSMContext):
+    """Показывает главное меню токенов"""
+    chat_id = callback.from_user.id
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            await miniapp_db_fcn.check_token_model(chat_id=chat_id, session=session):
+            token, super_token = await miniapp_db_fcn.get_tokens_amount(chat_id=chat_id, session=session)
+            await callback.message.edit_text(
+                f"🪙 Раздел токенов\n\nНа Вашем счету:\nТокенов: {token}\nСупер токенов: {super_token}\n\nВыберите, что хотите приобрести:",
+                reply_markup=get_tokens_main_keyboard()
+            )
+        await session.commit()
+    await callback.answer()
+
+@dp.callback_query(F.data == "buy_tokens")
+async def handle_buy_tokens(callback: types.CallbackQuery, state: FSMContext):
+    """Показывает прайс-лист обычных токенов"""
+    await callback.message.edit_text(
+        "🪙 Пакеты обычных токенов:\n\n"
+        "Выберите нужное количество:",
+        reply_markup=get_token_packages_keyboard("regular")
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "buy_super_tokens")
+async def handle_buy_super_tokens(callback: types.CallbackQuery, state: FSMContext):
+    """Показывает прайс-лист супер токенов"""
+    await callback.message.edit_text(
+        "⭐ Пакеты супер токенов:\n\n"
+        "Выберите нужное количество:",
+        reply_markup=get_token_packages_keyboard("super")
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("buy_regular_"))
+async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка выбора пакета обычных токенов (заглушка)"""
+    amount = callback.data.split("_")[2]  # например, buy_regular_100 -> "100"
+    # TODO: здесь будет логика оплаты
+    await callback.message.edit_text(
+        f"🛒 Вы выбрали пакет {amount} токенов.\n"
+        "Оплата будет добавлена позже.\n"
+        "Пока что это заглушка.",
+        reply_markup=get_token_packages_keyboard("regular")  # остаёмся в этом же меню
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("buy_super_"))
+async def handle_buy_super_package(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка выбора пакета супер токенов (заглушка)"""
+    amount = callback.data.split("_")[2]  # например, buy_super_10 -> "10"
+    # TODO: здесь будет логика оплаты
+    await callback.message.edit_text(
+        f"🛒 Вы выбрали пакет {amount} супер токенов.\n"
+        "Оплата будет добавлена позже.\n"
+        "Пока что это заглушка.",
+        reply_markup=get_token_packages_keyboard("super")  # остаёмся в этом же меню
+    )
+    await callback.answer()
+
+#------------BOT ADDITIONAL FUNCS------------
 
 async def send_notification(bot: Bot, chat_id: int, text: str):
     if bot is None:
@@ -492,7 +609,6 @@ async def send_notification(bot: Bot, chat_id: int, text: str):
         logging.info(f"Уведомление отправлено пользователю {chat_id}")
     except Exception as e:
         logging.error(f"Не удалось отправить сообщение {chat_id}: {e}")
-
 
 sem = asyncio.Semaphore(20)
 
@@ -506,7 +622,6 @@ async def send_single_message(chat_id: int, text: str) -> bool:
         except Exception as e:
             logging.error(f"Notification wasn't sent to user {chat_id}: {e}")
             return False
-
 
 async def notify_all(messages: List[dict]):
     """Отправляет все сообщения параллельно, логируя каждую ошибку отдельно."""
