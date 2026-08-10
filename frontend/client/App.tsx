@@ -29,6 +29,7 @@ import UserIndexPage from "./pages/client/UserIndex";
 import CategoryMastersPage from "./pages/client/CategoryMastersPage";
 import MasterPriceListPage from "./pages/client/MasterPriceListPage";
 import BookAppointmentPage from "./pages/client/BookAppointmentsPage";
+import MasterPortfolioPage from "./pages/client/MasterPortfolioPage";
 import HeadbeautyIndexPage from "./pages/headbeauty/IndexHeadbeauty";
 import AIHairCatsPage from "./pages/headbeauty/HairHeadbeautyCategory";
 import AIHairPage from "./pages/headbeauty/HaircutHeadbeauty";
@@ -43,6 +44,7 @@ import AdminStatsPage from "./pages/admin/AdminStatsPage";
 import AdminGuidesPage from "./pages/admin/AdminGuidesPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
 import AdminPanelPage from "./pages/admin/AdminPanelPage";
+
 
 // ---------- Провайдер ----------
 const queryClient = new QueryClient();
@@ -253,6 +255,7 @@ const App = () => (
             <Route path="/category/:category" element={<CategoryMastersPage />} />
             <Route path="/user" element={<UserIndexPage />} />
             <Route path="/booking/:masterId" element={<MasterPriceListPage />} />
+            <Route path="/master-portfolio/:masterId" element={<MasterPortfolioPage />} />
             <Route path="/booking/:masterId/:serviceId" element={<BookAppointmentPage />} />
             <Route path="/headbeauty" element={<HeadbeautyIndexPage />} />
             <Route path="/headbeauty-hair-category/:gender" element={<AIHairCatsPage />} />
