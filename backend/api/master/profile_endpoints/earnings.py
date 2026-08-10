@@ -182,7 +182,7 @@ async def get_master_prepayments(
     chat_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Получение всех периодов предоплаты мастера"""
+   
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
     status, prepayments = await miniapp_db_fcn.get_prepayments_by_master(
@@ -200,7 +200,7 @@ async def create_prepayment(
     request: PrepayCreateRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Создание периода предоплаты"""
+  
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
     master_id = master.id
     status, prepay_id = await miniapp_db_fcn.create_prepayment(
@@ -219,7 +219,7 @@ async def update_prepayment(
     request: PrepayUpdateRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Обновление периода предоплаты"""
+  
     update_data = request.model_dump(exclude_unset=True)
     status = await miniapp_db_fcn.update_prepayment(
         prepay_id=request.id,
@@ -233,7 +233,7 @@ async def delete_prepayment(
     prepay_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Удаление периода предоплаты"""
+    
     status = await miniapp_db_fcn.delete_prepayment(
         prepay_id=prepay_id,
         session=session
