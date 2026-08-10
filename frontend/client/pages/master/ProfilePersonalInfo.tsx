@@ -45,19 +45,6 @@ const getMasterBarState = (count: number): number => {
 
 const masterBarImages = [masterBar0, masterBar1, masterBar2, masterBar3];
 
-const formatPhoneForDisplay = (rawDigits: string): string => {
-  const digits = rawDigits.replace(/\D/g, "");
-  if (!digits) return "+7 (___) ___-__-__";
-  let result = "+7";
-  if (digits.length > 1) result += ` (${digits.slice(1, 4)}`;
-  if (digits.length >= 4) result += ")";
-  if (digits.length > 4) result += ` ${digits.slice(4, 7)}`;
-  if (digits.length > 7) result += `-${digits.slice(7, 9)}`;
-  if (digits.length > 9) result += `-${digits.slice(9, 11)}`;
-  if (digits.length > 1 && digits.length < 4) result += ")";
-  return result;
-};
-
 async function uploadFile(file: File): Promise<string> {
   const res = await fetch(`${baseUrl}/media/upload-url`, {
     method: "POST",
@@ -80,7 +67,6 @@ export default function ProfilePersonalInfoPage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [fullName, setFullName] = useState("");
-  const [tgUsername, setTgUsername] = useState("");
   const [bio, setBio] = useState("");
   const [avatarKey, setAvatarKey] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
@@ -110,7 +96,6 @@ export default function ProfilePersonalInfoPage() {
       if (data.status !== "success") throw new Error(data.status);
 
       setFullName(data.full_name || "");
-      setTgUsername(data.tg || "");
       setBio(data.description || "");
       setAvatarKey(data.avatar || null);
       setAvatarPreview(data.avatar || "https://placehold.co/153x153");
@@ -276,6 +261,14 @@ export default function ProfilePersonalInfoPage() {
     );
   }
 
+  return {
+    const masterState = getMasterBarState(mastersCount);
+    // Добавим загрузку аватара и остальной код
+    // ...
+    // Возвращаем JSX
+  }
+  // ... rest of the code
+
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
@@ -303,21 +296,7 @@ export default function ProfilePersonalInfoPage() {
         </div>
 
         <section className="mt-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">О себе</h2>
-            <button
-              onClick={openEditModal}
-              className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
-              style={{
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              }}
-            >
-              <Pencil className="w-4 h-4" />
-              <span>Изменить</span>
-            </button>
-          </div>
+          <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">О себе</h2>
           <div className="h-px bg-black w-52 mb-4" />
 
           <div className="flex justify-center mb-4">
@@ -360,21 +339,8 @@ export default function ProfilePersonalInfoPage() {
             </div>
           </div>
 
-          {/* Телеграм (статический) */}
-          <div className="mb-3">
-            <div
-              className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
-              style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
-            >
-              <img src={telegramIcon} className="w-7 h-7 rounded-full absolute left-3 top-1/2 -translate-y-1/2" alt="" />
-              <span className="text-[14px] tracking-[-0.5px] ml-10 text-center w-full">
-                {tgUsername || "tg: не указан"}
-              </span>
-            </div>
-          </div>
-
           {/* О себе (во всю ширину) */}
-          <div className="mt-3">
+          <div className="mb-4">
             <div
               className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow text-sm font-['Sofia_Sans'] text-black"
               style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
@@ -383,6 +349,22 @@ export default function ProfilePersonalInfoPage() {
                 {bio || "Пока не задано"}
               </p>
             </div>
+          </div>
+
+          {/* Кнопка "Изменить" под полями */}
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={openEditModal}
+              className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-5 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
+              <Pencil className="w-4 h-4" />
+              <span>Изменить</span>
+            </button>
           </div>
         </section>
 
@@ -393,7 +375,7 @@ export default function ProfilePersonalInfoPage() {
           <h3 className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black mb-2">Для мастеров</h3>
           <div className="mb-4 text-sm font-['Sofia_Sans'] text-black">
             <p className="font-extrabold">Приводите мастеров и получайте бонусы!</p>
-            <p>За каждых 3 друзей, оформивших подписку, — месяц использования headband бесплатно</p>
+            <p>За каждых 3 мастеров, оформивших подписку, — месяц использования headband бесплатно</p>
           </div>
 
           <div className="flex flex-col items-center mb-6">
@@ -401,7 +383,7 @@ export default function ProfilePersonalInfoPage() {
               <img src={masterBarImages[masterState]} alt="master bar" className="w-full h-full object-contain" />
               <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
                 <span className="text-5xl font-['Sofia_Sans'] text-black leading-none">{mastersCount}</span>
-                <span className="text-[10px] font-['Sofia_Sans'] text-black/50 text-center mt-1">мастеров оформили headband pro</span>
+                <span className="text-[10px] font-['Sofia_Sans'] text-black/50 text-center mt-1">мастеров с подпиской headband</span>
               </div>
             </div>
           </div>
