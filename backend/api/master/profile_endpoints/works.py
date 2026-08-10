@@ -41,7 +41,7 @@ async def upload_and_link_image(
     session: AsyncSession = Depends(get_db_session)
 ):
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session) 
-    await miniapp_db_fcn.create_workfile(filepath=request.filepath, master_id=master.id, name=requets.name, session=session)
+    await miniapp_db_fcn.create_workfile(filepath=request.filepath, master_id=master.id, name=request.name, session=session)
     return {"status": "success"}
 
 @router.get("/", response_model=WorkFilesResponse)

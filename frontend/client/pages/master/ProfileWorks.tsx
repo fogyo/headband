@@ -85,10 +85,10 @@ export default function ProfileWorksPage() {
     setIsSubmitting(true);
     try {
       const fileKey = await uploadFile(selectedFile);
-      const res = await fetch(`${baseUrl}/master/profile/works/upload_work_file`, {
+      const res = await fetch(`${baseUrl}/master/profile/works/upload_work_file?chat_id=${chatId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, name: newName.trim(), filepath: fileKey }),
+        body: JSON.stringify({ name: newName.trim(), filepath: fileKey }),
       });
       if (!res.ok) throw new Error("Ошибка добавления работы");
       const data = await res.json();
