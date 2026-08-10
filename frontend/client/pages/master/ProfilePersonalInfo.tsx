@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import backIcon from "@/assets/back_icon.svg";
-import telegramIcon from "@/assets/telegram_icon.png";
 import { Copy, Pencil, X } from "lucide-react";
 import { useTelegramAuth } from "@/App";
 
@@ -183,7 +182,6 @@ export default function ProfilePersonalInfoPage() {
       .catch(() => toast.error("Не удалось скопировать"));
   };
 
-  // Открытие модалки редактирования
   const openEditModal = () => {
     setEditName(fullName);
     setEditBio(bio);
@@ -261,14 +259,6 @@ export default function ProfilePersonalInfoPage() {
     );
   }
 
-  return {
-    const masterState = getMasterBarState(mastersCount);
-    // Добавим загрузку аватара и остальной код
-    // ...
-    // Возвращаем JSX
-  }
-  // ... rest of the code
-
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
@@ -295,6 +285,7 @@ export default function ProfilePersonalInfoPage() {
           </p>
         </div>
 
+        {/* Секция "О себе" – без телеграма, кнопка внизу справа */}
         <section className="mt-8">
           <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">О себе</h2>
           <div className="h-px bg-black w-52 mb-4" />
@@ -327,7 +318,7 @@ export default function ProfilePersonalInfoPage() {
             </label>
           </div>
 
-          {/* Имя */}
+          {/* ФИО */}
           <div className="mb-3">
             <div
               className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center justify-center"
@@ -340,7 +331,7 @@ export default function ProfilePersonalInfoPage() {
           </div>
 
           {/* О себе (во всю ширину) */}
-          <div className="mb-4">
+          <div className="mt-3">
             <div
               className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow text-sm font-['Sofia_Sans'] text-black"
               style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
@@ -351,11 +342,11 @@ export default function ProfilePersonalInfoPage() {
             </div>
           </div>
 
-          {/* Кнопка "Изменить" под полями */}
-          <div className="flex justify-end mt-2">
+          {/* Кнопка "Изменить" – справа снизу */}
+          <div className="flex justify-end mt-4">
             <button
               onClick={openEditModal}
-              className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-5 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
+              className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
               style={{
                 border: "0.5px solid rgba(0,0,0,0.00)",
                 boxShadow:
@@ -368,6 +359,7 @@ export default function ProfilePersonalInfoPage() {
           </div>
         </section>
 
+        {/* Реферальные ссылки (без изменений) */}
         <section className="mt-10">
           <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">Реферальная ссылка</h2>
           <div className="h-px bg-black w-52 mb-4" />
@@ -375,7 +367,7 @@ export default function ProfilePersonalInfoPage() {
           <h3 className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black mb-2">Для мастеров</h3>
           <div className="mb-4 text-sm font-['Sofia_Sans'] text-black">
             <p className="font-extrabold">Приводите мастеров и получайте бонусы!</p>
-            <p>За каждых 3 мастеров, оформивших подписку, — месяц использования headband бесплатно</p>
+            <p>За каждых 3 друзей, оформивших подписку, — месяц использования headband бесплатно</p>
           </div>
 
           <div className="flex flex-col items-center mb-6">
@@ -383,7 +375,7 @@ export default function ProfilePersonalInfoPage() {
               <img src={masterBarImages[masterState]} alt="master bar" className="w-full h-full object-contain" />
               <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
                 <span className="text-5xl font-['Sofia_Sans'] text-black leading-none">{mastersCount}</span>
-                <span className="text-[10px] font-['Sofia_Sans'] text-black/50 text-center mt-1">мастеров с подпиской headband</span>
+                <span className="text-[10px] font-['Sofia_Sans'] text-black/50 text-center mt-1">мастеров оформили headband pro</span>
               </div>
             </div>
           </div>
