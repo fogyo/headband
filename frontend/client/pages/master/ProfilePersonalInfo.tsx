@@ -3,9 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import backIcon from "@/assets/back_icon.svg";
 import telegramIcon from "@/assets/telegram_icon.png";
-import phoneIcon from "@/assets/phoneIcon.png";
-import { Copy } from "lucide-react";
-import InputMask from "react-input-mask";
+import { Copy, Pencil, X } from "lucide-react";
 import { useTelegramAuth } from "@/App";
 
 // Мастер-бар
@@ -14,7 +12,6 @@ import masterBar1 from "@/assets/master_bar_1.svg";
 import masterBar2 from "@/assets/master_bar_2.svg";
 import masterBar3 from "@/assets/master_bar_3.svg";
 
-// Клиент-бар
 import clientBar0 from "@/assets/client_bar_0.svg";
 import clientBar1 from "@/assets/client_bar_1.svg";
 import clientBar2 from "@/assets/client_bar_2.svg";
@@ -31,7 +28,6 @@ interface ProfilePersonalResponse {
   status: string;
   full_name: string;
   tg: string;
-  phone: string;
   description: string;
   avatar: string | null;
   tg_users: string;
@@ -47,29 +43,11 @@ const getMasterBarState = (count: number): number => {
   return 3;
 };
 
-const getClientBarState = (count: number): number => {
-  if (count === 0) return 0;
-  if (count < 5) return 1;
-  if (count < 10) return 2;
-  if (count < 15) return 3;
-  if (count < 20) return 4;
-  if (count < 30) return 5;
-  if (count < 40) return 6;
-  if (count < 50) return 7;
-  return 8;
-};
-
 const masterBarImages = [masterBar0, masterBar1, masterBar2, masterBar3];
-const clientBarImages = [
-  clientBar0, clientBar1, clientBar2, clientBar3,
-  clientBar4, clientBar5, clientBar6, clientBar7, clientBar8,
-];
 
 const formatPhoneForDisplay = (rawDigits: string): string => {
   const digits = rawDigits.replace(/\D/g, "");
-  if (!digits) {
-    return "+7 (___) ___-__-__";
-  }
+  if (!digits) return "+7 (___) ___-__-__";
   let result = "+7";
   if (digits.length > 1) result += ` (${digits.slice(1, 4)}`;
   if (digits.length >= 4) result += ")";
@@ -79,8 +57,6 @@ const formatPhoneForDisplay = (rawDigits: string): string => {
   if (digits.length > 1 && digits.length < 4) result += ")";
   return result;
 };
-
-const extractDigits = (masked: string): string => masked.replace(/\D/g, "");
 
 async function uploadFile(file: File): Promise<string> {
   const res = await fetch(`${baseUrl}/media/upload-url`, {
@@ -104,7 +80,6 @@ export default function ProfilePersonalInfoPage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
   const [tgUsername, setTgUsername] = useState("");
   const [bio, setBio] = useState("");
   const [avatarKey, setAvatarKey] = useState<string | null>(null);
@@ -117,8 +92,13 @@ export default function ProfilePersonalInfoPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<"name" | "phone" | "bio" | null>(null);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+
+  // Модальное окно редактирования
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchData = async () => {
     if (!isVerified || !chatId) return;
@@ -130,7 +110,6 @@ export default function ProfilePersonalInfoPage() {
       if (data.status !== "success") throw new Error(data.status);
 
       setFullName(data.full_name || "");
-      setPhone(data.phone ? data.phone.replace(/\D/g, "") : "");
       setTgUsername(data.tg || "");
       setBio(data.description || "");
       setAvatarKey(data.avatar || null);
@@ -170,9 +149,7 @@ export default function ProfilePersonalInfoPage() {
     try {
       const payload: any = { chat_id_tg: chatId };
       if (field === "name") payload.full_name = value;
-      if (field === "phone") payload.phone = value;
       if (field === "bio") payload.description = value;
-      if (field === "telegram") return;
       if (field === "avatar") payload.avatar = value;
 
       const res = await fetch(`${baseUrl}/master/profile/personal/update`, {
@@ -183,24 +160,12 @@ export default function ProfilePersonalInfoPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const result = await res.json();
       if (result.status !== "success") throw new Error(result.status);
-      toast.success("Изменения сохранены");
+      return true;
     } catch (err) {
       console.error(err);
       toast.error("Не удалось сохранить изменения");
+      return false;
     }
-  };
-
-  const handleNameBlur = () => {
-    setEditing(null);
-    updateField("name", fullName);
-  };
-  const handlePhoneBlur = () => {
-    setEditing(null);
-    updateField("phone", phone);
-  };
-  const handleBioBlur = () => {
-    setEditing(null);
-    updateField("bio", bio);
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,13 +174,15 @@ export default function ProfilePersonalInfoPage() {
     setIsAvatarUploading(true);
     try {
       const fileKey = await uploadFile(file);
-      await updateField("avatar", fileKey);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setAvatarPreview(ev.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-      setAvatarKey(fileKey);
+      const success = await updateField("avatar", fileKey);
+      if (success) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setAvatarPreview(ev.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+        setAvatarKey(fileKey);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Не удалось загрузить аватар");
@@ -231,86 +198,59 @@ export default function ProfilePersonalInfoPage() {
       .catch(() => toast.error("Не удалось скопировать"));
   };
 
-  const masterState = getMasterBarState(mastersCount);
-  const clientState = getClientBarState(clientsCount);
-
-  // Обновлённый EditableButton с поддержкой префикса
-  const EditableButton = ({ field, value, setValue, placeholder = "", icon, prefix = "" }) => {
-    const displayValue = field === "phone" 
-      ? formatPhoneForDisplay(value) 
-      : (prefix ? prefix + value : value);
-
-    return (
-      <div className="w-full h-full">
-        {editing === field ? (
-          <div className="relative bg-[#FFE9EF] rounded-[10px] p-2 shadow h-full">
-            {field === "phone" ? (
-              <div className="flex items-center h-full">
-                {icon && <img src={icon} className="w-7 h-7 rounded-full mr-2" alt="" />}
-                <InputMask
-                  mask="+7 (999) 999-99-99"
-                  value={value}
-                  onChange={(e) => setValue(extractDigits(e.target.value))}
-                  onBlur={handlePhoneBlur}
-                >
-                  {(inputProps) => (
-                    <input
-                      {...inputProps}
-                      type="tel"
-                      inputMode="numeric"
-                      autoFocus
-                      className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-center"
-                      placeholder="+7 (___) ___-__-__"
-                    />
-                  )}
-                </InputMask>
-              </div>
-            ) : (
-              <div className="flex items-center h-full">
-                {icon && <img src={icon} className="w-7 h-7 rounded-full mr-2" alt="" />}
-                {prefix && <span className="text-sm font-['Sofia_Sans'] text-black mr-2">{prefix}</span>}
-                <input
-                  autoFocus
-                  className="w-full bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none text-left"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  onBlur={field === "name" ? handleNameBlur : handleBioBlur}
-                  onKeyDown={(e) => e.key === "Enter" && (field === "name" ? handleNameBlur() : handleBioBlur())}
-                  placeholder={placeholder}
-                />
-              </div>
-            )}
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
-            onClick={() => setEditing(field)}
-            style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
-          >
-            {icon && <img src={icon} className="w-7 h-7 rounded-full absolute left-3 top-1/2 -translate-y-1/2" alt="" />}
-            <span className={`text-[14px] tracking-[-0.5px] ${icon ? "ml-10" : ""} text-center w-full`}>
-              {displayValue || placeholder}
-            </span>
-          </button>
-        )}
-      </div>
-    );
+  // Открытие модалки редактирования
+  const openEditModal = () => {
+    setEditName(fullName);
+    setEditBio(bio);
+    setIsEditModalOpen(true);
   };
 
-  const StaticTelegramField = ({ value, icon }) => (
-    <div className="w-full h-full">
-      <div
-        className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
-        style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
-      >
-        {icon && <img src={icon} className="w-7 h-7 rounded-full absolute left-3 top-1/2 -translate-y-1/2" alt="" />}
-        <span className={`text-[14px] tracking-[-0.5px] ${icon ? "ml-10" : ""} text-center w-full`}>
-          {value || "tg: не указан"}
-        </span>
-      </div>
-    </div>
-  );
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditName("");
+    setEditBio("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!chatId) return;
+    if (!editName.trim()) {
+      toast.error("Введите имя");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const payload: any = { chat_id_tg: chatId };
+      if (editName !== fullName) payload.full_name = editName;
+      if (editBio !== bio) payload.description = editBio;
+
+      if (Object.keys(payload).length === 1) {
+        toast.info("Нет изменений");
+        closeEditModal();
+        return;
+      }
+
+      const res = await fetch(`${baseUrl}/master/profile/personal/update`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result = await res.json();
+      if (result.status !== "success") throw new Error(result.status);
+
+      setFullName(editName);
+      setBio(editBio);
+      toast.success("Изменения сохранены");
+      closeEditModal();
+    } catch (err) {
+      console.error(err);
+      toast.error("Не удалось сохранить изменения");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const masterState = getMasterBarState(mastersCount);
 
   if (authLoading || loading) {
     return (
@@ -363,7 +303,21 @@ export default function ProfilePersonalInfoPage() {
         </div>
 
         <section className="mt-8">
-          <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">О себе</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-[30px] leading-tight tracking-[-2px] text-black font-['Sofia_Sans']">О себе</h2>
+            <button
+              onClick={openEditModal}
+              className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
+              <Pencil className="w-4 h-4" />
+              <span>Изменить</span>
+            </button>
+          </div>
           <div className="h-px bg-black w-52 mb-4" />
 
           <div className="flex justify-center mb-4">
@@ -394,36 +348,40 @@ export default function ProfilePersonalInfoPage() {
             </label>
           </div>
 
+          {/* Имя */}
           <div className="mb-3">
-            <EditableButton 
-              field="name" 
-              value={fullName} 
-              setValue={setFullName} 
-              placeholder="ФИО"
-            />
+            <div
+              className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center justify-center"
+              style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
+            >
+              <span className="text-[14px] tracking-[-0.5px] text-black text-center w-full">
+                {fullName || "Имя не указано"}
+              </span>
+            </div>
           </div>
 
-          <div className="flex gap-3 items-stretch">
-            <div className="flex flex-col gap-3 flex-1">
-              <div className="flex-1">
-                <EditableButton 
-                  field="phone" 
-                  value={phone} 
-                  setValue={setPhone} 
-                  icon={phoneIcon} 
-                />
-              </div>
-              <div className="flex-1">
-                <StaticTelegramField value={tgUsername} icon={telegramIcon} />
-              </div>
+          {/* Телеграм (статический) */}
+          <div className="mb-3">
+            <div
+              className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 shadow text-sm font-['Sofia_Sans'] text-black flex items-center"
+              style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
+            >
+              <img src={telegramIcon} className="w-7 h-7 rounded-full absolute left-3 top-1/2 -translate-y-1/2" alt="" />
+              <span className="text-[14px] tracking-[-0.5px] ml-10 text-center w-full">
+                {tgUsername || "tg: не указан"}
+              </span>
             </div>
-            <div className="flex-1">
-              <EditableButton 
-                field="bio" 
-                value={bio} 
-                setValue={setBio} 
-                placeholder="О себе"
-              />
+          </div>
+
+          {/* О себе (во всю ширину) */}
+          <div className="mt-3">
+            <div
+              className="w-full h-full relative bg-[#FFE9EF] rounded-[10px] py-3 px-4 shadow text-sm font-['Sofia_Sans'] text-black"
+              style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0, 0, 0, 0.00), 36px 38px 21px 0 rgba(0, 0, 0, 0.01), 20px 22px 18px 0 rgba(0, 0, 0, 0.05), 9px 10px 13px 0 rgba(0, 0, 0, 0.09), 2px 2px 7px 0 rgba(0, 0, 0, 0.10)" }}
+            >
+              <p className="text-[14px] tracking-[-0.5px] text-black break-words whitespace-pre-wrap">
+                {bio || "Пока не задано"}
+              </p>
             </div>
           </div>
         </section>
@@ -480,6 +438,83 @@ export default function ProfilePersonalInfoPage() {
           </button>
         </section>
       </div>
+
+      {/* Модальное окно редактирования */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+          <div
+            className="relative bg-[#FFE9EF] rounded-[20px] w-full max-w-sm p-6 shadow-xl"
+            style={{
+              boxShadow:
+                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+            }}
+          >
+            <button
+              onClick={closeEditModal}
+              className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center text-black/50 hover:text-black"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black text-center mb-4">
+              Изменить информацию
+            </h3>
+            <div className="h-px bg-black w-60 mx-auto mt-2 mb-4" />
+
+            <div className="flex flex-col gap-4">
+              <div
+                className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3"
+                style={{
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="ФИО"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50"
+                />
+              </div>
+
+              <div
+                className="relative bg-[#FFE9EF] rounded-[10px] h-32 shadow flex items-center px-3"
+                style={{
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                }}
+              >
+                <textarea
+                  placeholder="О себе"
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  className="w-full h-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none resize-none p-3 placeholder-black/50"
+                />
+              </div>
+
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSaving}
+                className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center disabled:opacity-50"
+                style={{
+                  border: "0.5px solid rgba(0,0,0,0.00)",
+                  boxShadow:
+                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+                }}
+              >
+                {isSaving ? (
+                  <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/50">Сохранение...</span>
+                ) : (
+                  <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">Сохранить</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

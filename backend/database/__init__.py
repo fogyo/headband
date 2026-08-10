@@ -632,6 +632,14 @@ class WorkingDayModel(Base):
     )
 
     @classmethod
+    async def delete(cls, session: AsyncSession, wd_id: uuid.UUID) -> str:
+        obj = await session.get(cls, wd_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "working day not found"
+
+    @classmethod
     async def create(cls, session: AsyncSession, data: dict, master_id: uuid.UUID):
         data["master_id"] = master_id
         working_day = cls(**data)

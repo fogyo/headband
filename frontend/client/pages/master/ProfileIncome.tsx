@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
 import backIcon from "@/assets/back_icon.svg";
-import cardIcon from "@/assets/bank_card_icon.svg";
 import { toast } from "sonner";
 import { useTelegramAuth } from "@/App";
 
@@ -17,13 +16,6 @@ interface AppointmentToConfirm {
   confirmed: boolean | null;
 }
 
-interface PrepayPeriod {
-  id: string;
-  start: string;   // "DD.MM"
-  end: string;
-  percent: string; // "30%"
-}
-
 interface PendingAppointmentApi {
   appo_id: string;
   name: string;
@@ -31,13 +23,6 @@ interface PendingAppointmentApi {
   start_time: string;
   end_time: string;
   price: number;
-}
-
-interface PrepayApi {
-  id: string;
-  percent: number;
-  start_date: string;
-  end_date: string;
 }
 
 // ---------- Вспомогательные функции ----------
@@ -62,81 +47,12 @@ const formatAppointment = (app: PendingAppointmentApi): AppointmentToConfirm => 
   confirmed: null,
 });
 
-const formatPrepay = (prepay: PrepayApi): PrepayPeriod => ({
-  id: prepay.id,
-  start: formatDateToDDMM(prepay.start_date),
-  end: formatDateToDDMM(prepay.end_date),
-  percent: `${prepay.percent}%`,
-});
-
-const ddmmToIso = (ddmm: string): string => {
-  if (!ddmm) return "";
-  const [day, month] = ddmm.split(".");
-  const year = new Date().getFullYear();
-  return `${year}-${month}-${day}`;
-};
-
 const getMonthRange = (year: number, monthIndex: number): { start: string; end: string } => {
   const startDate = new Date(year, monthIndex, 1);
   const endDate = new Date(year, monthIndex + 1, 0);
   const start = startDate.toISOString().slice(0, 10);
   const end = endDate.toISOString().slice(0, 10);
   return { start, end };
-};
-
-// ---------- Компонент DatePicker (календарь) ----------
-const DatePicker = ({
-  value,
-  onChange,
-}: {
-  value: string;    // формат "DD.MM"
-  onChange: (v: string) => void;
-}) => {
-  const toInputValue = (ddmm: string): string => {
-    if (!ddmm) return "";
-    const parts = ddmm.split(".");
-    if (parts.length !== 2) return "";
-    const [day, month] = parts;
-    if (!day || !month) return "";
-    if (isNaN(Number(day)) || isNaN(Number(month))) return "";
-    const year = new Date().getFullYear();
-    return `${year}-${month}-${day}`;
-  };
-
-  const fromInputValue = (iso: string): string => {
-    if (!iso) return "";
-    const parts = iso.split("-");
-    if (parts.length !== 3) return "";
-    const [, month, day] = parts;
-    if (!day || !month) return "";
-    return `${day}.${month}`;
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newIso = e.target.value;
-    if (newIso) onChange(fromInputValue(newIso));
-    else onChange("");
-  };
-
-  const inputValue = toInputValue(value);
-
-  return (
-    <div
-      className="bg-[#FFE9EF] rounded-[5px] h-7 flex items-center justify-center w-full"
-      style={{
-        boxShadow:
-          "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-      }}
-    >
-      <input
-        type="date"
-        value={inputValue}
-        onChange={handleChange}
-        className="bg-transparent text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black outline-none text-center w-full px-0 [&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:p-0"
-        style={{ fontFamily: "'Sofia Sans', sans-serif" }}
-      />
-    </div>
-  );
 };
 
 // ---------- Компонент строки подтверждения ----------
@@ -187,14 +103,6 @@ export default function ProfileIncomePage() {
   const [monthAmount, setMonthAmount] = useState(0);
   const [monthNumber, setMonthNumber] = useState(0);
 
-  const [prepayPeriods, setPrepayPeriods] = useState<PrepayPeriod[]>([]);
-  const [newPrepay, setNewPrepay] = useState({ start: "", end: "", percent: "" });
-
-  const [hasCard, setHasCard] = useState(false);
-  const [cardLast4, setCardLast4] = useState("");
-  const [cardInput, setCardInput] = useState("");
-  const [isEditingCard, setIsEditingCard] = useState(false);
-
   const fetchEarningsForRange = async (startDate: string, endDate: string): Promise<{ amount: number; number: number }> => {
     if (!chatId) throw new Error("Нет chat_id");
     const url = `${baseUrl}/master/profile/earnings/range?chat_id=${chatId}&start_date=${startDate}&end_date=${endDate}`;
@@ -226,20 +134,11 @@ export default function ProfileIncomePage() {
     setAppointments(data.pending_appos.map(formatAppointment));
   };
 
-  const loadPrepayments = async () => {
-    if (!chatId) return;
-    const res = await fetch(`${baseUrl}/master/profile/earnings/prepayments?chat_id=${chatId}`);
-    if (!res.ok) throw new Error("Ошибка загрузки предоплат");
-    const data = await res.json();
-    if (data.status !== "success") throw new Error(data.status);
-    setPrepayPeriods(data.prepayments.map(formatPrepay));
-  };
-
   const loadAll = async () => {
     if (!isVerified || !chatId) return;
     try {
       setLoading(true);
-      await Promise.all([loadMonthData(), loadPendingAppointments(), loadPrepayments()]);
+      await Promise.all([loadMonthData(), loadPendingAppointments()]);
       setError(null);
     } catch (err: any) {
       console.error(err);
@@ -301,38 +200,6 @@ export default function ProfileIncomePage() {
       setAppointments(prev => prev.map(app => app.id === id ? { ...app, confirmed: false } : app));
       await loadMonthData();
       toast("Отклонено");
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const addPrepayPeriod = async () => {
-    if (!chatId) return;
-    if (!newPrepay.start || !newPrepay.end || !newPrepay.percent) {
-      toast.warning("Заполните все поля");
-      return;
-    }
-    const percentNum = parseInt(newPrepay.percent, 10);
-    if (isNaN(percentNum)) {
-      toast.warning("Процент должен быть числом");
-      return;
-    }
-    try {
-      const res = await fetch(`${baseUrl}/master/profile/earnings/prepayments/create?chat_id=${chatId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          percent: percentNum,
-          start_date: ddmmToIso(newPrepay.start),
-          end_date: ddmmToIso(newPrepay.end),
-        }),
-      });
-      if (!res.ok) throw new Error("Ошибка создания периода");
-      const data = await res.json();
-      if (data.status !== "success") throw new Error(data.status);
-      await loadPrepayments();
-      setNewPrepay({ start: "", end: "", percent: "" });
-      toast.success("Период установлен");
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -400,52 +267,6 @@ export default function ProfileIncomePage() {
             ))}
             {appointments.length === 0 && <p className="text-center text-black/50">Нет записей, ожидающих подтверждения</p>}
           </div>
-
-          <section className="mt-10">
-            <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black">Установить период<br /> предоплаты</h2>
-            <div className="h-px bg-black w-56 mb-4" />
-            <div className="flex items-center gap-2 mb-1 text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black/100">
-              <div className="flex-1 text-center">начало</div>
-              <div className="flex-1 text-center">конец</div>
-              <div className="flex-1 text-center">процент*</div>
-            </div>
-            {prepayPeriods.map((p) => (
-              <div key={p.id} className="flex items-center gap-2 mb-2">
-                <div className="flex-1 text-center text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">{p.start}</div>
-                <div className="flex-1 text-center text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">{p.end}</div>
-                <div className="flex-1 text-center text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">{p.percent}</div>
-              </div>
-            ))}
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex-1"><DatePicker value={newPrepay.start} onChange={(v) => setNewPrepay(p => ({ ...p, start: v }))} /></div>
-              <div className="flex-1"><DatePicker value={newPrepay.end} onChange={(v) => setNewPrepay(p => ({ ...p, end: v }))} /></div>
-              <div className="flex-1">
-                <input type="number" placeholder="%" value={newPrepay.percent} onChange={(e) => setNewPrepay(p => ({ ...p, percent: e.target.value }))} className="w-full bg-[#FFE9EF] rounded-[5px] h-7 text-[12px] font-['Sofia_Sans'] text-black outline-none text-center shadow" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }} />
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-2 mt-4">
-              <p className="text-[8px] font-['Sofia_Sans'] text-black/50 max-w-[200px] flex-shrink-0 leading-tight">*процент от стоимости услуги. headband берет 100руб за каждый день из периода предоплаты.</p>
-              <button onClick={addPrepayPeriod} className="bg-[#FFE9EF] rounded-[10px] py-2.5 px-3 shadow-sm text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black flex-shrink-0" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>Установить период</button>
-            </div>
-
-            <div className="flex items-center gap-2 mt-10 bg-[#FFE9EF] p-3 rounded-[10px] shadow" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
-              <div className="w-6 h-5 flex-shrink-0"><img src={cardIcon} alt="card" className="w-full h-full object-contain" /></div>
-              {hasCard && !isEditingCard ? (
-                <>
-                  <span className="text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black">**** **** **** {cardLast4}</span>
-                  <span className="text-[8px] font-['Sofia_Sans'] text-black/50 flex-1">Ваши данные попадают напрямую в защищённое облако платёжной системы (ЮKassa).</span>
-                  <button onClick={() => { setIsEditingCard(true); setCardInput(""); }} className="ml-auto w-6 h-6 flex items-center justify-center text-black/50 hover:text-black">
-                    <img src={cardIcon} alt="edit" className="w-4 h-4" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <input type="text" inputMode="numeric" placeholder="Введите номер карты" value={cardInput} onChange={(e) => { const raw = e.target.value.replace(/\s/g, ""); const formatted = raw.replace(/(\d{4})(?=\d)/g, "$1 "); setCardInput(formatted); }} onKeyDown={(e) => { if (e.key === "Enter" && cardInput.replace(/\s/g, "").length >= 4) { setCardLast4(cardInput.replace(/\s/g, "").slice(-4)); setHasCard(true); setIsEditingCard(false); } }} className="flex-1 bg-transparent text-sm font-['Sofia_Sans'] text-black outline-none placeholder-black/30" maxLength={19} />
-                  <button onClick={() => { if (cardInput.replace(/\s/g, "").length >= 4) { setCardLast4(cardInput.replace(/\s/g, "").slice(-4)); setHasCard(true); setIsEditingCard(false); } }} className="w-5 h-5 flex items-center justify-center"><Check className="w-4 h-4 text-black" /></button>
-                </>
-              )}
-            </div>
-          </section>
         </section>
       </div>
     </div>

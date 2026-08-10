@@ -177,7 +177,7 @@ async def delete_earning(
         raise HTTPException(status_code=404, detail=status)
     return {"status": status}
 
-@router.get("/prepayments", response_model=PrepayListResponse)
+"""@router.get("/prepayments", response_model=PrepayListResponse)
 async def get_master_prepayments(
     chat_id: int,
     session: AsyncSession = Depends(get_db_session)
@@ -242,9 +242,7 @@ async def delete_prepayment(
         raise HTTPException(status_code=404, detail=status)
     return {"status": status}
 
-
-#TODO сделать интеграцию юкассы позже. Ввжно
-"""@router.post("/card/create", response_model=IDResponse)
+@router.post("/card/create", response_model=IDResponse)
 async def create_card(
     request: CreateCardRequest,
     session: AsyncSession = Depends(get_db_session)

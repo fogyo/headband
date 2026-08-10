@@ -13,7 +13,6 @@ from backend.database.responses import StatusResponse
 class MasterUpdateRequest(BaseModel):
     chat_id_tg: int
     full_name: Optional[str] = None
-    phone: Optional[str] = None
     description: Optional[str] = None
     avatar: Optional[str] = None
 
@@ -22,7 +21,6 @@ class MasterUpdateRequest(BaseModel):
 class ProfileResponse(StatusResponse):
     full_name: str
     tg: str
-    phone: Optional[str] = "Пока не задан"
     description: Optional[str] = "Пока не задано"
     avatar: str
     tg_users: str
@@ -53,7 +51,6 @@ async def get_personal(
     resp = {"status": "success",
             "full_name":  master.full_name,
             "tg": master.username_tg,
-            "phone": master.phone,
             "description": master.description,
             "avatar": f"{s3_domain}{master.avatar}" if master.avatar else "",
             "tg_users": user_link,

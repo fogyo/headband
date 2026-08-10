@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Shield } from "lucide-react"; // иконка для админки
+import { Shield } from "lucide-react";
 import homeIconUrl from "@/assets/home.svg";
 import arrowForwardIcon from "@/assets/arrow_forward.svg";
 import accountCircleIcon from "@/assets/account_circle.svg";
@@ -21,8 +21,7 @@ interface ProfileResponse {
   status: string;
   name: string | null;
   tg: string;
-  phone: string | null;
-  moderator: boolean; // заменили ambassador на moderator
+  moderator: boolean;
   avatar: string;
 }
 
@@ -35,7 +34,6 @@ function isValidUrl(string) {
   }
 }
 
-// Оригинальный MenuRow (без изменений)
 function MenuRow({
   icon,
   label,
@@ -56,11 +54,7 @@ function MenuRow({
       <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
         {label}
       </span>
-      <img
-        src={arrowForwardIcon}
-        alt=">"
-        className="relative z-10 w-6 h-6"
-      />
+      <img src={arrowForwardIcon} alt=">" className="relative z-10 w-6 h-6" />
     </div>
   );
 
@@ -74,7 +68,6 @@ function MenuRow({
   );
 }
 
-// Новый компонент для админской кнопки – стили идентичны MenuRow, но иконка передаётся как React-компонент
 function AdminMenuRow({
   icon: Icon,
   label,
@@ -95,11 +88,7 @@ function AdminMenuRow({
       <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
         {label}
       </span>
-      <img
-        src={arrowForwardIcon}
-        alt=">"
-        className="relative z-10 w-6 h-6"
-      />
+      <img src={arrowForwardIcon} alt=">" className="relative z-10 w-6 h-6" />
     </div>
   );
 
@@ -226,7 +215,6 @@ export default function ProfilePage() {
 
   const fullName = profile.name || "Имя не указано";
   const telegram = profile.tg ? (profile.tg.startsWith("tg:") ? profile.tg : `tg: ${profile.tg}`) : "tg: не указан";
-  const phone = profile.phone ? `+${profile.phone}` : "+7 (___) ___-__-__";
   const avatarUrl = (profile.avatar && isValidUrl(profile.avatar)) 
     ? profile.avatar 
     : baseManAvatar;
@@ -245,19 +233,13 @@ export default function ProfilePage() {
         <div className="pt-8 pb-2">
           <h1
             className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
-            style={{
-              fontFamily: "Poppins, sans-serif",
-              WebkitTextStroke: "1px #000",
-            }}
+            style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}
           >
             profile
           </h1>
           <p
             className="text-right text-[16px] tracking-[1.28px] text-transparent mt-[-4px]"
-            style={{
-              fontFamily: "Poppins, sans-serif",
-              WebkitTextStroke: "0.4px #000",
-            }}
+            style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "0.4px #000" }}
           >
             version for masters
           </p>
@@ -284,9 +266,6 @@ export default function ProfilePage() {
               </span>
               <span className="text-[13px] tracking-[-0.6px] font-['Sofia_Sans'] text-black/50">
                 {telegram}
-              </span>
-              <span className="text-[13px] tracking-[-0.6px] font-['Sofia_Sans'] text-black/50">
-                {phone}
               </span>
             </div>
           </div>
@@ -345,7 +324,6 @@ export default function ProfilePage() {
               label="Оставить отзыв о headband"
               to="/feedback"
             />
-            {/* Админская панель – появляется только если moderator === true */}
             {profile.moderator && (
               <AdminMenuRow
                 icon={Shield}
@@ -357,7 +335,6 @@ export default function ProfilePage() {
         </section>
       </div>
 
-      {/* Модальное окно поддержки – без изменений */}
       {isSupportModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">

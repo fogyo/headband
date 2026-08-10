@@ -54,8 +54,9 @@ async def get_possible_start_time(
         master_id=master_id,
         day_date=app_date
     )
-
+    working_day_to_delete = False
     if not working_day:
+        working_day_to_delete = True
         # Создаём working_day из template если нет
         working_day_data = {
             "master_id": master_id,
@@ -106,7 +107,8 @@ async def get_possible_start_time(
             for j in range(k+1):
                 slot_minutes = (_time_to_timedelta(end_times[i]) + timedelta(minutes=(ten_minutes * j)))
                 possible_starts.append(_timedelta_to_time(slot_minutes))
-
+    if working_day_to_delete:
+        status = await WorkingDayModel.delete(session=session, wd_id=working_day_id)
     if not possible_starts:
         return [], "no time for app", ""
 

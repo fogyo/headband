@@ -10,7 +10,6 @@ from backend.database.responses import StatusResponse
 class BaseProfileResponse(StatusResponse):
     name: str | None
     tg: str
-    phone: str | None
     moderator: bool
     avatar: str
 
@@ -34,7 +33,6 @@ async def get_profile(
     return {"status": "success",
             "name":  master.full_name,
             "tg": master.username_tg,
-            "phone": master.phone,
             "moderator": admin_check,
             "avatar": f"{s3_domain}{master.avatar}" if master.avatar else ""}
 
