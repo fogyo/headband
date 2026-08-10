@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import List, Optional
 
@@ -75,6 +76,7 @@ async def get_master_info_for_user(master_id: uuid.UUID,
     portfolio = await miniapp_db_fcn.get_works_by_master(master_id=master_id, session=session)
     if len(portfolio)==0:
         portfolio_availability = False
+    logging.info(f"PORTFOLIO_AVAILABILITY: {portfolio_availability}")
     return {"status": "success",
             "name": master.full_name,
             "avatar": f"{s3_domain}{master.avatar}",
