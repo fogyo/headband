@@ -1,7 +1,7 @@
 import shutil
 import uuid
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ class WorkFileResp(WorkFile):
     id: uuid.UUID
 
 class WorkFilesResponse(StatusResponse):
-    files: List[WorkFileResp]
+    files: Optional[List[WorkFileResp]] = None
 
 #API
 router = APIRouter(
