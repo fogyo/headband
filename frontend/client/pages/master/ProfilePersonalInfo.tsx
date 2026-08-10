@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import backIcon from "@/assets/back_icon.svg";
+import telegramIcon from "@/assets/telegram_icon.png";
 import { Copy, Pencil, X } from "lucide-react";
 import { useTelegramAuth } from "@/App";
 
