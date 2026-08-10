@@ -18,3 +18,6 @@ async def get_by_master_and_name(master_id: uuid.UUID, name: str, session: Async
 
 async def get_works_by_id(image_id: uuid.UUID, session: AsyncSession):
     return await WorkFilesModel.get_by_id(session=session, file_id=image_id)
+
+async def delete_file_from_works(file_id: uuid.UUID, session: AsyncSession):
+    return await WorkFilesModel.delete(session=session, file_id=file_id)

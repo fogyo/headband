@@ -14,6 +14,7 @@ import supportIcon from "@/assets/support.svg";
 import feedbackIcon from "@/assets/feedback.svg";
 import baseManAvatar from "@/assets/base_man_avatar.png";
 import { useTelegramAuth } from "@/App";
+import portfolioIcon from "@/assets/portfolio.svg";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -295,6 +296,11 @@ export default function ProfilePage() {
               icon={guidesIcon}
               label="Гайды"
               to="/profile/guides"
+            />
+            <MenuRow
+              icon={portfolioIcon}
+              label="Портфолио"
+              to="/profile/portfolio"
             />
             <MenuRow
               icon={notificationsIcon}
