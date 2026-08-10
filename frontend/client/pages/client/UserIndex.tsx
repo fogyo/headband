@@ -94,6 +94,33 @@ function getGreeting(): string {
   return "good night";
 }
 
+function IconMenuRow({
+  icon: Icon,
+  label,
+  to = "#",
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  to?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <div
+      className="relative flex items-center gap-3 px-4 py-3 rounded-[10px] bg-[#FFE9EF] shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)] mx-[-8px]"
+      style={{ border: "0.5px solid rgba(0,0,0,0.00)" }}
+    >
+      <Icon className="relative z-10 w-6 h-6 text-black" />
+      <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
+        {label}
+      </span>
+      <img src={arrowForwardIcon} alt=">" className="relative z-10 w-6 h-6" />
+    </div>
+  );
+  if (to !== "#") return <Link to={to}>{content}</Link>;
+  return <button onClick={onClick} className="w-full text-left">{content}</button>;
+}
+
 // Компонент строки меню (скопирован из ProfilePage)
 function MenuRow({
   icon,
@@ -552,7 +579,7 @@ export default function UserIndexPage() {
               label="Написать в поддержку"
               onClick={openSupportModal}
             />
-            <MenuRow
+            <IconMenuRow
               icon={Flag}
               label="Сообщить о мастере"
               onClick={openComplainModal}
