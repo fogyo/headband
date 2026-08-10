@@ -655,6 +655,59 @@ async def activate_subscription(callback: types.CallbackQuery, state: FSMContext
             await session.commit()
     await callback.answer()
 
+@dp.callback_query(F.data.startswith("activate_confirm_"))
+async def activate_confirm(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка выбора уровня подписки для активации"""
+    level_str = callback.data.split("_")[2]  # "base" или "partner"
+    level_code = 1 if level_str == "base" else 2
+
+    user_data = await state.get_data()
+    role = user_data.get("role")
+    if role != "master":
+        await callback.answer("Только для мастеров", show_alert=True)
+        return
+
+    chat_id = callback.from_user.id
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            master = await miniapp_db_fcn.get_master_by_chat(chat_id, session)
+            if not master:
+                await callback.message.edit_text(
+                    "❌ Вы не зарегистрированы как мастер.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+
+            # Проверка наличия неиспользованной подписки выбранного уровня
+            sub_bank = await miniapp_db_fcn.get_unused_subs(master_id=master.id, session=session)
+            if level_str == "base":
+                if sub_bank["base_sub"] <= 0:
+                    await callback.answer("Нет доступных базовых подписок для активации", show_alert=True)
+                    return
+            else:  # partner
+                if sub_bank["partner_sub"] <= 0:
+                    await callback.answer("Нет доступных партнёрских подписок для активации", show_alert=True)
+                    return
+
+            # Вызов метода активации (ты реализуешь его в miniapp_db_fcn)
+            success = await miniapp_db_fcn.create_subscription(master_id=master.id, duration_days=3, level=level_code, session=session)
+            if not success:
+                await callback.message.edit_text(
+                    "❌ Не удалось активировать подписку. Попробуйте позже.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+
+            await session.commit()
+
+    await callback.message.edit_text(
+        f"✅ Подписка уровня '{level_str}' успешно активирована!",
+        reply_markup=get_payments_keyboard()
+    )
+    await callback.answer()
+
 #------------BOT TOKEN COMMANDS------------
 
 @dp.callback_query(F.data == "tokens_menu")
