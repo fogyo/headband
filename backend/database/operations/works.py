@@ -10,7 +10,7 @@ async def create_workfile(filepath: str, master_id: uuid.UUID, name: str, sessio
                                              "name": name,
                                              "filepath": filepath}, session=session)
 
-async def get_by_master(master_id: uuid.UUID, session: AsyncSession):
+async def get_works_by_master(master_id: uuid.UUID, session: AsyncSession):
     return await WorkFilesModel.get_by_master_id(master_id=master_id, session=session)
 
 async def get_by_master_and_name(master_id: uuid.UUID, name: str, session: AsyncSession):

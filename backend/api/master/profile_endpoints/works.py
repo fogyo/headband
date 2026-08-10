@@ -50,7 +50,7 @@ async def get_images(
         session: AsyncSession = Depends(get_db_session)
         ):
     master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session) 
-    files = await miniapp_db_fcn.get_by_master(master_id=master.id, session=session)
+    files = await miniapp_db_fcn.get_works_by_master(master_id=master.id, session=session)
     resp = []
     for f in files:
         resp.append({"id": f.id,
