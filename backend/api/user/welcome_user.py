@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
 from backend.telegram_bot.bot_main import bot
-
+from backend.database.obj_storage import s3_domain
 
 class Appointment(BaseModel):
     appointment_id: uuid.UUID
@@ -24,6 +24,18 @@ class Appointment(BaseModel):
 class AppointmentListResponse(StatusResponse):
     appointments: List[Appointment]
 
+class Master(BaseModel):
+    id: uuid.UUID
+    name: str
+    avatar: str
+
+class PreviousMasters(StatusResponse):
+    masters: List[Master]
+
+class ComplainRequest(BaseModel):
+    master_id: uuid.UUID
+    text: str
+    
 router = APIRouter(
     prefix="/users/welcome",
     tags=["User.Welcome"]
@@ -47,3 +59,27 @@ async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession = 
         await bot.send_message(chat_id=master.chat_id_tg,
                                text=f"❌ Отмена записи на {appointment.date} c {appointment.start_time} до {appointment.end_time}")
     return {"status": status}
+
+@router.get("/previous_masters", response_model=PreviousMasters)
+async def get_previous_masters(chat_id: int, session: AsyncSession = Depends(get_db_session)):
+    user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
+    prev_masters = await miniapp_db_fcn.get_previous_masters(user_id=user_id, session=session)
+    prev_masters = list(set(prev_masters))
+    resp = []
+    for master_id in prev_masters:
+        master = await miniapp_db_fcn.get_master(master_id=master_id, session=session)
+        resp.append({"id": master_id,
+                     "name": master.full_name,
+                     "avatar": f"{s3_domain}{master.avatar}"})
+    return {"status": "success",
+            "masters": resp}
+
+@router.post("/master_complaint", response_model=StatusResponse)
+async def complain_about_master(chat_id: int,
+                                request: ComplainRequest, 
+                                session: AsyncSession = Depends(get_db_session)):
+    master = await miniapp_db_fcn.get_master(master_id=request.master_id, session=session)
+    complaint_text = f"Жалоба на мастера\nid: {master.id}\ntg: {master.username_tg}\n\n{request.text}"
+    req_id = await miniapp_db_fcn.create_support_request(chat_id=chat_id, text=complaint_text, session=session)
+    await bot.send_message(chat_id=980609742, text=f"{complaint_text} \nID пользователя: {chat_id}\nID проблемы: {req_id}")
+    return {"status": "success"}

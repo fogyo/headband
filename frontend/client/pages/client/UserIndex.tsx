@@ -24,6 +24,10 @@ import creamImg from "@/assets/cream_cat.png";
 import barberImg from "@/assets/scissors_cat.png";
 import { Link } from "react-router-dom";
 import { useTelegramAuth } from "@/App";
+import arrowForwardIcon from "@/assets/arrow_forward.svg";
+import supportIcon from "@/assets/support.svg";
+import feedbackIcon from "@/assets/feedback.svg";
+import { X } from "lucide-react";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -81,21 +85,48 @@ const mapApiToAppointment = (api: AppointmentApi): Appointment => ({
   parentalCategory: api.parental_category,
 });
 
-/**
- * Возвращает приветствие в зависимости от текущего времени.
- * morning:  06:01 – 12:00
- * afternoon: 12:01 – 19:00
- * evening:  19:01 – 22:00
- * night:    22:01 – 06:00
- */
 function getGreeting(): string {
   const now = new Date();
   const totalMinutes = now.getHours() * 60 + now.getMinutes();
-
   if (totalMinutes >= 361 && totalMinutes <= 720) return "good morning";
   if (totalMinutes >= 721 && totalMinutes <= 1140) return "good day";
   if (totalMinutes >= 1141 && totalMinutes <= 1320) return "good evening";
   return "good night";
+}
+
+// Компонент строки меню (скопирован из ProfilePage)
+function MenuRow({
+  icon,
+  label,
+  to = "#",
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  to?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <div
+      className="relative flex items-center gap-3 px-4 py-3 rounded-[10px] bg-[#FFE9EF] shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)] mx-[-8px]"
+      style={{ border: "0.5px solid rgba(0,0,0,0.00)" }}
+    >
+      <img src={icon} alt="" className="relative z-10 w-6 h-6" />
+      <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
+        {label}
+      </span>
+      <img src={arrowForwardIcon} alt=">" className="relative z-10 w-6 h-6" />
+    </div>
+  );
+
+  if (to !== "#") {
+    return <Link to={to}>{content}</Link>;
+  }
+  return (
+    <button onClick={onClick} className="w-full text-left">
+      {content}
+    </button>
+  );
 }
 
 function UserAppointments() {
@@ -327,6 +358,123 @@ const categories = [
 
 export default function UserIndexPage() {
   const greeting = getGreeting();
+  const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
+
+  // Состояния для модалки "Написать в поддержку"
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [supportComment, setSupportComment] = useState("");
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+
+  // Состояния для модалки "Сообщить о мастере"
+  const [isComplainModalOpen, setIsComplainModalOpen] = useState(false);
+  const [complaintStep, setComplaintStep] = useState<"select" | "text">("select");
+  const [masters, setMasters] = useState<{ id: string; name: string; avatar: string }[]>([]);
+  const [selectedMasterId, setSelectedMasterId] = useState<string | null>(null);
+  const [complaintText, setComplaintText] = useState("");
+  const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
+  const [loadingMasters, setLoadingMasters] = useState(false);
+
+  // Открытие модалки поддержки
+  const openSupportModal = () => {
+    setSupportComment("");
+    setIsSupportModalOpen(true);
+  };
+  const closeSupportModal = () => {
+    setIsSupportModalOpen(false);
+    setSupportComment("");
+  };
+  const handleSupportSubmit = async () => {
+    if (!chatId) {
+      toast.error("Ошибка: не найден chat_id");
+      return;
+    }
+    if (!supportComment.trim()) {
+      toast.error("Введите сообщение");
+      return;
+    }
+    setIsSubmittingSupport(true);
+    try {
+      const response = await fetch(`${baseUrl}/admins/communication?chat_id=${chatId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: supportComment.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.status !== "success") {
+        throw new Error(data.status || "Ошибка отправки");
+      }
+      toast.success("Сообщение отправлено в поддержку");
+      closeSupportModal();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Не удалось отправить сообщение");
+    } finally {
+      setIsSubmittingSupport(false);
+    }
+  };
+
+  // Открытие модалки жалобы
+  const openComplainModal = async () => {
+    setIsComplainModalOpen(true);
+    setComplaintStep("select");
+    setSelectedMasterId(null);
+    setComplaintText("");
+    setLoadingMasters(true);
+    try {
+      const res = await fetch(`${baseUrl}/users/welcome/previous_masters?chat_id=${chatId}`);
+      if (!res.ok) throw new Error("Ошибка загрузки мастеров");
+      const data = await res.json();
+      if (data.status === "success") {
+        setMasters(data.masters || []);
+      } else {
+        throw new Error(data.status);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Не удалось загрузить список мастеров");
+    } finally {
+      setLoadingMasters(false);
+    }
+  };
+  const closeComplainModal = () => {
+    setIsComplainModalOpen(false);
+    setComplaintStep("select");
+    setSelectedMasterId(null);
+    setComplaintText("");
+  };
+  const selectMaster = (masterId: string) => {
+    setSelectedMasterId(masterId);
+    setComplaintStep("text");
+  };
+  const handleComplaintSubmit = async () => {
+    if (!chatId || !selectedMasterId) {
+      toast.error("Ошибка: данные не полные");
+      return;
+    }
+    if (!complaintText.trim()) {
+      toast.error("Опишите причину жалобы");
+      return;
+    }
+    setIsSubmittingComplaint(true);
+    try {
+      const res = await fetch(`${baseUrl}/users/welcome/master_complaint?chat_id=${chatId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ master_id: selectedMasterId, text: complaintText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "success") {
+        throw new Error(data.status || "Ошибка отправки");
+      }
+      toast.success("Жалоба отправлена");
+      closeComplainModal();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Не удалось отправить жалобу");
+    } finally {
+      setIsSubmittingComplaint(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
@@ -387,7 +535,144 @@ export default function UserIndexPage() {
           </div>
           <HeadbeautyAICard />
         </section>
+
+        {/* Новая секция "Коммуникация" */}
+        <section className="mt-10">
+          <h2
+            className="text-[30px] leading-tight tracking-[-1.5px] text-black font-['Sofia_Sans']"
+            style={{ fontFamily: "'Sofia Sans', sans-serif" }}
+          >
+            Коммуникация
+          </h2>
+          <div className="h-px bg-black w-36 mb-4" />
+
+          <div className="flex flex-col gap-2">
+            <MenuRow
+              icon={supportIcon}
+              label="Написать в поддержку"
+              onClick={openSupportModal}
+            />
+            <MenuRow
+              icon={feedbackIcon}
+              label="Сообщить о мастере"
+              onClick={openComplainModal}
+            />
+          </div>
+        </section>
       </div>
+
+      {/* Модальное окно "Написать в поддержку" (скопировано из ProfilePage) */}
+      {isSupportModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[24px] font-semibold text-black">Написать в поддержку</h3>
+              <button onClick={closeSupportModal} className="text-black/50 hover:text-black">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-[14px] font-['Sofia_Sans'] text-black resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
+              rows={4}
+              placeholder="Опишите вашу проблему или вопрос..."
+              value={supportComment}
+              onChange={(e) => setSupportComment(e.target.value)}
+            />
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeSupportModal}
+                className="px-4 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSupportSubmit}
+                disabled={isSubmittingSupport}
+                className="px-4 py-2 bg-[#FA4F96] text-white rounded-lg text-[14px] font-medium hover:bg-[#e8447e] disabled:opacity-50"
+              >
+                {isSubmittingSupport ? "Отправка..." : "Отправить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно "Сообщить о мастере" */}
+      {isComplainModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[24px] font-semibold text-black">
+                {complaintStep === "select" ? "Выберите мастера" : "Опишите жалобу"}
+              </h3>
+              <button onClick={closeComplainModal} className="text-black/50 hover:text-black">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {complaintStep === "select" && (
+              <>
+                {loadingMasters ? (
+                  <div className="flex justify-center py-4">
+                    <img src={loadingSpinner} alt="Загрузка..." className="w-8 h-8" />
+                  </div>
+                ) : masters.length === 0 ? (
+                  <p className="text-center text-black/50 py-4">У вас пока нет предыдущих мастеров</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {masters.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => selectMaster(m.id)}
+                        className="flex items-center gap-3 px-4 py-3 bg-[#FFE9EF] rounded-[10px] shadow-sm hover:shadow-md transition-shadow w-full text-left"
+                        style={{
+                          border: "0.5px solid rgba(0,0,0,0.00)",
+                          boxShadow:
+                            "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09), 20px 22px 18px rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        <img
+                          src={m.avatar || "https://placehold.co/40x40"}
+                          alt={m.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                        <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">{m.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {complaintStep === "text" && (
+              <>
+                <textarea
+                  className="w-full border border-gray-300 rounded-lg p-3 text-[14px] font-['Sofia_Sans'] text-black resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
+                  rows={4}
+                  placeholder="Опишите причину жалобы на мастера..."
+                  value={complaintText}
+                  onChange={(e) => setComplaintText(e.target.value)}
+                />
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => setComplaintStep("select")}
+                    className="px-4 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800"
+                  >
+                    Назад
+                  </button>
+                  <button
+                    onClick={handleComplaintSubmit}
+                    disabled={isSubmittingComplaint}
+                    className="px-4 py-2 bg-[#FA4F96] text-white rounded-lg text-[14px] font-medium hover:bg-[#e8447e] disabled:opacity-50"
+                  >
+                    {isSubmittingComplaint ? "Отправка..." : "Отправить"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

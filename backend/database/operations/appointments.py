@@ -208,6 +208,23 @@ async def get_appointments_by_user(
 
     return response_list
 
+async def get_previous_masters(
+        user_id: uuid.UUID,
+        session: AsyncSession
+):
+    """Получение записей пользователя"""
+
+    appointments = await AppointmentModel.get_by_user_id(
+        session=session,
+        user_id=user_id
+    )
+
+    response_list = []
+    for a in appointments:
+        response_list.append(a.master_id)
+
+    return response_list
+
 async def create_appointment(
         appointment_dict: dict ,
         session: AsyncSession
