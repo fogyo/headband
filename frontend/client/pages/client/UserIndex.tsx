@@ -27,7 +27,7 @@ import { useTelegramAuth } from "@/App";
 import arrowForwardIcon from "@/assets/arrow_forward.svg";
 import supportIcon from "@/assets/support.svg";
 import feedbackIcon from "@/assets/feedback.svg";
-import { X } from "lucide-react";
+import { X,  Flag} from "lucide-react";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -553,7 +553,7 @@ export default function UserIndexPage() {
               onClick={openSupportModal}
             />
             <MenuRow
-              icon={feedbackIcon}
+              icon={Flag}
               label="Сообщить о мастере"
               onClick={openComplainModal}
             />
