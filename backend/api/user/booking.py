@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from datetime import time, date
@@ -26,7 +26,7 @@ class AppointmentCreateRequest(BaseModel):
 
 class BookingPageResponse(StatusResponse):
     possible_time: List[time]
-    address: str
+    address: Optional[str] = "-"
     parental_category: str
 
 

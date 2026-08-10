@@ -22,12 +22,12 @@ async def get_possible_start_time(
 
     master = await MasterModel.get_by_id(session=session, master_id=master_id)
     if not master:
-        return [], None, "master not found"
+        return [], "Мастер не найден", None
     today = date.today()
     is_sub = await SubscriptionModel.is_active(master_id=master_id, session=session, day=today)
 
     if not is_sub:
-        return [], None, "master not sub"
+        return [], "У мастера нет активной подписки", None
 
     is_absent = await MasterAbsenceModel.is_absent(
         session=session,
@@ -35,7 +35,7 @@ async def get_possible_start_time(
         check_date=app_date
     )
     if is_absent:
-        return [], None, "master is absent"
+        return [], "Мастер не сможет Вас принять в этот день", None
 
     weekday = app_date.isoweekday()
 
@@ -46,7 +46,7 @@ async def get_possible_start_time(
     )
 
     if not week_template:
-        return [], None, "day off"
+        return [], "Мастер не сможет Вас принять в этот день", None
 
     # Получаем working_day для этой даты
     working_day = await WorkingDayModel.get_by_master_and_date(
