@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,8 @@ from backend.database import MasterModel, SubscriptionModel, UserModel, WeekTemp
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
     _get_week_dates
 from backend.telegram_bot.bot_main import bot
+
+tz_offset = timezone(timedelta(hours=3))
 
 async def get_possible_start_time(
         master_id: uuid.UUID,
@@ -85,8 +87,8 @@ async def get_possible_start_time(
         base = datetime.combine(datetime.today(), t)
         return (base + timedelta(minutes=diff)).time()
 
-    if app_date == today and datetime.now().time()>working_day.start_time:
-        day_start = next_time_rounded_to_10_minutes(datetime.now().time())
+    if app_date == today and datetime.now(tz_offset).time()>working_day.start_time:
+        day_start = next_time_rounded_to_10_minutes(datetime.now(tz_offset).time())
     else:
         day_start = working_day.start_time  # time
     day_end = working_day.end_time  # time
