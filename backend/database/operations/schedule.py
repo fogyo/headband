@@ -158,7 +158,14 @@ async def delete_day(id: uuid.UUID, weekday: int, session: AsyncSession):
 async def get_day(master_id: uuid.UUID, day: date, session: AsyncSession):
     resp = await WorkingDayModel.get_by_master_and_date(master_id=master_id, day_date=day, session=session)
     if resp is None:
-        resp = await WeekTemplateModel.get_by_master_and_weekday(master_id=master_id, weekday=day.weekday(), session=session)
+        temp = await WeekTemplateModel.get_by_master_and_weekday(master_id=master_id, weekday=day.weekday(), session=session)
+        data_to_create = {"master_id": master_id,
+                          "day_date": day,
+                          "start_time": temp.start_time,
+                          "end_time": temp.end_time,
+                          "address_id": temp.address_id}
+        wd_id = await WorkingDayModel.create(master_id=master_id, data=data_to_create, session=session)
+        resp = await WorkingDayModel.get_by_id(session=session, id=wd_id)
     return resp
 
 async def update_working_day(
