@@ -757,6 +757,12 @@ class MasterAbsenceModel(Base):
         query = select(cls).where(cls.master_id == master_id)
         result = await session.execute(query)
         return result.scalars().all()
+    
+    @classmethod
+    async def get_reason(cls, session: AsyncSession, master_id: uuid.UUID, day: date):
+        query = select(cls.reason).where(and_(cls.master_id == master_id, cls.start_date<=day, cls.end_date>=day))
+        result = await session.execute(query)
+        return result.scalars().first()
 
     @classmethod
     async def delete(cls, session: AsyncSession, absence_id: uuid.UUID) -> str:

@@ -37,7 +37,8 @@ async def get_possible_start_time(
         check_date=app_date
     )
     if is_absent:
-        return [], "Мастер не сможет Вас принять в этот день", None
+        reason = await MasterAbsenceModel.get_reason(master_id=master_id, day=app_date, session=session)
+        return [], f"Мастер не сможет Вас принять в этот день ({reason})", None
 
     weekday = app_date.isoweekday()
 
@@ -48,7 +49,7 @@ async def get_possible_start_time(
     )
 
     if not week_template:
-        return [], "Мастер не сможет Вас принять в этот день", None
+        return [], "Мастер не сможет Вас принять в этот день (Выходной)", None
 
     # Получаем working_day для этой даты
     working_day = await WorkingDayModel.get_by_master_and_date(
@@ -123,7 +124,7 @@ async def get_possible_start_time(
     if working_day_to_delete:
         status = await WorkingDayModel.delete(session=session, wd_id=working_day_id)
     if not possible_starts:
-        return [], "no time for app", ""
+        return [], "Нет свободных мест на этот день", ""
 
     return possible_starts, "success", address_name
 

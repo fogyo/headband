@@ -105,7 +105,7 @@ async def get_master_by_metro(city_id: uuid.UUID,
                               session: AsyncSession = Depends(get_db_session)):
     
     async def add_or_create(metro: dict, resp: List, address_numerator: List, address_id: uuid.UUID):
-        if metro["distance"]<5000:
+        if metro["distance"]<15000:
             if metro["name"] in address_numerator:
                 index = address_numerator.index(metro["name"])
                 resp[index]["addresses"].append(address_id)
