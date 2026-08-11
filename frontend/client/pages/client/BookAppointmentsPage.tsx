@@ -33,7 +33,7 @@ const categoryImages: Record<string, string> = {
 };
 
 const today = startOfDay(new Date());
-const startDate = addDays(today, 1);
+const startDate = today;
 const days: { date: Date; label: string; key: string }[] = Array.from({ length: 365 }, (_, i) => {
   const date = addDays(startDate, i);
   return { date, label: format(date, "dd.MM"), key: format(date, "yyyy-MM-dd") };

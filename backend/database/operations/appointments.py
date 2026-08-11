@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,8 +76,10 @@ async def get_possible_start_time(
         master_id=master_id,
         app_date=app_date
     )
-
-    day_start = working_day.start_time  # time
+    if app_date == today and datetime.now().time()>working_day.start_time:
+        day_start = datetime.now().time()
+    else:
+        day_start = working_day.start_time  # time
     day_end = working_day.end_time  # time
 
     end_times = [day_start] #List[time]
