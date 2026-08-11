@@ -24,7 +24,7 @@ class IDResponse(StatusResponse):
     id: uuid.UUID
 
 class Chat(StatusResponse):
-    messages = Optional[List[MessageInChat]] = None
+    messages: Optional[List[MessageInChat]] = None
 
 #Responses
 class AppointmentResponse(BaseModel):
