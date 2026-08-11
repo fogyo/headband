@@ -62,5 +62,5 @@ async def create_appointment(chat_id: int,
     status = await miniapp_db_fcn.create_appointment(appointment_dict=create_data, session=session)
     status, notification = await miniapp_db_fcn.get_master_notification(master_id=price.master_id, session=session)
     if notification["appointment_notification"]:
-        await bot.send_message(chat_id=master.chat_id_tg, text=f"✅ Новая запись на {request.day} c {request.start_time} до {end_time}")
+        await bot.send_message(chat_id=master.chat_id_tg, text=f"✅ Новая запись на {request.day} c {request.start_time.strftime("%H:%M")} до {end_time.strftime("%H:%M")}")
     return {"status": status}
