@@ -99,7 +99,7 @@ async def get_master_by_city(parental_category: str, session: AsyncSession = Dep
     return {"status": "success",
             "partner_by_city": resp}
 
-@router.get("/partner_masters_amount_by_metro", response_model=PartnerMetroResponse)
+@router.post("/partner_masters_amount_by_metro", response_model=PartnerMetroResponse)
 async def get_master_by_metro(city_id: uuid.UUID, 
                               request: AddressListRequest,
                               session: AsyncSession = Depends(get_db_session)):
@@ -130,7 +130,7 @@ async def get_master_by_metro(city_id: uuid.UUID,
     return {"status": "success",
             "partner_by_metro": resp}     
 
-@router.get("/partner_masters_by_station", response_model=MasterPageResponse)
+@router.post("/partner_masters_by_station", response_model=MasterPageResponse)
 async def get_partner_near_concrete_station(request: AddressListRequest,
                                             session: AsyncSession = Depends(get_db_session)):
     addresses = request.addresses
