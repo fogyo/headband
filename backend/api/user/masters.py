@@ -136,7 +136,8 @@ async def get_partner_near_concrete_station(request: AddressListRequest,
     addresses = request.addresses
     master_ids = []
     for address in addresses:
-        master_ids.append(address.master_id)
+        addr = await miniapp_db_fcn.get_address_by_id(id=address, session=session)
+        master_ids.append(addr.master_id)
     master_ids = list(set(master_ids))
     resp = []
     for master_id in master_ids:
