@@ -76,8 +76,17 @@ async def get_possible_start_time(
         master_id=master_id,
         app_date=app_date
     )
+
+    def next_time_rounded_to_10_minutes(t: time) -> time:
+        mins = t.minute
+        if mins % 10 == 0:
+            return t
+        diff = 10 - (mins % 10)
+        base = datetime.combine(datetime.today(), t)
+        return (base + timedelta(minutes=diff)).time()
+
     if app_date == today and datetime.now().time()>working_day.start_time:
-        day_start = datetime.now().time()
+        day_start = next_time_rounded_to_10_minutes(datetime.now().time())
     else:
         day_start = working_day.start_time  # time
     day_end = working_day.end_time  # time
