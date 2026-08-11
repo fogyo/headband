@@ -209,9 +209,15 @@ async def get_appointments_by_user(
         price = await PriceModel.get_by_id(session=session, price_id=a.price_id)
         parental_name = await CategoryModel.get_by_id_parental_name(session=session, category_id=price.category_id)
         address = await AddressModel.get_by_id(address_id=working_day.address_id, session=session)
+        if address!= None:
+            address_arr = address.full_address.split(",")
+            if len(address_arr)>=3:
+                address_res = f"{address_arr[0]},{address_arr[1]},{address_arr[2]}"
+            else:
+                address_res = address.full_address
         aresponse = {"appointment_id": a.id,
                      "service_name": price.name,
-                     "address": address.address,
+                     "address": address_res,
                      "day": a.date,
                      "start_time": a.start_time,
                      "end_time": a.end_time,

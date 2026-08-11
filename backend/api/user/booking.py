@@ -37,6 +37,10 @@ async def get_booking_info(price_id: uuid.UUID,
     price = await miniapp_db_fcn.get_price_by_id(price_id=price_id, session=session)
     parental = await miniapp_db_fcn.get_parental_by_id(category_id=price.category_id, session=session)
     possible_time, status, address = await miniapp_db_fcn.get_possible_start_time(master_id=price.master_id, app_date=day, price_id=price_id, session=session)
+    if address!= None:
+        address_arr = address.split(",")
+        if len(address_arr)>=3:
+            address = f"{address_arr[0]},{address_arr[1]},{address_arr[2]}"
     return {"status": status,
             "possible_time": possible_time,
             "address": address,
