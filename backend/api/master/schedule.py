@@ -8,8 +8,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import miniapp_db_fcn, get_db_session, AddressModel, WorkingDayModel, PriceModel
 from backend.database.responses import StatusResponse
+from backend.telegram_bot.bot_main import bot
 
+class Message(BaseModel):
+    appointment_id: uuid.UUID
+    text: str
 
+class MessageInChat(BaseModel):
+    message_id: uuid.UUID
+    text: str
+    my: bool
+    created_at: date
+
+class IDResponse(StatusResponse):
+    id: uuid.UUID
+
+class Chat(StatusResponse):
+    messages = Optional[List[MessageInChat]] = None
 
 #Responses
 class AppointmentResponse(BaseModel):
@@ -105,3 +120,31 @@ async def get_week_timetable(
         "status": status,
         "week_appointments": week_appointments
     }
+
+@router.post("/write_message_to_master", response_model=IDResponse)
+async def create_message(chat_id: int,
+                         message: Message,
+                         session: AsyncSession = Depends(get_db_session)):
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    appointment = await miniapp_db_fcn.get_appointment(appointment_id=message.appointment_id, session=session)
+    user = await miniapp_db_fcn.get_user(user_id=appointment.user_id, session=session)
+    message_id = await miniapp_db_fcn.create_message(uid=master.id, appointment_id=message.appointment_id, text=message.text, session=session)
+    await bot.send_message(chat_id=user.chat_id, text=f"❗ Новое сообщение по записи на {appointment.date} c {appointment.start_time.strftime("%H:%M")} до {appointment.end_time.strftime("%H:%M")}\n\n{message.text}\n\nЗайдите в чат встречи, чтобы ответить!")
+    return {"status": "success",
+            "id": message_id}
+
+@router.patch("/edit_message", response_model=StatusResponse)
+async def edit_message(message_id: uuid.UUID,
+                       message: Message,
+                       session: AsyncSession = Depends(get_db_session)):
+    status = await miniapp_db_fcn.edit_message(text=message.text, message_id=message_id, session=session)
+    return {"status": status}
+
+@router.get("/appointment_chat", response_model=Chat)
+async def get_appointment_chat(chat_id: int,
+                               appointment_id: uuid.UUID,
+                               session: AsyncSession = Depends(get_db_session)):
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    chat = await miniapp_db_fcn.get_all_messages_by_appo_and_texter(texter_id=master.id, appointment_id=appointment_id, session=session)
+    return {"status": "success",
+            "messages": chat}

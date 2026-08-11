@@ -9,7 +9,7 @@ import appointmentSolariumImg from "@/assets/appointment_card_solarium.png";
 import appointmentMassageSpaImg from "@/assets/appointment_card_massage.png";
 import appointmentConsultationsImg from "@/assets/appointment_card_consultation.png";
 import loadingSpinner from "@/assets/loading.svg";
-import { Calendar, Clock, Banknote } from "lucide-react";
+import { Calendar, Clock, Banknote, MessageCircle, Pencil, X, Flag } from "lucide-react";
 import HeadbeautyAICard from "@/components/HeadbeautyAICard";
 import { toast } from "sonner";
 import otherImg from "@/assets/other_cat.png";
@@ -26,10 +26,15 @@ import { Link } from "react-router-dom";
 import { useTelegramAuth } from "@/App";
 import arrowForwardIcon from "@/assets/arrow_forward.svg";
 import supportIcon from "@/assets/support.svg";
-import feedbackIcon from "@/assets/feedback.svg";
-import { X,  Flag} from "lucide-react";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+
+interface MessageInChat {
+  message_id: string;
+  text: string;
+  my: boolean;
+  created_at: string;
+}
 
 const categoryImages: Record<string, string> = {
   "hairdressing": appointmentHairdressingImg,
@@ -94,6 +99,7 @@ function getGreeting(): string {
   return "good night";
 }
 
+// Компоненты меню (без изменений)
 function IconMenuRow({
   icon: Icon,
   label,
@@ -111,9 +117,7 @@ function IconMenuRow({
       style={{ border: "0.5px solid rgba(0,0,0,0.00)" }}
     >
       <Icon className="relative z-10 w-6 h-6 text-black" />
-      <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
-        {label}
-      </span>
+      <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">{label}</span>
       <img src={arrowForwardIcon} alt=">" className="relative z-10 w-6 h-6" />
     </div>
   );
@@ -121,7 +125,6 @@ function IconMenuRow({
   return <button onClick={onClick} className="w-full text-left">{content}</button>;
 }
 
-// Компонент строки меню (скопирован из ProfilePage)
 function MenuRow({
   icon,
   label,
@@ -139,24 +142,16 @@ function MenuRow({
       style={{ border: "0.5px solid rgba(0,0,0,0.00)" }}
     >
       <img src={icon} alt="" className="relative z-10 w-6 h-6" />
-      <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
-        {label}
-      </span>
+      <span className="relative z-10 flex-1 text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">{label}</span>
       <img src={arrowForwardIcon} alt=">" className="relative z-10 w-6 h-6" />
     </div>
   );
-
-  if (to !== "#") {
-    return <Link to={to}>{content}</Link>;
-  }
-  return (
-    <button onClick={onClick} className="w-full text-left">
-      {content}
-    </button>
-  );
+  if (to !== "#") return <Link to={to}>{content}</Link>;
+  return <button onClick={onClick} className="w-full text-left">{content}</button>;
 }
 
-function UserAppointments() {
+// Компонент записей с чатом
+function UserAppointments({ onOpenChat }: { onOpenChat: (appointmentId: string) => void }) {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -233,9 +228,7 @@ function UserAppointments() {
     <div>
       {appointments.length === 0 ? (
         <div className="flex items-center justify-center min-h-[200px]">
-          <p className="text-black/50 text-[16px] tracking-[-0.8px] font-['Sofia_Sans']">
-            Пока Вы никуда не записаны
-          </p>
+          <p className="text-black/50 text-[16px] tracking-[-0.8px] font-['Sofia_Sans']">Пока Вы никуда не записаны</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -318,16 +311,35 @@ function UserAppointments() {
                   </button>
                 </div>
 
+                {/* Правая часть с картинкой и кнопкой чата */}
                 <div
-                  className="w-[60%] flex-shrink-0 rounded-[10px] overflow-hidden border border-white"
+                  className="w-[60%] flex-shrink-0 relative rounded-[10px] overflow-hidden border border-white"
                   style={{
-                    backgroundImage: `url(${image})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
                     boxShadow: "4px 4px 4px 0 rgba(0, 0, 0, 0.25) inset",
                     aspectRatio: "205 / 190",
                   }}
-                />
+                >
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage: `url(${image})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChat(app.id);
+                    }}
+                    className="absolute bottom-2 right-2 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center z-10"
+                    style={{
+                      boxShadow: "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09)",
+                    }}
+                  >
+                    <MessageCircle className="w-4 h-4 text-black" />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -387,12 +399,12 @@ export default function UserIndexPage() {
   const greeting = getGreeting();
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
-  // Состояния для модалки "Написать в поддержку"
+  // Состояния для поддержки
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [supportComment, setSupportComment] = useState("");
   const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
 
-  // Состояния для модалки "Сообщить о мастере"
+  // Состояния для жалобы
   const [isComplainModalOpen, setIsComplainModalOpen] = useState(false);
   const [complaintStep, setComplaintStep] = useState<"select" | "text">("select");
   const [masters, setMasters] = useState<{ id: string; name: string; avatar: string }[]>([]);
@@ -401,7 +413,17 @@ export default function UserIndexPage() {
   const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const [loadingMasters, setLoadingMasters] = useState(false);
 
-  // Открытие модалки поддержки
+  // Состояния для чата
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [chatAppointmentId, setChatAppointmentId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MessageInChat[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageText, setEditingMessageText] = useState("");
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  // --- Функции поддержки ---
   const openSupportModal = () => {
     setSupportComment("");
     setIsSupportModalOpen(true);
@@ -440,7 +462,7 @@ export default function UserIndexPage() {
     }
   };
 
-  // Открытие модалки жалобы
+  // --- Функции жалобы ---
   const openComplainModal = async () => {
     setIsComplainModalOpen(true);
     setComplaintStep("select");
@@ -503,6 +525,95 @@ export default function UserIndexPage() {
     }
   };
 
+  // --- Функции чата ---
+  const openChat = (appointmentId: string) => {
+    setChatAppointmentId(appointmentId);
+    setIsChatModalOpen(true);
+    fetchMessages(appointmentId);
+  };
+
+  const closeChat = () => {
+    setIsChatModalOpen(false);
+    setChatAppointmentId(null);
+    setMessages([]);
+    setNewMessage("");
+    setEditingMessageId(null);
+    setEditingMessageText("");
+  };
+
+  const fetchMessages = async (appointmentId: string) => {
+    if (!chatId) return;
+    setLoadingMessages(true);
+    try {
+      const res = await fetch(`${baseUrl}/users/welcome/appointment_chat?chat_id=${chatId}&appointment_id=${appointmentId}`);
+      if (!res.ok) throw new Error("Ошибка загрузки сообщений");
+      const data = await res.json();
+      if (data.status !== "success") throw new Error(data.status);
+      setMessages(data.messages || []);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Не удалось загрузить историю чата");
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!chatId || !chatAppointmentId) return;
+    if (!newMessage.trim()) {
+      toast.warning("Введите сообщение");
+      return;
+    }
+    setIsSending(true);
+    try {
+      if (editingMessageId) {
+        // Редактирование
+        const res = await fetch(`${baseUrl}/users/welcome/edit_message?message_id=${editingMessageId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: newMessage.trim() }),
+        });
+        if (!res.ok) throw new Error("Ошибка редактирования");
+        const data = await res.json();
+        if (data.status !== "success") throw new Error(data.status);
+        toast.success("Сообщение изменено");
+        setEditingMessageId(null);
+        setEditingMessageText("");
+      } else {
+        // Отправка нового
+        const res = await fetch(`${baseUrl}/users/welcome/write_message_to_master`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: chatAppointmentId, text: newMessage.trim() }),
+        });
+        if (!res.ok) throw new Error("Ошибка отправки");
+        const data = await res.json();
+        if (data.status !== "success") throw new Error(data.status);
+        toast.success("Сообщение отправлено");
+      }
+      setNewMessage("");
+      await fetchMessages(chatAppointmentId);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Ошибка отправки");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const startEdit = (messageId: string, text: string) => {
+    setEditingMessageId(messageId);
+    setEditingMessageText(text);
+    setNewMessage(text);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingMessageText("");
+    setNewMessage("");
+  };
+
+  // --- Рендер ---
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10">
@@ -526,7 +637,7 @@ export default function UserIndexPage() {
             Записи
           </h2>
           <div className="h-px bg-black w-[210px] mb-4" />
-          <UserAppointments />
+          <UserAppointments onOpenChat={openChat} />
         </section>
 
         <section className="mt-10">
@@ -563,7 +674,7 @@ export default function UserIndexPage() {
           <HeadbeautyAICard />
         </section>
 
-        {/* Новая секция "Коммуникация" */}
+        {/* Секция "Коммуникация" */}
         <section className="mt-10">
           <h2
             className="text-[30px] leading-tight tracking-[-1.5px] text-black font-['Sofia_Sans']"
@@ -588,7 +699,7 @@ export default function UserIndexPage() {
         </section>
       </div>
 
-      {/* Модальное окно "Написать в поддержку" (скопировано из ProfilePage) */}
+      {/* Модалка поддержки */}
       {isSupportModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
@@ -606,10 +717,7 @@ export default function UserIndexPage() {
               onChange={(e) => setSupportComment(e.target.value)}
             />
             <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={closeSupportModal}
-                className="px-4 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800"
-              >
+              <button onClick={closeSupportModal} className="px-4 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800">
                 Отмена
               </button>
               <button
@@ -624,7 +732,7 @@ export default function UserIndexPage() {
         </div>
       )}
 
-      {/* Модальное окно "Сообщить о мастере" */}
+      {/* Модалка жалобы */}
       {isComplainModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -697,6 +805,88 @@ export default function UserIndexPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Модалка чата */}
+      {isChatModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[24px] font-semibold text-black">Чат с мастером</h3>
+              <button onClick={closeChat} className="text-black/50 hover:text-black">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto mb-4">
+              {loadingMessages ? (
+                <div className="flex justify-center py-8">
+                  <img src={loadingSpinner} alt="Загрузка..." className="w-8 h-8" />
+                </div>
+              ) : messages.length === 0 ? (
+                <p className="text-center text-black/50 py-8">Нет сообщений</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.message_id}
+                      className={`flex flex-col ${msg.my ? "items-end" : "items-start"}`}
+                    >
+                      <div
+                        className={`rounded-[10px] px-3 py-2 max-w-[80%] ${
+                          msg.my ? "bg-[#FA4F96] text-white" : "bg-[#FFE9EF] text-black"
+                        }`}
+                        style={{
+                          boxShadow: "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09)",
+                        }}
+                      >
+                        <p className="text-[14px] font-['Sofia_Sans'] break-words">{msg.text}</p>
+                        <p className="text-[10px] font-['Sofia_Sans'] opacity-70 mt-1">
+                          {new Date(msg.created_at).toLocaleTimeString("ru-RU", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      {msg.my && (
+                        <button
+                          onClick={() => startEdit(msg.message_id, msg.text)}
+                          className="mt-1 text-black/50 hover:text-black"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder={editingMessageId ? "Редактировать сообщение..." : "Написать сообщение..."}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-[14px] font-['Sofia_Sans'] text-black outline-none focus:ring-2 focus:ring-pink-300"
+              />
+              {editingMessageId && (
+                <button
+                  onClick={cancelEdit}
+                  className="px-3 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800"
+                >
+                  Отмена
+                </button>
+              )}
+              <button
+                onClick={sendMessage}
+                disabled={isSending || !newMessage.trim()}
+                className="px-4 py-2 bg-[#FA4F96] text-white rounded-lg text-[14px] font-medium hover:bg-[#e8447e] disabled:opacity-50"
+              >
+                {isSending ? "..." : "→"}
+              </button>
+            </div>
           </div>
         </div>
       )}

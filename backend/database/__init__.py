@@ -967,6 +967,12 @@ class AppointmentModel(Base):
     master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="appointments")
     price: Mapped["PriceModel"] = relationship("PriceModel", back_populates="appointments")
     working_day: Mapped["WorkingDayModel"] = relationship("WorkingDayModel", back_populates="appointments")
+    chats: Mapped[List["AppointmentChatModel"]] = relationship(
+        "AppointmentChatModel",
+        back_populates="appointment",
+        cascade="all, delete-orphan", 
+        passive_deletes=True
+    )
 
     @classmethod
     async def create(cls, session: AsyncSession, data: dict):
@@ -3121,3 +3127,61 @@ class UniqueDevReferalLinksModel(Base):
             await session.delete(obj)
             return "success"
         return "no such link"
+
+class AppointmentChatModel(Base):
+    __tablename__ = "appointment_chats"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    texter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    appointment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("appointments.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    text: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Связь с AppointmentModel
+    appointment: Mapped["AppointmentModel"] = relationship(
+        "AppointmentModel",
+        back_populates="chats"
+    )
+
+    @classmethod
+    async def create(cls, session: AsyncSession, texter_id: uuid.UUID, appointment_id: uuid.UUID, text: str) -> uuid.UUID:
+        obj = cls(texter_id=texter_id, appointment_id=appointment_id, text=text)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, chat_id: uuid.UUID) -> Optional["AppointmentChatModel"]:
+        query = select(cls).where(cls.id == chat_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_by_appointment_id(cls, session: AsyncSession, appointment_id: uuid.UUID) -> List["AppointmentChatModel"]:
+        query = select(cls).where(cls.appointment_id == appointment_id).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_texter_id(cls, session: AsyncSession, texter_id: uuid.UUID) -> List["AppointmentChatModel"]:
+        query = select(cls).where(cls.texter_id == texter_id).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def update_text(cls, session: AsyncSession, chat_id: uuid.UUID, new_text: str) -> str:
+        query = update(cls).where(cls.id == chat_id).values(text=new_text)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, chat_id: uuid.UUID) -> str:
+        obj = await session.get(cls, chat_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such chat message"

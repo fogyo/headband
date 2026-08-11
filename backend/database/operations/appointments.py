@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from unicodedata import category
 
 from backend.api.master.schedule import AppointmentResponse
-from backend.database import MasterModel, SubscriptionModel, UserModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
+from backend.database import AppointmentChatModel, MasterModel, SubscriptionModel, UserModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
     AppointmentModel, MasterAbsenceModel, AddressModel, CategoryModel
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
     _get_week_dates
@@ -270,3 +270,19 @@ async def get_all_appointments_by_address(address_id: uuid.UUID, session: AsyncS
         user = await UserModel.get_by_id(user_id=uid, session=session)
         await bot.send_message(chat_id = user.chat_id, text=f"Мастер поменял адрес записи, проверьте информацию в карточке записи в нашем mini-app")
     return "success"
+
+async def create_message(uid: uuid.UUID, appointment_id: uuid.UUID, text: str, session:AsyncSession):
+    return await AppointmentChatModel.create(session=session, appointment_id=appointment_id, texter_id=uid, text=text)
+
+async def edit_message(text: str, message_id: uuid.UUID, session: AsyncSession):
+    return await AppointmentChatModel.update_text(session=session, chat_id=message_id, new_text=text)
+
+async def get_all_messages_by_appo_and_texter(texter_id: uuid.UUID, appointment_id: uuid.UUID, session: AsyncSession):
+    messages = await AppointmentChatModel.get_by_appointment_id(session=session, appointment_id=appointment_id)
+    resp = []
+    for message in messages:
+        resp.append({"message_id": message.id,
+                     "text": message.text,
+                     "my": texter_id==message.texter_id,
+                     "created_at": message.created_at})
+    return resp

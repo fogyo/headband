@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, time
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -36,6 +36,23 @@ class ComplainRequest(BaseModel):
     master_id: uuid.UUID
     text: str
     
+class Message(BaseModel):
+    appointment_id: uuid.UUID
+    text: str
+
+class MessageInChat(BaseModel):
+    message_id: uuid.UUID
+    text: str
+    my: bool
+    created_at: date
+
+
+class IDResponse(StatusResponse):
+    id: uuid.UUID
+
+class Chat(StatusResponse):
+    messages = Optional[List[MessageInChat]] = None
+
 router = APIRouter(
     prefix="/users/welcome",
     tags=["User.Welcome"]
@@ -83,3 +100,31 @@ async def complain_about_master(chat_id: int,
     req_id = await miniapp_db_fcn.create_support_request(chat_id=chat_id, text=complaint_text, session=session)
     await bot.send_message(chat_id=980609742, text=f"{complaint_text} \nID пользователя: {chat_id}\nID проблемы: {req_id}")
     return {"status": "success"}
+
+@router.post("/write_message_to_master", response_model=IDResponse)
+async def create_message(chat_id: int,
+                         message: Message,
+                         session: AsyncSession = Depends(get_db_session)):
+    user = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
+    appointment = await miniapp_db_fcn.get_appointment(appointment_id=message.appointment_id, session=session)
+    master = await miniapp_db_fcn.get_master(master_id=appointment.master_id, session=session)
+    message_id = await miniapp_db_fcn.create_message(uid=user, appointment_id=message.appointment_id, text=message.text, session=session)
+    await bot.send_message(chat_id=master.chat_id_tg, text=f"❗ Новое сообщение по записи на {appointment.date} c {appointment.start_time.strftime("%H:%M")} до {appointment.end_time.strftime("%H:%M")}\n\n{message.text}\n\nЗайдите в чат встречи, чтобы ответить!")
+    return {"status": "success",
+            "id": message_id}
+
+@router.patch("/edit_message", response_model=StatusResponse)
+async def edit_message(message_id: uuid.UUID,
+                       message: Message,
+                       session: AsyncSession = Depends(get_db_session)):
+    status = await miniapp_db_fcn.edit_message(text=message.text, message_id=message_id, session=session)
+    return {"status": status}
+
+@router.get("/appointment_chat", response_model=Chat)
+async def get_appointment_chat(chat_id: int,
+                               appointment_id: uuid.UUID,
+                               session: AsyncSession = Depends(get_db_session)):
+    user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
+    chat = await miniapp_db_fcn.get_all_messages_by_appo_and_texter(texter_id=user_id, appointment_id=appointment_id, session=session)
+    return {"status": "success",
+            "messages": chat}
