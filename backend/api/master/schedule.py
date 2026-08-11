@@ -59,13 +59,19 @@ async def get_appointments_by_date(
         working_day = await WorkingDayModel.get_by_id(session=session, id = appointment.working_day_id)
         address = await AddressModel.get_by_id(session=session, address_id=working_day.address_id)
         price = await PriceModel.get_by_id(session=session, price_id=appointment.price_id)
+        if address!= None:
+            address_arr = address.full_address.split(",")
+            if len(address_arr)>=3:
+                address_res = f"{address_arr[0]},{address_arr[1]},{address_arr[2]}"
+            else:
+                address_res = address.full_address
         aresponse = {"id": appointment.id,
                      "master_id": appointment.master_id,
                      "date": appointment.date,
                      "start_time": appointment.start_time,
                      "end_time": appointment.end_time,
                      "final_price": appointment.final_price,
-                     "address": address.address,
+                     "address": address_res,
                      "service_name": price.name
         }
         a.append(aresponse)
