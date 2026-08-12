@@ -299,6 +299,8 @@ export default function GuidesPage() {
               <span>Лайки</span>
             </button>
           </div>
+        </div>
+
         <section className="mt-6">
           <h2
             className="text-[30px] leading-tight tracking-[-2px] text-black"
