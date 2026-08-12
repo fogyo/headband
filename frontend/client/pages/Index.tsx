@@ -4,13 +4,26 @@ import RestBreak from "@/components/RestBreak";
 import HeadbeautyAICard from "@/components/HeadbeautyAICard";
 import InfoSection from "@/components/InfoSection";
 import { useTelegramAuth } from "@/App";
-import loadingSpinner from "@/assets/loading.svg";
+import { MessageCircle, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
-import { X, Pencil } from "lucide-react";
+import loadingSpinner from "@/assets/loading.svg";
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
-// ---------- Типы ----------
+type TimelineItem =
+  | {
+      type: "appointment";
+      startTime: string;
+      endTime: string;
+      service: string;
+      location: string;
+      appointmentId: string;
+    }
+  | {
+      type: "break";
+      label: string;
+    };
+
 interface AppointmentFromBackend {
   id: string;
   start_time: string;
@@ -19,31 +32,10 @@ interface AppointmentFromBackend {
   address: string | null;
 }
 
-type TimelineItem =
-  | {
-      type: "appointment";
-      id: string;
-      startTime: string;
-      endTime: string;
-      service: string;
-      location: string;
-    }
-  | {
-      type: "break";
-      label: string;
-    };
-
 interface ApiResponse {
   status: string;
   count: number;
   appointments: AppointmentFromBackend[];
-}
-
-interface MessageInChat {
-  message_id: string;
-  text: string;
-  my: boolean;
-  created_at: string;
 }
 
 // ---------- Вспомогательные функции ----------
@@ -72,18 +64,18 @@ function formatBreakDuration(minutes: number): string {
   return `Отдых ${mPart}`;
 }
 
-function buildTimeline(appointments: AppointmentFromBackend[]): TimelineItem[] {
+function buildTimeline(appointments: AppointmentFromBackend[]): TimelineElement[] {
   if (!appointments.length) return [];
-  const timeline: TimelineItem[] = [];
+  const timeline: TimelineElement[] = [];
   for (let i = 0; i < appointments.length; i++) {
     const curr = appointments[i];
     timeline.push({
       type: "appointment",
-      id: curr.id,
       startTime: toHHMM(curr.start_time),
       endTime: toHHMM(curr.end_time),
       service: curr.service_name || "",
       location: curr.address || "",
+      appointmentId: curr.id,
     });
     if (i < appointments.length - 1) {
       const next = appointments[i + 1];
@@ -110,25 +102,78 @@ function getGreeting(): string {
   return "good night";
 }
 
+// ---------- Компонент карточки встречи с чатом ----------
+function AppointmentCardWithChat({
+  startTime,
+  endTime,
+  service,
+  location,
+  appointmentId,
+  onChatOpen,
+}: {
+  startTime: string;
+  endTime: string;
+  service: string;
+  location: string;
+  appointmentId: string;
+  onChatOpen: (id: string) => void;
+}) {
+  return (
+    <div
+      className="relative bg-[#FFE9EF] rounded-[10px] p-4 shadow-md flex items-center gap-3"
+      style={{
+        boxShadow:
+          "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+        border: "0.5px solid rgba(0,0,0,0.00)",
+        background: "#FFE9EF",
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[15px] font-['Sofia_Sans'] text-black leading-tight whitespace-normal break-words">
+            {service}
+          </span>
+        </div>
+        <p className="text-[12px] font-['Sofia_Sans'] text-black/50 mt-1">{location}</p>
+        <div className="flex items-center gap-4 mt-1 text-[13px] font-['Sofia_Sans'] text-black">
+          <span>{startTime}</span>
+          <span>—</span>
+          <span>{endTime}</span>
+        </div>
+      </div>
+      <button
+        onClick={() => onChatOpen(appointmentId)}
+        className="flex-shrink-0 w-8 h-8 bg-[#FFE9EF] rounded-full shadow-md flex items-center justify-center"
+        style={{
+          boxShadow: "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09)",
+          border: "0.5px solid rgba(0,0,0,0.00)",
+        }}
+      >
+        <MessageCircle className="w-4 h-4 text-black" />
+      </button>
+    </div>
+  );
+}
+
+// ---------- Основной компонент ----------
 export default function Index() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
-  // ---------- Состояния для расписания ----------
-  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
+  const [timelineItems, setTimelineItems] = useState<TimelineElement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ---------- Состояния для чата ----------
+  // Состояния чата
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [chatAppointment, setChatAppointment] = useState<{ id: string; service: string; location: string } | null>(null);
-  const [messages, setMessages] = useState<MessageInChat[]>([]);
+  const [chatAppointmentId, setChatAppointmentId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  // ---------- Загрузка расписания ----------
+  // Загрузка записей
   useEffect(() => {
     if (!isVerified || !chatId) {
       if (authLoading) {
@@ -165,16 +210,16 @@ export default function Index() {
     fetchAppointments();
   }, [chatId, isVerified, authLoading, authError]);
 
-  // ---------- Функции чата ----------
-  const openChat = (appointmentId: string, service: string, location: string) => {
-    setChatAppointment({ id: appointmentId, service, location });
+  // Функции чата
+  const openChat = (appointmentId: string) => {
+    setChatAppointmentId(appointmentId);
     setIsChatModalOpen(true);
     fetchMessages(appointmentId);
   };
 
   const closeChat = () => {
     setIsChatModalOpen(false);
-    setChatAppointment(null);
+    setChatAppointmentId(null);
     setMessages([]);
     setNewMessage("");
     setEditingMessageId(null);
@@ -185,7 +230,9 @@ export default function Index() {
     if (!chatId) return;
     setLoadingMessages(true);
     try {
-      const res = await fetch(`${baseUrl}/master/schedule/appointment_chat?chat_id=${chatId}&appointment_id=${appointmentId}`);
+      const res = await fetch(
+        `${baseUrl}/master/schedule/appointment_chat?chat_id=${chatId}&appointment_id=${appointmentId}`
+      );
       if (!res.ok) throw new Error("Ошибка загрузки сообщений");
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status);
@@ -199,7 +246,7 @@ export default function Index() {
   };
 
   const sendMessage = async () => {
-    if (!chatId || !chatAppointment) return;
+    if (!chatId || !chatAppointmentId) return;
     if (!newMessage.trim()) {
       toast.warning("Введите сообщение");
       return;
@@ -208,11 +255,14 @@ export default function Index() {
     try {
       if (editingMessageId) {
         // Редактирование
-        const res = await fetch(`${baseUrl}/master/schedule/edit_message?message_id=${editingMessageId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: newMessage.trim() }),
-        });
+        const res = await fetch(
+          `${baseUrl}/master/schedule/edit_message?message_id=${editingMessageId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: newMessage.trim() }),
+          }
+        );
         if (!res.ok) throw new Error("Ошибка редактирования");
         const data = await res.json();
         if (data.status !== "success") throw new Error(data.status);
@@ -221,18 +271,21 @@ export default function Index() {
         setEditingMessageText("");
       } else {
         // Отправка нового
-        const res = await fetch(`${baseUrl}/master/schedule/write_message_to_master`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ appointment_id: chatAppointment.id, text: newMessage.trim() }),
-        });
+        const res = await fetch(
+          `${baseUrl}/master/schedule/write_message_to_master`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ appointment_id: chatAppointmentId, text: newMessage.trim() }),
+          }
+        );
         if (!res.ok) throw new Error("Ошибка отправки");
         const data = await res.json();
         if (data.status !== "success") throw new Error(data.status);
         toast.success("Сообщение отправлено");
       }
       setNewMessage("");
-      await fetchMessages(chatAppointment.id);
+      await fetchMessages(chatAppointmentId);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка отправки");
@@ -253,7 +306,6 @@ export default function Index() {
     setNewMessage("");
   };
 
-  // ---------- Рендер ----------
   const greeting = getGreeting();
 
   if (authLoading) {
@@ -298,43 +350,33 @@ export default function Index() {
 
         <section className="mt-6">
           <div className="mb-4">
-            <h2
-              className="text-[40px] leading-tight tracking-[-2px] text-black"
-              style={{ fontFamily: "'Sofia Sans', sans-serif" }}
-            >
-              Актуальное
-            </h2>
+            <h2 className="text-[40px] leading-tight tracking-[-2px] text-black" style={{ fontFamily: "'Sofia Sans', sans-serif" }}>Актуальное</h2>
             <div className="h-px bg-black w-[210px]" />
           </div>
 
           <div className="flex flex-col gap-1">
-            {loading && (
-              <p className="text-center text-gray-500 py-4">Загрузка...</p>
-            )}
-            {error && (
-              <p className="text-center text-red-500 py-4">{error}</p>
-            )}
+            {loading && <p className="text-center text-gray-500 py-4">Загрузка...</p>}
+            {error && <p className="text-center text-red-500 py-4">{error}</p>}
             {!loading && !error && timelineItems.length === 0 && (
               <p className="text-center text-gray-500 py-4">Нет записей на сегодня</p>
             )}
-            {!loading &&
-              !error &&
-              timelineItems.map((item, idx) => {
-                if (item.type === "break") {
-                  return <RestBreak key={`break-${idx}`} label={item.label} />;
-                } else {
-                  return (
-                    <AppointmentItem
-                      key={`app-${idx}`}
-                      startTime={item.startTime}
-                      endTime={item.endTime}
-                      service={item.service}
-                      location={item.location}
-                      onChatClick={() => openChat(item.id, item.service, item.location)}
-                    />
-                  );
-                }
-              })}
+            {!loading && !error && timelineItems.map((item, idx) => {
+              if (item.type === "break") {
+                return <RestBreak key={`break-${idx}`} label={item.label} />;
+              } else {
+                return (
+                  <AppointmentItem
+                    key={`app-${idx}`}
+                    startTime={item.startTime}
+                    endTime={item.endTime}
+                    service={item.service}
+                    location={item.location}
+                    appointmentId={item.appointmentId}
+                    onChatOpen={openChat}
+                  />
+                );
+              }
+            })}
           </div>
         </section>
 
@@ -365,8 +407,8 @@ export default function Index() {
         </section>
       </div>
 
-      {/* Модальное окно чата */}
-      {isChatModalOpen && chatAppointment && (
+      {/* Модалка чата */}
+      {isChatModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center mb-4">

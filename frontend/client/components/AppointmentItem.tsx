@@ -1,8 +1,12 @@
+import { MessageCircle } from "lucide-react";
+
 interface AppointmentItemProps {
   startTime: string;
   endTime: string;
   service: string;
   location: string;
+  onChatOpen?: (appointmentId: string) => void;
+  appointmentId?: string;
 }
 
 export default function AppointmentItem({
@@ -10,6 +14,8 @@ export default function AppointmentItem({
   endTime,
   service,
   location,
+  onChatOpen,
+  appointmentId,
 }: AppointmentItemProps) {
   return (
     <div className="flex items-start gap-3 py-1">
@@ -63,6 +69,20 @@ export default function AppointmentItem({
           </span>
         </div>
       </div>
+
+      {/* Chat button – справа */}
+      {onChatOpen && appointmentId && (
+        <button
+          onClick={() => onChatOpen(appointmentId)}
+          className="flex-shrink-0 w-8 h-8 bg-[#FFE9EF] rounded-full shadow-md flex items-center justify-center self-center"
+          style={{
+            boxShadow: "2px 2px 7px rgba(0,0,0,0.10), 9px 10px 13px rgba(0,0,0,0.09)",
+            border: "0.5px solid rgba(0,0,0,0.00)",
+          }}
+        >
+          <MessageCircle className="w-4 h-4 text-black" />
+        </button>
+      )}
     </div>
   );
 }
