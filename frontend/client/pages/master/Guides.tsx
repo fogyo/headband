@@ -283,7 +283,7 @@ export default function GuidesPage() {
                   "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
               }}
             >
-              <EyeIcon className="w-3 h-3" />
+              <img src={eyeIcon} alt="" className="w-3 h-3" />
               <span>Просмотры</span>
             </button>
             <button
@@ -295,12 +295,10 @@ export default function GuidesPage() {
                   "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
               }}
             >
-              <StarIcon className="w-3 h-3" />
+              <img src={starIcon} alt="" className="w-3 h-3" />
               <span>Лайки</span>
             </button>
           </div>
-        </div>
-
         <section className="mt-6">
           <h2
             className="text-[30px] leading-tight tracking-[-2px] text-black"
