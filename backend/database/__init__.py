@@ -15,7 +15,7 @@ from sqlalchemy import ForeignKey, select, update, BigInteger, String, Date, tex
     or_, Boolean, Time, DateTime, cast
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, selectinload
-from datetime import time, date, datetime, timedelta
+from datetime import time, date, datetime, timedelta, timezone
 from sqlalchemy import inspect
 import os
 
