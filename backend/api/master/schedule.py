@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,7 +18,7 @@ class MessageInChat(BaseModel):
     message_id: uuid.UUID
     text: str
     my: bool
-    created_at: date
+    created_at: datetime
 
 class IDResponse(StatusResponse):
     id: uuid.UUID
