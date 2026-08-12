@@ -535,7 +535,7 @@ export default function GuideManagePage() {
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center disabled:text-gray-400"
-              disabled={categoriesLoading || isEditing}
+              disabled={categoriesLoading}
             >
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>

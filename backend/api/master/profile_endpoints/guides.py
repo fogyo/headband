@@ -38,7 +38,7 @@ class GuideCreateRequest(BaseModel):
 class GuideUpdateRequest(BaseModel):
     guide_id: uuid.UUID
     name: Optional[str] = None
-    category: Optional[uuid.UUID] = None
+    category_id: Optional[uuid.UUID] = None
     steps: List[GuideUpdateTextRequest]
     steps_to_add: List[GuideTextRequest]
     steps_to_delete: Optional[List[uuid.UUID]] = []
