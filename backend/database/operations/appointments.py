@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from typing import List
@@ -88,6 +89,7 @@ async def get_possible_start_time(
         base = datetime.combine(datetime.today(), t)
         return (base + timedelta(minutes=diff)).time()
 
+    logging.info(f"TIME NOW {datetime.now(tz_offset).time()}")
     if app_date == today and datetime.now(tz_offset).time()>working_day.start_time:
         day_start = next_time_rounded_to_10_minutes(datetime.now(tz_offset).time())
     else:
