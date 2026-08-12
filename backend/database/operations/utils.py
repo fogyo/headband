@@ -1,10 +1,13 @@
 import uuid
-from datetime import time, timedelta, datetime, date
+from datetime import time, timedelta, datetime, date, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import AppointmentModel, PriceModel, UserModel
 from backend.telegram_bot.bot_main import bot
+
+
+tz_offset = timezone(timedelta(hours=3))
 
 def _int_minutes_to_time(minutes: int) -> time:
     """Перевод int минут в класс time"""
@@ -44,7 +47,7 @@ def _timedelta_to_int_minutes(td: timedelta) -> int:
 def _get_weekday_caps(date_obj=None):
     """Получение дня недели из даты заглавными буквами"""
     if date_obj is None:
-        date_obj = datetime.now()
+        date_obj = datetime.now(tz_offset)
     return date_obj.strftime('%A').upper()
 
 

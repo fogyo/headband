@@ -33,6 +33,8 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 
+tz_offset = timezone(timedelta(hours=3))
+
 async def setup_database():
     try:
         async with engine.begin() as conn:
@@ -655,7 +657,7 @@ class WorkingDayModel(Base):
     
     @classmethod
     async def get_by_address(cls, address_id: uuid.UUID, session: AsyncSession) -> List[uuid.UUID]:
-        query = select(cls.id).where(and_(cls.address_id==address_id, or_(date.today()<cls.day_date, and_(cls.day_date==date.today(), datetime.now<cls.start_time))))
+        query = select(cls.id).where(and_(cls.address_id==address_id, or_(date.today()<cls.day_date, and_(cls.day_date==date.today(), datetime.now(tz_offset).time()<cls.start_time))))
         result = await session.execute(query)
         return list(result.scalars().all())
 
@@ -1020,7 +1022,7 @@ class AppointmentModel(Base):
 
     @classmethod
     async def get_by_user_id(cls, session: AsyncSession, user_id: uuid.UUID):
-        query = select(cls).where(and_(cls.user_id == user_id,or_(and_(cls.end_time>datetime.now().time(), cls.date == date.today()), cls.date>date.today()))).order_by(cls.date, cls.start_time)
+        query = select(cls).where(and_(cls.user_id == user_id,or_(and_(cls.end_time>datetime.now(tz_offset).time(), cls.date == date.today()), cls.date>date.today()))).order_by(cls.date, cls.start_time)
         result = await session.execute(query)
         return result.scalars().all()
 
