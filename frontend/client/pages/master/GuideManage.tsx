@@ -167,7 +167,7 @@ export default function GuideManagePage() {
 
         const loadedSteps: GuideStep[] = data.steps.map((step: any) => {
           const keys = step.img_url ? step.img_url.split(" ").filter((k: string) => k.trim() !== "") : [];
-          const previews = keys;
+          const previews = keys.map((key: string) => `${baseUrl}/master/guides/images/${key}`)
           return {
             id: step.step_id,
             name: step.name || "",
