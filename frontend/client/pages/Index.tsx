@@ -272,7 +272,7 @@ export default function Index() {
       } else {
         // Отправка нового
         const res = await fetch(
-          `${baseUrl}/master/schedule/write_message_to_master`,
+          `${baseUrl}/master/schedule/write_message_to_master?chat_id=${chatId}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
