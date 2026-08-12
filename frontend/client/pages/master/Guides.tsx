@@ -7,7 +7,7 @@ import starFilledIcon from "@/assets/filled_star.svg";
 import videoTypeIcon from "@/assets/video_icon.svg";
 import textTypeIcon from "@/assets/text_icon.svg";
 import { useTelegramAuth } from "@/App";
-import { X, Filter, ArrowUpDown } from "lucide-react";
+import { X, Filter } from "lucide-react";
 import { toast } from "sonner";
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
@@ -90,11 +90,10 @@ export default function GuidesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Фильтры и сортировка
+  // Фильтры
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState<"all" | "video" | "text">("all");
-  const [sortBy, setSortBy] = useState<"default" | "views" | "likes">("default");
 
   // Уникальные категории
   const [categories, setCategories] = useState<string[]>([]);
@@ -124,7 +123,6 @@ export default function GuidesPage() {
         const data = await res.json();
         if (data.status !== "success") throw new Error(data.status);
 
-        // Все гайды (без разделения на fit и all)
         const all = data.guides_all.map((g: any, idx: number) => ({
           id: g.id,
           title: g.name,
@@ -137,10 +135,8 @@ export default function GuidesPage() {
         }));
         setAllGuides(all);
 
-        // Извлекаем уникальные категории
         const uniqueCategories = Array.from(new Set(all.map(g => g.category)));
         setCategories(uniqueCategories);
-        // По умолчанию выбраны все категории
         setSelectedCategories(uniqueCategories);
       } catch (err: any) {
         console.error(err);
@@ -152,18 +148,12 @@ export default function GuidesPage() {
     fetchGuides();
   }, [chatId, isVerified, authLoading, authError]);
 
-  // Фильтрация и сортировка
-  const filteredGuides = allGuides
-    .filter(guide => {
-      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(guide.category);
-      const typeMatch = selectedType === "all" || guide.type === selectedType;
-      return categoryMatch && typeMatch;
-    })
-    .sort((a, b) => {
-      if (sortBy === "views") return b.views - a.views;
-      if (sortBy === "likes") return b.likes - a.likes;
-      return 0; // default – порядок как пришёл с бэка
-    });
+  // Фильтрация (без сортировки)
+  const filteredGuides = allGuides.filter(guide => {
+    const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(guide.category);
+    const typeMatch = selectedType === "all" || guide.type === selectedType;
+    return categoryMatch && typeMatch;
+  });
 
   // Обработчики фильтров
   const toggleCategory = (cat: string) => {
@@ -182,10 +172,6 @@ export default function GuidesPage() {
 
   const toggleType = (type: "all" | "video" | "text") => {
     setSelectedType(type);
-  };
-
-  const toggleSort = (sort: "default" | "views" | "likes") => {
-    setSortBy(sort);
   };
 
   if (authLoading || loading) {
@@ -244,64 +230,7 @@ export default function GuidesPage() {
           </p>
         </div>
 
-        {/* Панель фильтров и сортировки */}
-        <div className="mt-8 flex items-center justify-between gap-2">
-          <button
-            onClick={() => setFilterModalOpen(true)}
-            className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
-            style={{
-              border: "0.5px solid rgba(0,0,0,0.00)",
-              boxShadow:
-                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-            }}
-          >
-            <Filter className="w-4 h-4" />
-            <span>Фильтр</span>
-            {(selectedCategories.length !== categories.length || selectedType !== "all") && (
-              <span className="w-2 h-2 bg-pink-500 rounded-full" />
-            )}
-          </button>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => toggleSort("default")}
-              className={`relative bg-[#FFE9EF] rounded-[10px] py-2 px-3 shadow-sm text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black ${sortBy === "default" ? "bg-[#FFD0DC]" : ""}`}
-              style={{
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              }}
-            >
-              По умолч.
-            </button>
-            <button
-              onClick={() => toggleSort("views")}
-              className={`relative bg-[#FFE9EF] rounded-[10px] py-2 px-3 shadow-sm text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black flex items-center gap-1 ${sortBy === "views" ? "bg-[#FFD0DC]" : ""}`}
-              style={{
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              }}
-            >
-              <img src={eyeIcon} alt="" className="w-3 h-3" />
-              <span>Просмотры</span>
-            </button>
-            <button
-              onClick={() => toggleSort("likes")}
-              className={`relative bg-[#FFE9EF] rounded-[10px] py-2 px-3 shadow-sm text-[12px] tracking-[-0.6px] font-['Sofia_Sans'] text-black flex items-center gap-1 ${sortBy === "likes" ? "bg-[#FFD0DC]" : ""}`}
-              style={{
-                border: "0.5px solid rgba(0,0,0,0.00)",
-                boxShadow:
-                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-              }}
-            >
-              <img src={starIcon} alt="" className="w-3 h-3" />
-              <span>Лайки</span>
-            </button>
-          </div>
-        </div>
-
-        <section className="mt-6">
+        <section className="mt-8">
           <h2
             className="text-[30px] leading-tight tracking-[-2px] text-black"
             style={{ fontFamily: "'Sofia Sans', sans-serif" }}
@@ -309,6 +238,25 @@ export default function GuidesPage() {
             Все гайды
           </h2>
           <div className="h-px bg-black w-[210px] mb-3" />
+
+          {/* Кнопка фильтра под линией */}
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => setFilterModalOpen(true)}
+              className="relative bg-[#FFE9EF] rounded-[10px] py-2 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
+              style={{
+                border: "0.5px solid rgba(0,0,0,0.00)",
+                boxShadow:
+                  "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
+              }}
+            >
+              <Filter className="w-4 h-4" />
+              <span>Фильтр</span>
+              {(selectedCategories.length !== categories.length || selectedType !== "all") && (
+                <span className="w-2 h-2 bg-pink-500 rounded-full" />
+              )}
+            </button>
+          </div>
 
           {filteredGuides.length === 0 ? (
             <p className="text-black/50 text-sm italic font-['Sofia_Sans']">
@@ -408,7 +356,6 @@ export default function GuidesPage() {
               </div>
             </div>
 
-            {/* Кнопка применения (закрывает модалку) */}
             <button
               onClick={() => setFilterModalOpen(false)}
               className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center"
