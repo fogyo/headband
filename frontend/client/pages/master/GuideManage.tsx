@@ -160,14 +160,19 @@ export default function GuideManagePage() {
         const res = await fetch(`${baseUrl}/master/guides/step_text?guide_id=${editId}`);
         if (!res.ok) throw new Error("Ошибка загрузки шагов");
         const data = await res.json();
-        console.log("🔍 Ответ step_text:", data);
         if (data.status !== "success") throw new Error(data.status);
 
         if (data.name && !state?.title) setTitle(data.name);
 
         const loadedSteps: GuideStep[] = data.steps.map((step: any) => {
-          const keys = step.img_url ? step.img_url.split(" ").filter((k: string) => k.trim() !== "") : [];
-          const previews = keys.map((key: string) => `${baseUrl}/master/guides/images/${key}`)
+          // Универсальное получение списка ключей
+          let keys: string[] = [];
+          if (step.img_urls && Array.isArray(step.img_urls)) {
+            keys = step.img_urls;
+          } else if (step.img_url) {
+            keys = step.img_url.split(" ").filter((k: string) => k.trim() !== "");
+          }
+          const previews = keys.map((key: string) => `${baseUrl}/media/images/${key}`);
           return {
             id: step.step_id,
             name: step.name || "",
