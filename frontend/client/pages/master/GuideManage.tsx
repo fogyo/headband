@@ -645,10 +645,9 @@ export default function GuideManagePage() {
               }}
             >
               <span className="absolute inset-0 flex items-center justify-center text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-                {isSubmitting ? "Сохранение..." : (isEditing ? "Сохранить изменения" : "Согласовать")}
+                {isSubmitting ? "Сохранение..." : (isEditing ? "Сохранить изменения" : "Отправить на модерацию")}
               </span>
-              <img src={ambassadorIcon} alt="ambassador" className="w-16 h-9 object-contain ml-auto relative z-10" />
-            </div>
+              </div>
           </div>
         </section>
       </div>
