@@ -581,7 +581,7 @@ export default function UserIndexPage() {
         setEditingMessageText("");
       } else {
         // Отправка нового
-        const res = await fetch(`${baseUrl}/users/welcome/write_message_to_master`, {
+        const res = await fetch(`${baseUrl}/users/welcome/write_message_to_master?chat_id=${chatId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ appointment_id: chatAppointmentId, text: newMessage.trim() }),
