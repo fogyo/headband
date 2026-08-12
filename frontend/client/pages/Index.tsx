@@ -472,9 +472,10 @@ export default function Index() {
               {editingMessageId && (
                 <button
                   onClick={cancelEdit}
-                  className="px-3 py-2 text-[14px] font-medium text-gray-600 hover:text-gray-800"
+                  className="px-2 py-2 text-black/50 hover:text-black"
+                  title="Отменить редактирование"
                 >
-                  Отмена
+                  <X className="w-5 h-5" />
                 </button>
               )}
               <button
