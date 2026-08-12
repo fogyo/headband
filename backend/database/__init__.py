@@ -1020,7 +1020,7 @@ class AppointmentModel(Base):
 
     @classmethod
     async def get_by_user_id(cls, session: AsyncSession, user_id: uuid.UUID):
-        query = select(cls).where(and_(cls.user_id == user_id,or_(cls.end_time>datetime.now().time(), cls.date>date.today()))).order_by(cls.date, cls.start_time)
+        query = select(cls).where(and_(cls.user_id == user_id,or_(and_(cls.end_time>datetime.now().time(), cls.date == date.today()), cls.date>date.today()))).order_by(cls.date, cls.start_time)
         result = await session.execute(query)
         return result.scalars().all()
 
