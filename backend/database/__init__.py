@@ -3164,7 +3164,7 @@ class AppointmentChatModel(Base):
 
     @classmethod
     async def get_by_appointment_id(cls, session: AsyncSession, appointment_id: uuid.UUID) -> List["AppointmentChatModel"]:
-        query = select(cls).where(cls.appointment_id == appointment_id).order_by(cls.created_at.desc())
+        query = select(cls).where(cls.appointment_id == appointment_id).order_by(cls.created_at.asc())
         result = await session.execute(query)
         return list(result.scalars().all())
 
