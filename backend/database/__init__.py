@@ -1110,7 +1110,7 @@ class GuidesModel(Base):
             cls.guide_status == GuideStatus.CONFIRMED.value
         )
         result = await session.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     @classmethod
     async def preupload_by_master(cls, master_id: uuid.UUID, session: AsyncSession):
