@@ -172,7 +172,7 @@ export default function GuideManagePage() {
           } else if (step.img_url) {
             keys = step.img_url.split(" ").filter((k: string) => k.trim() !== "");
           }
-          const previews = keys.map((key: string) => `${baseUrl}/media/images/${key}`);
+          const previews = keys;
           return {
             id: step.step_id,
             name: step.name || "",
