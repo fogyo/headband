@@ -23,15 +23,18 @@ async def get_possible_start_time(
 ):
     """Получение возможного времени для записи (пользователь)"""
 
+    # 1. Проверка мастера
     master = await MasterModel.get_by_id(session=session, master_id=master_id)
     if not master:
         return [], "Мастер не найден", None
+
+    # 2. Проверка подписки
     today = date.today()
     is_sub = await SubscriptionModel.is_active(master_id=master_id, session=session, day=today)
-
     if not is_sub:
         return [], "У мастера нет активной подписки", None
 
+    # 3. Проверка отсутствия
     is_absent = await MasterAbsenceModel.is_absent(
         session=session,
         master_id=master_id,
@@ -41,27 +44,25 @@ async def get_possible_start_time(
         reason = await MasterAbsenceModel.get_reason(master_id=master_id, day=app_date, session=session)
         return [], f"Мастер не сможет Вас принять в этот день ({reason})", None
 
+    # 4. Получение шаблона дня недели
     weekday = app_date.isoweekday()
-
     week_template = await WeekTemplateModel.get_by_master_and_weekday(
         session=session,
         master_id=master_id,
         weekday=weekday
     )
-
     if not week_template:
         return [], "Мастер не сможет Вас принять в этот день (Выходной)", None
 
-    # Получаем working_day для этой даты
+    # 5. Получение / создание рабочего дня (working_day)
     working_day = await WorkingDayModel.get_by_master_and_date(
         session=session,
         master_id=master_id,
         day_date=app_date
     )
-    working_day_to_delete = False
+    working_day_created = False
     if not working_day:
-        working_day_to_delete = True
-        # Создаём working_day из template если нет
+        working_day_created = True
         working_day_data = {
             "master_id": master_id,
             "day_date": app_date,
@@ -72,64 +73,133 @@ async def get_possible_start_time(
         working_day_id = await WorkingDayModel.create(session=session, data=working_day_data, master_id=master_id)
         working_day = await WorkingDayModel.get_by_id(session=session, id=working_day_id)
 
+    # 6. Адрес
     address = await AddressModel.get_by_id(address_id=working_day.address_id, session=session)
-    address_name = address.address
-    # Получаем записи мастера на эту дату
+    address_name = address.address if address else ""
+
+    # 7. Получение записей на эту дату
     appointments = await AppointmentModel.get_by_master_and_date(
         session=session,
         master_id=master_id,
         app_date=app_date
     )
 
-    def next_time_rounded_to_10_minutes(t: time) -> time:
-        mins = t.minute
-        if mins % 10 == 0:
+    # 8. Вспомогательные функции для работы с time
+    def time_to_minutes(t: time) -> int:
+        return t.hour * 60 + t.minute
+
+    def minutes_to_time(mins: int) -> time:
+        h = mins // 60
+        m = mins % 60
+        return time(hour=h, minute=m)
+
+    def add_minutes_to_time(t: time, mins: int) -> time:
+        total = time_to_minutes(t) + mins
+        return minutes_to_time(total)
+
+    def ceil_to_10_minutes(t: time) -> time:
+        mins = time_to_minutes(t)
+        rem = mins % 10
+        if rem == 0:
             return t
-        diff = 10 - (mins % 10)
-        base = datetime.combine(datetime.today(), t)
-        return (base + timedelta(minutes=diff)).time()
+        return minutes_to_time(mins + (10 - rem))
 
-    
-    if app_date == today and datetime.now(tz_offset).time()>working_day.start_time:
-        day_start = next_time_rounded_to_10_minutes(datetime.now(tz_offset).time())
+    # 9. Определяем реальное начало дня
+    tz = timezone(timedelta(hours=3))  # или ваш часовой пояс
+    if app_date == today:
+        current_time = datetime.now(tz).time()
+        if current_time > working_day.start_time:
+            day_start = ceil_to_10_minutes(current_time)
+        else:
+            day_start = working_day.start_time
     else:
-        day_start = working_day.start_time  # time
-    day_end = working_day.end_time  # time
-    logging.info(f"DAY START {day_start}")
-    end_times = [day_start] #List[time]
-    start_times = [] #List[time]
+        day_start = working_day.start_time
 
-    for appointment in appointments:
-        app_time = _time_to_timedelta(appointment.start_time) #timedelta
-        price = await PriceModel.get_by_id(session=session, price_id=appointment.price_id)
-        duration = price.approximate_time
-        start_times.append(appointment.start_time)
-        end_times.append(_timedelta_to_time(app_time + timedelta(minutes=duration)))
+    day_end = working_day.end_time
 
-    start_times.append(day_end)
+    logging.info(f"DAY START {day_start}, DAY END {day_end}")
 
+    # 10. Собираем занятые интервалы (начало, конец) с учётом длительности каждой записи
+    busy_intervals = []
+    for app in appointments:
+        # начало записи - время
+        start_t = app.start_time
+        # получаем цену для длительности
+        price = await PriceModel.get_by_id(session=session, price_id=app.price_id)
+        duration = price.approximate_time  # минуты
+        end_t = add_minutes_to_time(start_t, duration)
+        busy_intervals.append((start_t, end_t))
+
+    # 11. Фильтруем интервалы: отбрасываем те, что полностью до day_start,
+    #     и подрезаем начало тех, что начались раньше, но закончатся позже
+    filtered = []
+    for start_t, end_t in busy_intervals:
+        if end_t <= day_start:
+            continue
+        if start_t < day_start:
+            start_t = day_start
+        filtered.append((start_t, end_t))
+
+    # 12. Сортируем по началу и объединяем пересекающиеся/касающиеся
+    filtered.sort(key=lambda x: x[0])
+    merged = []
+    for start_t, end_t in filtered:
+        if not merged:
+            merged.append([start_t, end_t])
+        else:
+            last_start, last_end = merged[-1]
+            # если текущий интервал начинается раньше или в момент окончания предыдущего – объединяем
+            if start_t <= last_end:
+                merged[-1][1] = max(last_end, end_t)
+            else:
+                merged.append([start_t, end_t])
+
+    # 13. Генерация возможных слотов
+    #     Переводим day_start и day_end в минуты для удобства
+    day_start_min = time_to_minutes(day_start)
+    day_end_min = time_to_minutes(day_end)
+
+    # длительность услуги, которую хотим записать (в минутах)
     price_to_app = await PriceModel.get_by_id(session=session, price_id=price_id)
     appointment_duration = price_to_app.approximate_time
 
-    # Находим свободные слоты
     possible_starts = []
-    ten_minutes = 10  # минут
+    current_min = day_start_min
 
-    for i in range(len(start_times)):
-        gap = _timedelta_to_int_minutes(_time_to_timedelta(start_times[i]) - _time_to_timedelta(end_times[i]))
-        if gap >= appointment_duration:
-            free_minutes = gap - appointment_duration
-            k = free_minutes // ten_minutes
-            for j in range(k+1):
-                slot_minutes = (_time_to_timedelta(end_times[i]) + timedelta(minutes=(ten_minutes * j)))
-                possible_starts.append(_timedelta_to_time(slot_minutes))
-    if working_day_to_delete:
-        status = await WorkingDayModel.delete(session=session, wd_id=working_day_id)
+    # Проходим по объединённым занятым интервалам
+    for start_t, end_t in merged:
+        start_min = time_to_minutes(start_t)
+        end_min = time_to_minutes(end_t)
+
+        # Свободный промежуток от current_min до start_min
+        if start_min > current_min:
+            free_minutes = start_min - current_min
+            if free_minutes >= appointment_duration:
+                # Нарезаем с шагом 10 минут
+                for offset in range(0, free_minutes - appointment_duration + 1, 10):
+                    slot_min = current_min + offset
+                    possible_starts.append(minutes_to_time(slot_min))
+
+        # Сдвигаем текущую позицию на конец занятого интервала
+        if end_min > current_min:
+            current_min = end_min
+
+    # После последнего занятого интервала - до конца дня
+    if day_end_min > current_min:
+        free_minutes = day_end_min - current_min
+        if free_minutes >= appointment_duration:
+            for offset in range(0, free_minutes - appointment_duration + 1, 10):
+                slot_min = current_min + offset
+                possible_starts.append(minutes_to_time(slot_min))
+
+    # 14. Удаляем временный working_day, если он был создан
+    if working_day_created:
+        await WorkingDayModel.delete(session=session, wd_id=working_day.id)
+
     if not possible_starts:
         return [], "Нет свободных мест на этот день", ""
 
     return possible_starts, "success", address_name
-
 
 async def get_appointments_by_date(
         master_id: uuid.UUID,
