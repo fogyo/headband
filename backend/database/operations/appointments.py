@@ -89,13 +89,13 @@ async def get_possible_start_time(
         base = datetime.combine(datetime.today(), t)
         return (base + timedelta(minutes=diff)).time()
 
-    logging.info(f"TIME NOW {datetime.now(tz_offset).time()}")
+    
     if app_date == today and datetime.now(tz_offset).time()>working_day.start_time:
         day_start = next_time_rounded_to_10_minutes(datetime.now(tz_offset).time())
     else:
         day_start = working_day.start_time  # time
     day_end = working_day.end_time  # time
-
+    logging.info(f"DAY START {day_start}")
     end_times = [day_start] #List[time]
     start_times = [] #List[time]
 
