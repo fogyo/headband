@@ -21,6 +21,9 @@ class Appointment(BaseModel):
     price: int
     parental_category: str
 
+class MessageEdit(BaseModel):
+    text: str
+
 class AppointmentListResponse(StatusResponse):
     appointments: List[Appointment]
 
@@ -115,7 +118,7 @@ async def create_message(chat_id: int,
 
 @router.patch("/edit_message", response_model=StatusResponse)
 async def edit_message(message_id: uuid.UUID,
-                       message: Message,
+                       message: MessageEdit,
                        session: AsyncSession = Depends(get_db_session)):
     status = await miniapp_db_fcn.edit_message(text=message.text, message_id=message_id, session=session)
     return {"status": status}
