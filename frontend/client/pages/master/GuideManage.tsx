@@ -160,6 +160,7 @@ export default function GuideManagePage() {
         const res = await fetch(`${baseUrl}/master/guides/step_text?guide_id=${editId}`);
         if (!res.ok) throw new Error("Ошибка загрузки шагов");
         const data = await res.json();
+        console.log("🔍 Ответ step_text:", data);
         if (data.status !== "success") throw new Error(data.status);
 
         if (data.name && !state?.title) setTitle(data.name);
