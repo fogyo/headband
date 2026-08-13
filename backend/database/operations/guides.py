@@ -55,8 +55,8 @@ async def get_steps(guide_id: uuid.UUID, session: AsyncSession):
         "name": s.name,
         "step_num": s.step_num,
         "text": s.text,
-        "img_urls": [f"{s3_domain}{u}" for u in s.image_url.split(" ")] if s.image_url != "" else None
-    } for s in steps]
+        "img_urls": [f"{s3_domain}{u}" for u in (s.image_url or "").split() if s3_domain not in u] or None}
+        for s in steps]
     return "success", steps_resp
 
 async def create_step(step_data: List[dict], session: AsyncSession):
