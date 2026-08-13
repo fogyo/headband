@@ -146,7 +146,7 @@ export default function GuideManagePage() {
     fetchVideoGuide();
   }, [isEditing, editId, type, state, navigate]);
 
-  // Загрузка текстового гайда при редактировании
+    // Загрузка текстового гайда при редактировании
   useEffect(() => {
     if (!isEditing || type !== "text") return;
     if (!editId) return;
@@ -165,21 +165,34 @@ export default function GuideManagePage() {
         if (data.name && !state?.title) setTitle(data.name);
 
         const loadedSteps: GuideStep[] = data.steps.map((step: any) => {
-          // Универсальное получение списка ключей
+          // Извлекаем ключи из полных URL или из строки с пробелами
           let keys: string[] = [];
           if (step.img_urls && Array.isArray(step.img_urls)) {
-            keys = step.img_urls;
+            keys = step.img_urls.map((url: string) => {
+              if (url.startsWith('http')) {
+                const parts = url.split('/');
+                return parts[parts.length - 1] || url;
+              }
+              return url;
+            });
           } else if (step.img_url) {
-            keys = step.img_url.split(" ").filter((k: string) => k.trim() !== "");
+            keys = step.img_url.split(' ').filter((k: string) => k.trim() !== "").map((url: string) => {
+              if (url.startsWith('http')) {
+                const parts = url.split('/');
+                return parts[parts.length - 1] || url;
+              }
+              return url;
+            });
           }
-          const previews = keys;
+          // Формируем превью через /media/images/
+          const previews = keys.map((key: string) => `${baseUrl}/media/images/${key}`);
           return {
             id: step.step_id,
             name: step.name || "",
             description: step.text || "",
             images: [],
             imagePreviews: previews,
-            imageKeys: keys,
+            imageKeys: keys,       // теперь только ключи
             step_num: step.step_num,
             isNew: false,
             isDeleted: false,
@@ -197,7 +210,6 @@ export default function GuideManagePage() {
     };
     fetchGuide();
   }, [isEditing, editId, type, state, navigate]);
-
   // ---------- РАННИЕ ВОЗВРАТЫ — ПОСЛЕ ВСЕХ ХУКОВ ----------
   if (authLoading) {
     return (
