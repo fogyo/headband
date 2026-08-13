@@ -45,5 +45,5 @@ async def dev_help(chat_id: int,
                    request: FeedbackResponse,
                    session: AsyncSession = Depends(get_db_session)):
     problem = await miniapp_db_fcn.solve_problem(problem_id=request.problem_id, session=session)
-    await bot.send_message(chat_id=problem.chat_id, text=f"Ответ от разработчика:\n{request.text} \nС уважением, \nкоманда headband")
+    await bot.send_message(chat_id=problem.chat_id, text=f"Ответ от разработчика:\n\n{request.text} \n\nС уважением, \nкоманда headband")
     return {"status": "success"}

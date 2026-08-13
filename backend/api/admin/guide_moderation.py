@@ -70,5 +70,5 @@ async def deny_guide(
     guide = await miniapp_db_fcn.get_guide(guide_id=request.guide_id, session=session)
     master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
     await bot.send_message(chat_id=master.chat_id_tg,
-                            text=f"❌ К сожалению, Ваш гайд пока не был одобрен модерацией headband по причине: {request.comment}")
+                            text=f"❌ К сожалению, Ваш гайд пока не был одобрен модерацией headband.\n\n{request.comment}")
     return {"status": status}
