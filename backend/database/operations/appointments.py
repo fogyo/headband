@@ -264,6 +264,14 @@ async def get_appointment(appointment_id: uuid.UUID,
     appointment = await AppointmentModel.get_by_id(appointment_id=appointment_id, session=session)
     return appointment
 
+def get_all_users_with_tommorrow_appointments(session):
+    appointments = AppointmentModel.get_all_tommorrow(session)
+    users = []
+    for a in appointments:
+        user = UserModel.get_by_id_sync(session=session, user_id=a.user_id)
+        users.append(user.chat_id)
+    return list(set(users))
+
 
 async def get_appointments_by_user(
         user_id: uuid.UUID,

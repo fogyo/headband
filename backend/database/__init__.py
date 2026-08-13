@@ -243,6 +243,12 @@ class UserModel(Base):
         query = select(cls).where(cls.id == user_id)
         result = await session.execute(query)
         return result.scalars().first()
+    
+    @classmethod
+    def get_by_id_sync(cls, session, user_id: uuid.UUID):
+        query = select(cls).where(cls.id == user_id)
+        result = session.execute(query)
+        return result.scalars().first()
 
 
 class CategoryModel(Base):
@@ -989,6 +995,13 @@ class AppointmentModel(Base):
         query = select(cls.user_id).where(cls.working_day_id.in_(wd_ids))  
         result = await session.execute(query)
         return list(result.scalars().all())      
+
+    @classmethod
+    def get_all_tommorrow(cls, session):
+        query = select(cls).where(cls.date == (date.today() + timedelta(days=1)))
+        result = session.execute(query)
+        return list(result.scalars().all())
+
 
     @classmethod
     async def get_by_master_and_date(cls, session: AsyncSession, master_id: uuid.UUID, app_date: date) -> List[AppointmentModel]:

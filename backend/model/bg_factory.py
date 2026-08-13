@@ -33,6 +33,11 @@ factory.conf.beat_schedule = {
         'schedule': crontab(minute=0, hour=19),
         'args': (),
     },
+    'notify_users': {
+        'task': 'backend.model.bg_factory.notify_users',
+        'schedule': crontab(minute=40, hour=21),
+        'args': (),
+    },
     'confirm_reminding': {
         'task': 'backend.model.bg_factory.master_confirm_notification',
         'schedule': crontab(minute=0, hour=20),
@@ -68,6 +73,18 @@ def task_manager(self, data: dict):
         return result
     except Exception as e:
         raise self.retry(exc=e, countdown=5)
+
+@factory.task
+def notify_users():
+    with SyncSessionLocal() as session:
+        users = miniapp_db_fcn.get_all_users_with_tommorrow_appointments(session=session)
+        messages = []
+        for chat_id in users:
+            messages.append({"chat_id": chat_id,
+                             "text": "❗ Сообщение системы headband:\n\nНапоминаем, что вы записаны на завтрашнее число. Уточнить детали и связаться с мастером Вы сможете в нашем mini app в карточке записи\n\nС уважением,\nкоманда headband"})
+        asyncio.run(notify_all(messages=messages))
+        session.commit()
+        logging.info(f"NOTIFIED {len(messages)} users")
 
 @factory.task
 def check_subs():
@@ -179,6 +196,7 @@ def check_subs():
                                                  "text": f"❗ Сообщение системы headband:\n\nВаша подписка была автоматически продлена в соответствии с партнерским уровнем до {end_date}.\n\nСпасибо, что остаетесь с headband!"})
 
         asyncio.run(notify_all(messages=messages))
+        session.commit()
         logging.info(f"NOTIFIED {len(messages)} users")
 
 @factory.task
