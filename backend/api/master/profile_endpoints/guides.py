@@ -229,10 +229,6 @@ async def update_text(
         step_id = upd_step["step_id"]
         del upd_step["step_id"]
         upd_step["step_num"] = step.step_num
-        if step.image_url != "":
-            text_step = await miniapp_db_fcn.get_text_step(step_id=step_id, session=session)
-            if text_step.image_url != "":
-                await s3_client.delete_object(object_key=text_step.image_url)
         status = await miniapp_db_fcn.update_step(step_id=step.step_id, update_data=upd_step, session=session)
 
     step_data = []
@@ -264,11 +260,6 @@ async def update_video(
                  "description": video.text,
                  "preview": video.image_url}
     exclude_video = {k: v for k, v in upd_video.items() if v is not None}
-    video_step = await miniapp_db_fcn.get_video_steps(guide_id=request.guide_id, session=session)
-    if video.filepath != None:
-        await s3_client.delete_object(object_key=video_step["video_url"])
-    if video.image_url != None:
-        await s3_client.delete_object(object_key=video_step["preview"])
     status = await miniapp_db_fcn.update_video_step(step_id=video.step_id, update_data=exclude_video, session=session)
     return {"status": status}
 
