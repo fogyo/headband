@@ -165,21 +165,25 @@ export default function GuideManagePage() {
         if (data.name && !state?.title) setTitle(data.name);
 
         const loadedSteps: GuideStep[] = data.steps.map((step: any) => {
-          // Универсальное получение списка ключей
           let keys: string[] = [];
+          let previews: string[] = [];
           if (step.img_urls && Array.isArray(step.img_urls)) {
-            keys = step.img_urls;
+            // бэкенд возвращает массив полных URL или ключей?
+            // Если это полные URL, извлекаем ключи и используем URL для preview
+            previews = step.img_urls;
+            keys = step.img_urls.map((url: string) => url.split('/').pop() || url);
           } else if (step.img_url) {
-            keys = step.img_url.split(" ").filter((k: string) => k.trim() !== "");
+            const parts = step.img_url.split(" ").filter((k: string) => k.trim() !== "");
+            previews = parts;
+            keys = parts.map((url: string) => url.split('/').pop() || url);
           }
-          const previews = keys;
           return {
             id: step.step_id,
             name: step.name || "",
             description: step.text || "",
             images: [],
-            imagePreviews: previews,
-            imageKeys: keys,
+            imagePreviews: previews,          // для отображения
+            imageKeys: keys,                  // для отправки ключей
             step_num: step.step_num,
             isNew: false,
             isDeleted: false,
@@ -334,13 +338,12 @@ export default function GuideManagePage() {
             }
 
             const currentStepNum = i + 1;
-            let allKeys: string[] = [...step.imageKeys];
-            for (const file of step.images) {
-              const key = await uploadFile(file);
-              allKeys.push(key);
-            }
-            const imageUrlsStr = allKeys.join(" ");
-
+              let allKeys: string[] = step.imageKeys.map(key => key); // уже должны быть ключи
+              for (const file of step.images) {
+                const key = await uploadFile(file);
+                allKeys.push(key);
+              }
+              const imageUrlsStr = allKeys.join(" ");
             if (step.isNew) {
               stepsToAdd.push({
                 name: step.name,
