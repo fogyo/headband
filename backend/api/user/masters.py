@@ -65,7 +65,7 @@ async def get_master(chat_id: int,
             logging.info(end_date)
             if active:
                 master = await miniapp_db_fcn.get_master(master_id=master_id, session=session)
-                average, rates = await miniapp_db_fcn.get_rating(master_id=master_id, session=session)
+                rates, average = await miniapp_db_fcn.get_rating(master_id=master_id, session=session)
                 response = {"id": master_id,
                             "name": master.full_name,
                             "avatar": f"{s3_domain}{master.avatar}",
@@ -143,7 +143,7 @@ async def get_partner_near_concrete_station(request: AddressListRequest,
     resp = []
     for master_id in master_ids:
         master = await miniapp_db_fcn.get_master(master_id=master_id, session=session)
-        average, rates = await miniapp_db_fcn.get_rating(master_id=master_id, session=session)
+        rates, average = await miniapp_db_fcn.get_rating(master_id=master_id, session=session)
         resp.append({"id": master_id,
                     "name": master.full_name,
                     "avatar": f"{s3_domain}{master.avatar}",
