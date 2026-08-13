@@ -1,3 +1,4 @@
+import logging
 import shutil
 import uuid
 from datetime import date
@@ -210,6 +211,7 @@ async def update_text(
         request: GuideUpdateRequest,
         session: AsyncSession = Depends(get_db_session)
 ):
+    
     steps = request.steps
     steps_to_add = request.steps_to_add
     steps_to_delete = request.steps_to_delete
@@ -226,20 +228,22 @@ async def update_text(
 
     for step in steps:
         upd_step = step.model_dump(exclude_unset=True)
+        logging.info(f"STEP DATA {upd_step}")
         step_id = upd_step["step_id"]
         del upd_step["step_id"]
         upd_step["step_num"] = step.step_num
         status = await miniapp_db_fcn.update_step(step_id=step.step_id, update_data=upd_step, session=session)
-
+    
     step_data = []
     for step in steps_to_add:
-            a = {"guide_id": request.guide_id,
-                 "step_num": step.step_num,
-                 "name": step.name,
-                 "text": step.text,
-                 "image_url": step.image_urls
-                 }
-            step_data.append(a)
+        a = {"guide_id": request.guide_id,
+                "step_num": step.step_num,
+                "name": step.name,
+                "text": step.text,
+                "image_url": step.image_urls
+                }
+        step_data.append(a)
+        logging.info(f"STEP TO ADD DATA {a}")
     if len(step_data)>0:
         status = await miniapp_db_fcn.create_step(step_data=step_data, session=session)
 
