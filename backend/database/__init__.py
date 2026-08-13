@@ -1016,7 +1016,7 @@ class AppointmentModel(Base):
 
     @classmethod
     async def get_by_master_confirmation(cls, session: AsyncSession, master_id: uuid.UUID, day: date):
-        query = select(cls).where(and_(cls.master_id == master_id, cls.status == AppointmentStatus.PENDING.value, day>cls.date)).order_by(cls.start_time)
+        query = select(cls).where(and_(cls.master_id == master_id, cls.status == AppointmentStatus.PENDING.value, or_(day>cls.date, and_(cls.date==day, datetime.now(tz_offset).time()>cls.end_time)))).order_by(cls.start_time)
         result = await session.execute(query)
         return result.scalars().all()
 
