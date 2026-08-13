@@ -30,7 +30,7 @@ factory.conf.timezone = 'Europe/Moscow'
 factory.conf.beat_schedule = {
     'check-subscriptions-daily': {
         'task': 'backend.model.bg_factory.check_subs',
-        'schedule': crontab(minute=0, hour=0),
+        'schedule': crontab(minute=0, hour=19),
         'args': (),
     },
     'confirm_reminding': {
