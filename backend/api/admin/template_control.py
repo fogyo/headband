@@ -177,7 +177,7 @@ class PermsTemplateUpdate(BaseModel):
 # ---------- CityTemplate ----------
 class CityTemplate(BaseModel):
     id: uuid.UUID
-    long: str
+    city: str
     location: str
 
 
@@ -200,8 +200,7 @@ class MetroTemplate(BaseModel):
     id: uuid.UUID
     name: str
     hex: str          # цвет линии в hex-формате, например "#ff0000"
-    long: str
-    lat: str     # WKT-строка
+    location: str   # WKT-строка
     city_id: uuid.UUID
 
 
