@@ -376,7 +376,7 @@ export default function AdminTemplatesPage() {
       case "haircut":
         return (
           <>
-            <selectField label="Пол" field="gender" options={["true", "false"]} labels={["Мужской", "Женский"]} />
+            <selectField label="Пол" field="gender" options={["false", "true"]} labels={["Мужской", "Женский"]} />
             <inputField label="Название" field="name" />
             <inputField label="Описание" field="description" />
             <inputField label="Рекомендации по типу лица" field="face_type_recommendations" />
@@ -480,9 +480,9 @@ export default function AdminTemplatesPage() {
     haircut: (item: HaircutTemplate) => (
       <>
         <div
-          className={`w-4 h-4 rounded-full flex-shrink-0 ${item.gender ? "bg-blue-400" : "bg-pink-400"}`}
+          className={`w-4 h-4 rounded-full flex-shrink-0 ${item.gender ? "bg-pink-400" : "bg-blue-400"}`}
         />
-        <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} {item.gender ? "(М)" : "(Ж)"}</span>
+        <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} {item.gender ? "(Ж)" : "(М)"}</span>
       </>
     ),
     face_hair: (item: FaceHairTemplate) => (
