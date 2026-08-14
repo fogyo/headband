@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.responses import StatusResponse
 from backend.database import get_db_session
 from backend.database import miniapp_db_fcn
+from shapely import wkb
 
 router = APIRouter(
     prefix="/admins/templates",
@@ -199,8 +200,8 @@ class CityTemplateUpdate(BaseModel):
 class MetroTemplate(BaseModel):
     id: uuid.UUID
     name: str
-    hex: str          # цвет линии в hex-формате, например "#ff0000"
-    location: str   # WKT-строка
+    hex: str          
+    location: str   
     city_id: uuid.UUID
 
 
@@ -389,8 +390,18 @@ async def create_city_template(chat_id: int, request: CityTemplateCreate,
 # ---------- MetroTemplate ----------
 @router.get("/metro_template_list", response_model=MetroTemplateList)
 async def get_all_metro_templates(session: AsyncSession = Depends(get_db_session)):
-    items = await miniapp_db_fcn.get_all_metro(session=session)
-    return {"status": "success", "metro_templates": items}
+    cities = await miniapp_db_fcn.get_cities(session=session)
+    resp = []
+    for city in cities:
+        items = await miniapp_db_fcn.get_all_stations_by_city(session=session, city_id=city.id)
+        for item in items:
+            point = wkb.loads(bytes.fromhex(str(item.location)))
+            resp.append({"id": item.id,
+                        "name": item.name,
+                        "hex": item.hex,
+                        "location": f"POINT ({point.x} {point.y}",
+                        "city_id": city.id})
+    return {"status": "success", "metro_templates": resp}
 
 @router.delete("/metro_template_delete", response_model=StatusResponse)
 async def delete_metro_template(template_id: uuid.UUID, chat_id: int,
