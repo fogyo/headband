@@ -45,6 +45,18 @@ async def get_session_chat_id(session_id: uuid.UUID, session: AsyncSession):
 async def create_cut_template(data: dict, session: AsyncSession):
     return await HaircutTemplateModel.create(session=session, data=data)
 
+async def delete_haircut(haircut: uuid.UUID, session: AsyncSession):
+    return await HaircutTemplateModel.delete(session=session, template_id=haircut)
+
+async def delete_beard(beard: uuid.UUID, session: AsyncSession):
+    return await FaceHairTemplateModel.delete(template_id=beard, session=session)
+
+async def delete_color(template_id: uuid.UUID, session: AsyncSession):
+    return await ColorTemplateModel.delete(template_id=template_id, session=session)
+
+async def delete_perms(template_id: uuid.UUID, session: AsyncSession):
+    return await PermsTemplateModel.delete(template_id=template_id, session=session)
+
 async def create_face_hair_template(data: dict, session: AsyncSession):
     return await FaceHairTemplateModel.create(session=session, data=data)
 

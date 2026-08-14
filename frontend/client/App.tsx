@@ -44,7 +44,7 @@ import AdminStatsPage from "./pages/admin/AdminStatsPage";
 import AdminGuidesPage from "./pages/admin/AdminGuidesPage";
 import AdminSupportPage from "./pages/admin/AdminSupportPage";
 import AdminPanelPage from "./pages/admin/AdminPanelPage";
-
+import AdminTemplatesPage from "./pages/admin/AdminTemplatesPage";
 
 // ---------- Провайдер ----------
 const queryClient = new QueryClient();
@@ -236,7 +236,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TelegramAuthProvider>
-          <Routes>
+          <Routes>           
             <Route path="/" element={<Index />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/guides" element={<GuidesPage />} />
@@ -272,6 +272,7 @@ const App = () => (
             <Route path="/admin/guides" element={<AdminGuidesPage />} />
             <Route path="/admin/support" element={<AdminSupportPage />} />
             <Route path="/admin/panel" element={<AdminPanelPage />} />
+            <Route path="/admin/templates" element={<AdminTemplatesPage />} />
           </Routes>
         </TelegramAuthProvider>
       </BrowserRouter>

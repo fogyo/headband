@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import CategoryModel, MasterCategoryModel, PriceModel
 
 
+
 async def get_all_categories(session: AsyncSession):
     """Получение всех категорий"""
     categories = await CategoryModel.get_all(session=session)
@@ -69,3 +70,7 @@ async def delete_category(category_id: uuid.UUID,
                           session: AsyncSession):
     return await CategoryModel.delete(session=session, category_id=category_id)
 
+async def update_category(category_id: uuid.UUID,
+                          upd_data: dict,
+                          session: AsyncSession):
+    return await CategoryModel.update(category_id=category_id, update_data=upd_data, session=session)

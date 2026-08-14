@@ -82,6 +82,21 @@ async def delete_city(city_id: uuid.UUID, session: AsyncSession):
 async def get_all_stations_by_city(city_id: uuid.UUID, session: AsyncSession):
     return await MetroTemplateModel.get_by_city_id(city_id=city_id, session=session)
 
+async def get_all_metro(session: AsyncSession):
+    stations = await MetroTemplateModel.get_all(session=session)
+    response_data = []
+    for station in stations:
+        point = wkb.loads(bytes.fromhex(str(station.location)))
+        response_data.append({"id": station.id,
+                             "name": station.name,
+                             "hex": station.hex,
+                             "location": f"POINT ({point.x} {point.y})",
+                             "city_id": station.city_id})
+    return response_data
+
+async def delete_metro(template_id: uuid.UUID, session: AsyncSession):
+    return await MetroTemplateModel.delete(session=session, metro_id=template_id)
+
 async def get_metro_by_id(station_id: uuid.UUID, session: AsyncSession):
     return await MetroTemplateModel.get_by_id(metro_id=station_id, session=session)
 

@@ -250,7 +250,6 @@ class UserModel(Base):
         result = session.execute(query)
         return result.scalars().first()
 
-
 class CategoryModel(Base):
     __tablename__ = "categories"
 
@@ -280,6 +279,12 @@ class CategoryModel(Base):
             await session.delete(obj)
             return "success"
         return "cat not found"
+
+    @classmethod
+    async def update(cls, session: AsyncSession, category_id: uuid.UUID, update_data: dict):
+        query = update(cls).where(cls.id == category_id).values(**update_data)
+        await session.execute(query)
+        return "success"
 
     @classmethod
     async def get_all(cls, session: AsyncSession):
@@ -329,7 +334,6 @@ class CategoryModel(Base):
         query = select(cls).where(cls.name == name)
         result = await session.execute(query)
         return result.scalars().first()
-
 
 class MasterModel(Base):
     __tablename__ = "masters"
@@ -615,10 +619,6 @@ class MasterCategoryModel(Base):
         if result.rowcount == 0:
             raise ValueError("Relation not found")
 
-
-
-
-
 class WorkingDayModel(Base):
     __tablename__ = "working_days"
 
@@ -695,7 +695,6 @@ class WorkingDayModel(Base):
         query = update(cls).where(cls.id == wd_id).values(**update_data)
         await session.execute(query)
         return "success"
-
 
 class WeekTemplateModel(Base):
     __tablename__ = "week_template"
@@ -875,7 +874,6 @@ class AddressModel(Base):
         await session.execute(query)
         return "success"
 
-
 class PriceModel(Base):
     __tablename__ = "prices"
 
@@ -954,7 +952,6 @@ class PriceModel(Base):
         query = select(cls).where(cls.master_id == master_id, cls.name == name)
         result = await session.execute(query)
         return result.scalars().first()
-
 
 class AppointmentModel(Base):
     __tablename__ = "appointments"
@@ -1246,7 +1243,6 @@ class GuideTextStepModel(Base):
             return "success"
         return "step not found"
 
-
 class GuideVideoStepModel(Base):
     __tablename__ = "guide_video_steps"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -1291,7 +1287,6 @@ class GuideVideoStepModel(Base):
             await session.delete(obj)
             return "success"
         return "video step not found"
-
 
 class GuideStatModel(Base):
     __tablename__ = "guide_stats"
@@ -1456,7 +1451,6 @@ class EarningsModel(Base):
             return "success"
         return "no such earning"
 
-
 class PrepayModel(Base):
     __tablename__ = "prepayments"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -1513,7 +1507,6 @@ class PrepayModel(Base):
             return "success"
         return "no such prepayment"
 
-
 class MasterNotificationModel(Base):
     __tablename__ = "master_notifications"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -1552,7 +1545,6 @@ class MasterNotificationModel(Base):
         query = update(cls).where(cls.master_id == master_id).values(**update_data)
         await session.execute(query)
         return "success"
-
 
 class SubscriptionModel(Base):
     __tablename__ = "subscriptions"
@@ -2147,7 +2139,6 @@ class HaircutRecommendationModel(Base):
             return "success"
         return "no such recommendation"
 
-
 class FaceHairTemplateModel(Base):
     __tablename__ = "face_hair_templates"
 
@@ -2415,7 +2406,6 @@ class TokenModel(Base):
             await session.delete(obj)
             return "success"
         return "no such token record"
-
 
 class PreviewModel(Base):
     __tablename__ = "previews"
@@ -3076,7 +3066,6 @@ class MetroTemplateModel(Base):
 class LinkStatus(Enum):
     ACTIVATED = 1
     INACTIVATED = 2
-
 
 class UniqueDevReferalLinksModel(Base):
     __tablename__ = "unique_dev_referal_links"
