@@ -127,7 +127,9 @@ function TemplateList<T>({
                 key={idx}
                 className="flex items-center justify-between py-1.5 border-b border-black/5 last:border-0"
               >
-                <div className="flex-1 min-w-0">{renderItem(item)}</div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {renderItem(item)}
+                </div>
                 <button
                   onClick={() => onDelete((item as any).id)}
                   className="text-black/50 hover:text-red-500 transition flex-shrink-0 ml-2"
@@ -470,19 +472,30 @@ export default function AdminTemplatesPage() {
     </div>
   );
 
-  // Рендер элементов для каждого типа
+  // Рендер элементов для каждого типа с цветными кружками
   const renderItem = {
     category: (item: Category) => (
       <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name} ({item.parental_name})</span>
     ),
     haircut: (item: HaircutTemplate) => (
-      <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name} {item.gender ? "(М)" : "(Ж)"}</span>
+      <>
+        <div
+          className={`w-4 h-4 rounded-full flex-shrink-0 ${item.gender ? "bg-blue-400" : "bg-pink-400"}`}
+        />
+        <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} {item.gender ? "(М)" : "(Ж)"}</span>
+      </>
     ),
     face_hair: (item: FaceHairTemplate) => (
       <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name}</span>
     ),
     color: (item: ColorTemplate) => (
-      <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name} ({item.hex})</span>
+      <>
+        <div
+          className="w-4 h-4 rounded-full flex-shrink-0"
+          style={{ backgroundColor: item.hex || "#ccc" }}
+        />
+        <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} ({item.hex})</span>
+      </>
     ),
     perms: (item: PermsTemplate) => (
       <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name}</span>
@@ -493,9 +506,13 @@ export default function AdminTemplatesPage() {
     metro: (item: MetroTemplate) => {
       const cityName = citiesMap.get(item.city_id) || item.city_id;
       return (
-        <span className="text-[14px] font-['Sofia_Sans'] text-black">
-          {item.name} ({cityName})
-        </span>
+        <>
+          <div
+            className="w-4 h-4 rounded-full flex-shrink-0"
+            style={{ backgroundColor: item.hex || "#ccc" }}
+          />
+          <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} ({cityName})</span>
+        </>
       );
     },
   };
@@ -529,7 +546,6 @@ export default function AdminTemplatesPage() {
         <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black mt-6">Управление шаблонами</h2>
         <div className="h-px bg-black w-32 mb-4" />
 
-        {/* Блоки для каждого типа */}
         <TemplateList
           title="Категории"
           items={categories}
