@@ -79,7 +79,6 @@ interface TemplateListProps<T> {
   onDelete: (id: string) => void;
   onAdd: () => void;
   renderItem: (item: T) => React.ReactNode;
-  renderAddButton?: () => React.ReactNode;
 }
 
 function TemplateList<T>({
@@ -238,7 +237,7 @@ export default function AdminTemplatesPage() {
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status || "Ошибка удаления");
       toast.success("Запись удалена");
-      await fetchData(); // перезагружаем все данные
+      await fetchData();
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Не удалось удалить");
@@ -362,6 +361,46 @@ export default function AdminTemplatesPage() {
     );
   }
 
+  // Компоненты полей
+  const inputField = ({ label, field }: { label: string; field: string }) => (
+    <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+      <input
+        type="text"
+        placeholder={label}
+        value={formData[field] || ""}
+        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50"
+      />
+    </div>
+  );
+
+  const textareaField = ({ label, field }: { label: string; field: string }) => (
+    <div className="relative bg-[#FFE9EF] rounded-[10px] shadow flex items-center px-3 py-2" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+      <textarea
+        placeholder={label}
+        value={formData[field] || ""}
+        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none resize-none text-center placeholder-black/50"
+        rows={3}
+      />
+    </div>
+  );
+
+  const selectField = ({ label, field, options, labels }: { label: string; field: string; options: string[]; labels: string[] }) => (
+    <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+      <select
+        value={formData[field] || ""}
+        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center"
+      >
+        <option value="">{label}</option>
+        {options.map((opt, idx) => (
+          <option key={idx} value={opt}>{labels[idx]}</option>
+        ))}
+      </select>
+    </div>
+  );
+
   // Рендер полей для модалки в зависимости от типа
   const renderModalFields = () => {
     switch (modalType) {
@@ -378,9 +417,9 @@ export default function AdminTemplatesPage() {
           <>
             <selectField label="Пол" field="gender" options={["false", "true"]} labels={["Мужской", "Женский"]} />
             <inputField label="Название" field="name" />
-            <inputField label="Описание" field="description" />
-            <inputField label="Рекомендации по типу лица" field="face_type_recommendations" />
-            <inputField label="Рекомендации по типу волос" field="hair_type_recommendations" />
+            <textareaField label="Описание" field="description" />
+            <textareaField label="Рекомендации по типу лица" field="face_type_recommendations" />
+            <textareaField label="Рекомендации по типу волос" field="hair_type_recommendations" />
             <inputField label="Линия челюсти" field="jawline" />
             <inputField label="Высота лба" field="forehead_height" />
             <inputField label="Скулы" field="cheekbones" />
@@ -392,10 +431,10 @@ export default function AdminTemplatesPage() {
         return (
           <>
             <inputField label="Название" field="name" />
-            <inputField label="Описание" field="description" />
-            <inputField label="Рекомендации по форме лица" field="face_shape_recommendations" />
-            <inputField label="Рекомендации по чертам лица" field="facial_features_recommendations" />
-            <inputField label="Рекомендации по цвету волос" field="hair_color_recommendations" />
+            <textareaField label="Описание" field="description" />
+            <textareaField label="Рекомендации по форме лица" field="face_shape_recommendations" />
+            <textareaField label="Рекомендации по чертам лица" field="facial_features_recommendations" />
+            <textareaField label="Рекомендации по цвету волос" field="hair_color_recommendations" />
             <inputField label="URL изображения" field="img_url" />
           </>
         );
@@ -415,7 +454,7 @@ export default function AdminTemplatesPage() {
           <>
             <inputField label="Название" field="name" />
             <inputField label="URL изображения" field="img_url" />
-            <inputField label="Описание" field="description" />
+            <textareaField label="Описание" field="description" />
           </>
         );
       case "city":
@@ -443,34 +482,6 @@ export default function AdminTemplatesPage() {
         return <p>Неизвестный тип</p>;
     }
   };
-
-  // Вспомогательные компоненты для полей
-  const inputField = ({ label, field }: { label: string; field: string }) => (
-    <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
-      <input
-        type="text"
-        placeholder={label}
-        value={formData[field] || ""}
-        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50"
-      />
-    </div>
-  );
-
-  const selectField = ({ label, field, options, labels }: { label: string; field: string; options: string[]; labels: string[] }) => (
-    <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
-      <select
-        value={formData[field] || ""}
-        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center"
-      >
-        <option value="">{label}</option>
-        {options.map((opt, idx) => (
-          <option key={idx} value={opt}>{labels[idx]}</option>
-        ))}
-      </select>
-    </div>
-  );
 
   // Рендер элементов для каждого типа с цветными кружками
   const renderItem = {
@@ -626,11 +637,11 @@ export default function AdminTemplatesPage() {
             </h3>
             <div className="h-px bg-black w-60 mx-auto mt-2 mb-4" />
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto px-1">
               {renderModalFields()}
               <button
                 onClick={handleCreate}
-                className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center"
+                className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center mt-2"
                 style={{
                   border: "0.5px solid rgba(0,0,0,0.00)",
                   boxShadow:

@@ -35,7 +35,7 @@ factory.conf.beat_schedule = {
     },
     'notify_users': {
         'task': 'backend.model.bg_factory.notify_users',
-        'schedule': crontab(minute=45, hour=17),
+        'schedule': crontab(minute=0, hour=19),
         'args': (),
     },
     'confirm_reminding': {
