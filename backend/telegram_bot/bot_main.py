@@ -692,6 +692,7 @@ async def activate_confirm(callback: types.CallbackQuery, state: FSMContext):
 
             # Вызов метода активации (ты реализуешь его в miniapp_db_fcn)
             success = await miniapp_db_fcn.create_subscription(master_id=master.id, duration_days=3, level=level_code, session=session)
+            await miniapp_db_fcn.decrease_sub(master_id=master.id, level=level_code, session=session)
             if not success:
                 await callback.message.edit_text(
                     "❌ Не удалось активировать подписку. Попробуйте позже.",

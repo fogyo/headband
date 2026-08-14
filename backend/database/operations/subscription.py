@@ -74,6 +74,17 @@ async def create_subscription(
         logging.error(f"Ошибка создания подписки: {e}")
         return f"error: {str(e)}", uuid.UUID(int=0)
 
+async def decrease_sub(
+        master_id: uuid.UUID,
+        level: int, 
+        session: AsyncSession
+):
+    if level==1:
+        SubscriptionBankModel.decrease_base_sub_sync(session=session, master_id=master_id)
+    else:
+        SubscriptionBankModel.decrease_partner_sub_sync(session=session, master_id=master_id)
+    return "success"
+
 def extend_subscription_sync(
         master_id: uuid.UUID,
         sub_id: uuid.UUID,
