@@ -393,14 +393,14 @@ async def get_all_metro_templates(session: AsyncSession = Depends(get_db_session
     cities = await miniapp_db_fcn.get_cities(session=session)
     resp = []
     for city in cities:
-        items = await miniapp_db_fcn.get_all_stations_by_city(session=session, city_id=city.id)
+        items = await miniapp_db_fcn.get_all_stations_by_city(session=session, city_id=city["id"])
         for item in items:
             point = wkb.loads(bytes.fromhex(str(item.location)))
             resp.append({"id": item.id,
                         "name": item.name,
                         "hex": item.hex,
                         "location": f"POINT ({point.x} {point.y}",
-                        "city_id": city.id})
+                        "city_id": city["id"]})
     return {"status": "success", "metro_templates": resp}
 
 @router.delete("/metro_template_delete", response_model=StatusResponse)
