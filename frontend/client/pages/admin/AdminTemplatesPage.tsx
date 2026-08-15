@@ -126,9 +126,7 @@ function TemplateList<T>({
                 key={idx}
                 className="flex items-center justify-between py-1.5 border-b border-black/5 last:border-0"
               >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {renderItem(item)}
-                </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">{renderItem(item)}</div>
                 <button
                   onClick={() => onDelete((item as any).id)}
                   className="text-black/50 hover:text-red-500 transition flex-shrink-0 ml-2"
@@ -164,6 +162,7 @@ export default function AdminTemplatesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string>("");
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Загрузка всех данных
   const fetchData = async () => {
@@ -237,7 +236,7 @@ export default function AdminTemplatesPage() {
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status || "Ошибка удаления");
       toast.success("Запись удалена");
-      await fetchData();
+      await fetchData(); // перезагружаем все данные
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Не удалось удалить");
@@ -247,12 +246,38 @@ export default function AdminTemplatesPage() {
   // Открытие модалки для создания
   const openCreateModal = (type: string) => {
     setModalType(type);
-    setFormData({});
+    // Устанавливаем значения по умолчанию для обязательных полей
+    const defaultData: Record<string, any> = {};
+    if (type === "haircut") {
+      defaultData.gender = "true"; // Женский по умолчанию (true)
+    }
+    if (type === "metro") {
+      defaultData.city_id = cities.length > 0 ? cities[0].id : "";
+    }
+    setFormData(defaultData);
     setIsModalOpen(true);
   };
 
   // Отправка создания
   const handleCreate = async () => {
+    // Проверка обязательных полей
+    const requiredFields: Record<string, string[]> = {
+      category: ["name", "parental_name", "eng_name"],
+      haircut: ["name", "description", "face_type_recommendations", "hair_type_recommendations", "jawline", "forehead_height", "cheekbones", "neck_length", "img_url"],
+      face_hair: ["name", "description", "face_shape_recommendations", "facial_features_recommendations", "hair_color_recommendations", "img_url"],
+      color: ["name", "hex", "skin_temperature", "contrast", "eye_color", "skin_condition"],
+      perms: ["name", "img_url", "description"],
+      city: ["city", "location"],
+      metro: ["name", "hex", "location", "city_id"],
+    };
+    const fields = requiredFields[modalType] || [];
+    const missing = fields.filter(f => !formData[f]?.trim());
+    if (missing.length > 0) {
+      toast.error(`Заполните поля: ${missing.join(", ")}`);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       let url = "";
       let payload = formData;
@@ -327,21 +352,26 @@ export default function AdminTemplatesPage() {
           };
           break;
         default:
-          return;
+          throw new Error("Неизвестный тип");
       }
+      console.log("Создание:", { url, payload });
       const res = await fetch(`${baseUrl}${url}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (data.status !== "success") throw new Error(data.status || "Ошибка создания");
+      if (data.status !== "success") {
+        throw new Error(data.detail || data.status || "Ошибка создания");
+      }
       toast.success("Запись создана");
       setIsModalOpen(false);
       await fetchData();
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Не удалось создать");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -361,7 +391,7 @@ export default function AdminTemplatesPage() {
     );
   }
 
-  // Компоненты полей
+  // Вспомогательные компоненты для полей
   const inputField = ({ label, field }: { label: string; field: string }) => (
     <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
       <input
@@ -370,18 +400,6 @@ export default function AdminTemplatesPage() {
         value={formData[field] || ""}
         onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
         className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50"
-      />
-    </div>
-  );
-
-  const textareaField = ({ label, field }: { label: string; field: string }) => (
-    <div className="relative bg-[#FFE9EF] rounded-[10px] shadow flex items-center px-3 py-2" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
-      <textarea
-        placeholder={label}
-        value={formData[field] || ""}
-        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none resize-none text-center placeholder-black/50"
-        rows={3}
       />
     </div>
   );
@@ -401,7 +419,7 @@ export default function AdminTemplatesPage() {
     </div>
   );
 
-  // Рендер полей для модалки в зависимости от типа
+  // Рендер полей для модалки
   const renderModalFields = () => {
     switch (modalType) {
       case "category":
@@ -417,9 +435,9 @@ export default function AdminTemplatesPage() {
           <>
             <selectField label="Пол" field="gender" options={["false", "true"]} labels={["Мужской", "Женский"]} />
             <inputField label="Название" field="name" />
-            <textareaField label="Описание" field="description" />
-            <textareaField label="Рекомендации по типу лица" field="face_type_recommendations" />
-            <textareaField label="Рекомендации по типу волос" field="hair_type_recommendations" />
+            <inputField label="Описание" field="description" />
+            <inputField label="Рекомендации по типу лица" field="face_type_recommendations" />
+            <inputField label="Рекомендации по типу волос" field="hair_type_recommendations" />
             <inputField label="Линия челюсти" field="jawline" />
             <inputField label="Высота лба" field="forehead_height" />
             <inputField label="Скулы" field="cheekbones" />
@@ -431,10 +449,10 @@ export default function AdminTemplatesPage() {
         return (
           <>
             <inputField label="Название" field="name" />
-            <textareaField label="Описание" field="description" />
-            <textareaField label="Рекомендации по форме лица" field="face_shape_recommendations" />
-            <textareaField label="Рекомендации по чертам лица" field="facial_features_recommendations" />
-            <textareaField label="Рекомендации по цвету волос" field="hair_color_recommendations" />
+            <inputField label="Описание" field="description" />
+            <inputField label="Рекомендации по форме лица" field="face_shape_recommendations" />
+            <inputField label="Рекомендации по чертам лица" field="facial_features_recommendations" />
+            <inputField label="Рекомендации по цвету волос" field="hair_color_recommendations" />
             <inputField label="URL изображения" field="img_url" />
           </>
         );
@@ -454,7 +472,7 @@ export default function AdminTemplatesPage() {
           <>
             <inputField label="Название" field="name" />
             <inputField label="URL изображения" field="img_url" />
-            <textareaField label="Описание" field="description" />
+            <inputField label="Описание" field="description" />
           </>
         );
       case "city":
@@ -637,18 +655,21 @@ export default function AdminTemplatesPage() {
             </h3>
             <div className="h-px bg-black w-60 mx-auto mt-2 mb-4" />
 
-            <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto px-1">
+            <div className="flex flex-col gap-4">
               {renderModalFields()}
               <button
                 onClick={handleCreate}
-                className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center mt-2"
+                disabled={isSubmitting}
+                className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center disabled:opacity-50"
                 style={{
                   border: "0.5px solid rgba(0,0,0,0.00)",
                   boxShadow:
                     "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
                 }}
               >
-                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">Создать</span>
+                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
+                  {isSubmitting ? "Создание..." : "Создать"}
+                </span>
               </button>
             </div>
           </div>
