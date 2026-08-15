@@ -59,7 +59,7 @@ interface PermsTemplate {
 
 interface CityTemplate {
   id: string;
-  location: string; // WKT
+  location: string;
   city: string;
 }
 
@@ -71,16 +71,7 @@ interface MetroTemplate {
   city_id: string;
 }
 
-// ---------- Компонент для отображения списка шаблонов ----------
-interface TemplateListProps<T> {
-  title: string;
-  items: T[];
-  loading: boolean;
-  onDelete: (id: string) => void;
-  onAdd: () => void;
-  renderItem: (item: T) => React.ReactNode;
-}
-
+// ---------- Компонент списка ----------
 function TemplateList<T>({
   title,
   items,
@@ -88,13 +79,18 @@ function TemplateList<T>({
   onDelete,
   onAdd,
   renderItem,
-}: TemplateListProps<T>) {
+}: {
+  title: string;
+  items: T[];
+  loading: boolean;
+  onDelete: (id: string) => void;
+  onAdd: () => void;
+  renderItem: (item: T) => React.ReactNode;
+}) {
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">
-          {title}
-        </h3>
+        <h3 className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black">{title}</h3>
         <button
           onClick={onAdd}
           className="relative bg-[#FFE9EF] rounded-[10px] py-1.5 px-4 shadow-sm text-[14px] tracking-[-0.7px] font-['Sofia_Sans'] text-black flex items-center gap-1"
@@ -146,7 +142,6 @@ function TemplateList<T>({
 export default function AdminTemplatesPage() {
   const { chatId, isVerified, isLoading: authLoading, error: authError } = useTelegramAuth();
 
-  // Состояния для всех типов
   const [categories, setCategories] = useState<Category[]>([]);
   const [haircuts, setHaircuts] = useState<HaircutTemplate[]>([]);
   const [faceHairs, setFaceHairs] = useState<FaceHairTemplate[]>([]);
@@ -158,24 +153,15 @@ export default function AdminTemplatesPage() {
 
   const [loading, setLoading] = useState(true);
 
-  // Модальное окно создания
+  // Модалка
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string>("");
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Загрузка всех данных
   const fetchData = async () => {
     try {
-      const [
-        categoriesRes,
-        haircutsRes,
-        faceHairsRes,
-        colorsRes,
-        permsRes,
-        citiesRes,
-        metrosRes,
-      ] = await Promise.all([
+      const [categoriesRes, haircutsRes, faceHairsRes, colorsRes, permsRes, citiesRes, metrosRes] = await Promise.all([
         fetch(`${baseUrl}/admins/templates/category_list`),
         fetch(`${baseUrl}/admins/templates/haircut_template_list`),
         fetch(`${baseUrl}/admins/templates/face_hair_template_list`),
@@ -184,34 +170,26 @@ export default function AdminTemplatesPage() {
         fetch(`${baseUrl}/admins/templates/city_template_list`),
         fetch(`${baseUrl}/admins/templates/metro_template_list`),
       ]);
-
-      const [categoriesData, haircutsData, faceHairsData, colorsData, permsData, citiesData, metrosData] =
-        await Promise.all([
-          categoriesRes.json(),
-          haircutsRes.json(),
-          faceHairsRes.json(),
-          colorsRes.json(),
-          permsRes.json(),
-          citiesRes.json(),
-          metrosRes.json(),
-        ]);
-
+      const [categoriesData, haircutsData, faceHairsData, colorsData, permsData, citiesData, metrosData] = await Promise.all([
+        categoriesRes.json(),
+        haircutsRes.json(),
+        faceHairsRes.json(),
+        colorsRes.json(),
+        permsRes.json(),
+        citiesRes.json(),
+        metrosRes.json(),
+      ]);
       if (categoriesData.status === "success") setCategories(categoriesData.categories || []);
       if (haircutsData.status === "success") setHaircuts(haircutsData.haircuts || []);
       if (faceHairsData.status === "success") setFaceHairs(faceHairsData.face_hair_templates || []);
       if (colorsData.status === "success") setColors(colorsData.color_templates || []);
       if (permsData.status === "success") setPerms(permsData.perms_templates || []);
       if (citiesData.status === "success") setCities(citiesData.city_templates || []);
-
-      // Строим маппинг городов
       const map = new Map<string, string>();
       if (citiesData.status === "success" && citiesData.city_templates) {
-        citiesData.city_templates.forEach((city: CityTemplate) => {
-          map.set(city.id, city.city);
-        });
+        citiesData.city_templates.forEach((city: CityTemplate) => map.set(city.id, city.city));
       }
       setCitiesMap(map);
-
       if (metrosData.status === "success") setMetros(metrosData.metro_templates || []);
     } catch (err) {
       console.error(err);
@@ -226,42 +204,32 @@ export default function AdminTemplatesPage() {
     fetchData();
   }, [chatId, isVerified]);
 
-  // Универсальное удаление
   const handleDelete = async (url: string, id: string) => {
     if (!window.confirm("Удалить запись?")) return;
     try {
-      const res = await fetch(`${baseUrl}${url}?template_id=${id}&chat_id=${chatId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`${baseUrl}${url}?template_id=${id}&chat_id=${chatId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status || "Ошибка удаления");
       toast.success("Запись удалена");
-      await fetchData(); // перезагружаем все данные
+      await fetchData();
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Не удалось удалить");
     }
   };
 
-  // Открытие модалки для создания
   const openCreateModal = (type: string) => {
     setModalType(type);
-    // Устанавливаем значения по умолчанию для обязательных полей
-    const defaultData: Record<string, any> = {};
-    if (type === "haircut") {
-      defaultData.gender = "true"; // Женский по умолчанию (true)
-    }
-    if (type === "metro") {
-      defaultData.city_id = cities.length > 0 ? cities[0].id : "";
-    }
-    setFormData(defaultData);
+    const defaults: Record<string, any> = {};
+    if (type === "haircut") defaults.gender = "true";
+    if (type === "metro" && cities.length > 0) defaults.city_id = cities[0].id;
+    setFormData(defaults);
     setIsModalOpen(true);
   };
 
-  // Отправка создания
   const handleCreate = async () => {
     // Проверка обязательных полей
-    const requiredFields: Record<string, string[]> = {
+    const required: Record<string, string[]> = {
       category: ["name", "parental_name", "eng_name"],
       haircut: ["name", "description", "face_type_recommendations", "hair_type_recommendations", "jawline", "forehead_height", "cheekbones", "neck_length", "img_url"],
       face_hair: ["name", "description", "face_shape_recommendations", "facial_features_recommendations", "hair_color_recommendations", "img_url"],
@@ -270,7 +238,7 @@ export default function AdminTemplatesPage() {
       city: ["city", "location"],
       metro: ["name", "hex", "location", "city_id"],
     };
-    const fields = requiredFields[modalType] || [];
+    const fields = required[modalType] || [];
     const missing = fields.filter(f => !formData[f]?.trim());
     if (missing.length > 0) {
       toast.error(`Заполните поля: ${missing.join(", ")}`);
@@ -284,11 +252,7 @@ export default function AdminTemplatesPage() {
       switch (modalType) {
         case "category":
           url = `/admins/templates/category_create?chat_id=${chatId}`;
-          payload = {
-            name: formData.name,
-            parental_name: formData.parental_name,
-            eng_name: formData.eng_name,
-          };
+          payload = { name: formData.name, parental_name: formData.parental_name, eng_name: formData.eng_name };
           break;
         case "haircut":
           url = `/admins/templates/haircut_template_create?chat_id=${chatId}`;
@@ -329,41 +293,26 @@ export default function AdminTemplatesPage() {
           break;
         case "perms":
           url = `/admins/templates/perms_template_create?chat_id=${chatId}`;
-          payload = {
-            name: formData.name,
-            img_url: formData.img_url,
-            description: formData.description,
-          };
+          payload = { name: formData.name, img_url: formData.img_url, description: formData.description };
           break;
         case "city":
           url = `/admins/templates/city_template_create?chat_id=${chatId}`;
-          payload = {
-            location: formData.location,
-            city: formData.city,
-          };
+          payload = { location: formData.location, city: formData.city };
           break;
         case "metro":
           url = `/admins/templates/metro_template_create?chat_id=${chatId}`;
-          payload = {
-            name: formData.name,
-            hex: formData.hex,
-            location: formData.location,
-            city_id: formData.city_id,
-          };
+          payload = { name: formData.name, hex: formData.hex, location: formData.location, city_id: formData.city_id };
           break;
         default:
           throw new Error("Неизвестный тип");
       }
-      console.log("Создание:", { url, payload });
       const res = await fetch(`${baseUrl}${url}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (data.status !== "success") {
-        throw new Error(data.detail || data.status || "Ошибка создания");
-      }
+      if (data.status !== "success") throw new Error(data.detail || data.status || "Ошибка создания");
       toast.success("Запись создана");
       setIsModalOpen(false);
       await fetchData();
@@ -391,155 +340,31 @@ export default function AdminTemplatesPage() {
     );
   }
 
-  // Вспомогательные компоненты для полей
-  const inputField = ({ label, field }: { label: string; field: string }) => (
-    <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
-      <input
-        type="text"
-        placeholder={label}
-        value={formData[field] || ""}
-        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50"
-      />
-    </div>
-  );
-
-  const selectField = ({ label, field, options, labels }: { label: string; field: string; options: string[]; labels: string[] }) => (
-    <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
-      <select
-        value={formData[field] || ""}
-        onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-        className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center"
-      >
-        <option value="">{label}</option>
-        {options.map((opt, idx) => (
-          <option key={idx} value={opt}>{labels[idx]}</option>
-        ))}
-      </select>
-    </div>
-  );
-
-  // Рендер полей для модалки
-  const renderModalFields = () => {
-    switch (modalType) {
-      case "category":
-        return (
-          <>
-            <inputField label="Название" field="name" />
-            <inputField label="Родительская категория" field="parental_name" />
-            <inputField label="Английское название" field="eng_name" />
-          </>
-        );
-      case "haircut":
-        return (
-          <>
-            <selectField label="Пол" field="gender" options={["false", "true"]} labels={["Мужской", "Женский"]} />
-            <inputField label="Название" field="name" />
-            <inputField label="Описание" field="description" />
-            <inputField label="Рекомендации по типу лица" field="face_type_recommendations" />
-            <inputField label="Рекомендации по типу волос" field="hair_type_recommendations" />
-            <inputField label="Линия челюсти" field="jawline" />
-            <inputField label="Высота лба" field="forehead_height" />
-            <inputField label="Скулы" field="cheekbones" />
-            <inputField label="Длина шеи" field="neck_length" />
-            <inputField label="URL изображения" field="img_url" />
-          </>
-        );
-      case "face_hair":
-        return (
-          <>
-            <inputField label="Название" field="name" />
-            <inputField label="Описание" field="description" />
-            <inputField label="Рекомендации по форме лица" field="face_shape_recommendations" />
-            <inputField label="Рекомендации по чертам лица" field="facial_features_recommendations" />
-            <inputField label="Рекомендации по цвету волос" field="hair_color_recommendations" />
-            <inputField label="URL изображения" field="img_url" />
-          </>
-        );
-      case "color":
-        return (
-          <>
-            <inputField label="Название" field="name" />
-            <inputField label="HEX-код" field="hex" />
-            <inputField label="Температура кожи" field="skin_temperature" />
-            <inputField label="Контраст" field="contrast" />
-            <inputField label="Цвет глаз" field="eye_color" />
-            <inputField label="Состояние кожи" field="skin_condition" />
-          </>
-        );
-      case "perms":
-        return (
-          <>
-            <inputField label="Название" field="name" />
-            <inputField label="URL изображения" field="img_url" />
-            <inputField label="Описание" field="description" />
-          </>
-        );
-      case "city":
-        return (
-          <>
-            <inputField label="Город" field="city" />
-            <inputField label="Location (WKT)" field="location" />
-          </>
-        );
-      case "metro":
-        return (
-          <>
-            <inputField label="Название" field="name" />
-            <inputField label="Цвет (HEX)" field="hex" />
-            <inputField label="Location (WKT)" field="location" />
-            <selectField
-              label="Город"
-              field="city_id"
-              options={cities.map((c) => c.id)}
-              labels={cities.map((c) => c.city)}
-            />
-          </>
-        );
-      default:
-        return <p>Неизвестный тип</p>;
-    }
-  };
-
-  // Рендер элементов для каждого типа с цветными кружками
+  // Рендер элементов списка с цветными кружками
   const renderItem = {
     category: (item: Category) => (
       <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name} ({item.parental_name})</span>
     ),
     haircut: (item: HaircutTemplate) => (
       <>
-        <div
-          className={`w-4 h-4 rounded-full flex-shrink-0 ${item.gender ? "bg-pink-400" : "bg-blue-400"}`}
-        />
+        <div className={`w-4 h-4 rounded-full flex-shrink-0 ${item.gender ? "bg-pink-400" : "bg-blue-400"}`} />
         <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} {item.gender ? "(Ж)" : "(М)"}</span>
       </>
     ),
-    face_hair: (item: FaceHairTemplate) => (
-      <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name}</span>
-    ),
+    face_hair: (item: FaceHairTemplate) => <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name}</span>,
     color: (item: ColorTemplate) => (
       <>
-        <div
-          className="w-4 h-4 rounded-full flex-shrink-0"
-          style={{ backgroundColor: item.hex || "#ccc" }}
-        />
+        <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: item.hex || "#ccc" }} />
         <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} ({item.hex})</span>
       </>
     ),
-    perms: (item: PermsTemplate) => (
-      <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name}</span>
-    ),
-    city: (item: CityTemplate) => (
-      <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.city}</span>
-    ),
+    perms: (item: PermsTemplate) => <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.name}</span>,
+    city: (item: CityTemplate) => <span className="text-[14px] font-['Sofia_Sans'] text-black">{item.city}</span>,
     metro: (item: MetroTemplate) => {
       const cityName = citiesMap.get(item.city_id) || item.city_id;
       return (
         <>
-          <div
-            className="w-4 h-4 rounded-full flex-shrink-0"
-            style={{ backgroundColor: item.hex || "#ccc" }}
-          />
+          <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: item.hex || "#ccc" }} />
           <span className="text-[14px] font-['Sofia_Sans'] text-black ml-2">{item.name} ({cityName})</span>
         </>
       );
@@ -549,127 +374,181 @@ export default function AdminTemplatesPage() {
   return (
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
-        <Link
-          to="/admin"
-          className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
-        >
+        <Link to="/admin" className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]">
           <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />
           <img src={backIconSrc} alt="back" className="w-6 h-6 relative z-10" />
         </Link>
-
         <div className="pt-8 pb-2">
-          <h1
-            className="text-[40px] leading-tight tracking-[3.2px] text-transparent"
-            style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}
-          >
-            templates
-          </h1>
-          <p
-            className="text-right text-[16px] tracking-[1.28px] text-transparent mt-[-4px]"
-            style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "0.4px #000" }}
-          >
-            version for admins
-          </p>
+          <h1 className="text-[40px] leading-tight tracking-[3.2px] text-transparent" style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "1px #000" }}>templates</h1>
+          <p className="text-right text-[16px] tracking-[1.28px] text-transparent mt-[-4px]" style={{ fontFamily: "Poppins, sans-serif", WebkitTextStroke: "0.4px #000" }}>version for admins</p>
         </div>
 
         <h2 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black mt-6">Управление шаблонами</h2>
         <div className="h-px bg-black w-32 mb-4" />
 
-        <TemplateList
-          title="Категории"
-          items={categories}
-          loading={loading}
-          onDelete={(id) => handleDelete("/admins/templates/category_delete", id)}
-          onAdd={() => openCreateModal("category")}
-          renderItem={renderItem.category}
-        />
-        <TemplateList
-          title="Стрижки (haircut)"
-          items={haircuts}
-          loading={loading}
-          onDelete={(id) => handleDelete("/admins/templates/haircut_template_delete", id)}
-          onAdd={() => openCreateModal("haircut")}
-          renderItem={renderItem.haircut}
-        />
-        <TemplateList
-          title="Борода и усы (face_hair)"
-          items={faceHairs}
-          loading={loading}
-          onDelete={(id) => handleDelete("/admins/templates/face_hair_template_delete", id)}
-          onAdd={() => openCreateModal("face_hair")}
-          renderItem={renderItem.face_hair}
-        />
-        <TemplateList
-          title="Цвета (color)"
-          items={colors}
-          loading={loading}
-          onDelete={(id) => handleDelete("/admins/templates/color_template_delete", id)}
-          onAdd={() => openCreateModal("color")}
-          renderItem={renderItem.color}
-        />
-        <TemplateList
-          title="Завивки (perms)"
-          items={perms}
-          loading={loading}
-          onDelete={(id) => handleDelete("/admins/templates/perms_template_delete", id)}
-          onAdd={() => openCreateModal("perms")}
-          renderItem={renderItem.perms}
-        />
-        <TemplateList
-          title="Города"
-          items={cities}
-          loading={loading}
-          onDelete={(id) => handleDelete("/admins/templates/city_template_delete", id)}
-          onAdd={() => openCreateModal("city")}
-          renderItem={renderItem.city}
-        />
-        <TemplateList
-          title="Метро"
-          items={metros}
-          loading={loading}
-          onDelete={(id) => handleDelete("/admins/templates/metro_template_delete", id)}
-          onAdd={() => openCreateModal("metro")}
-          renderItem={renderItem.metro}
-        />
+        <TemplateList title="Категории" items={categories} loading={loading} onDelete={(id) => handleDelete("/admins/templates/category_delete", id)} onAdd={() => openCreateModal("category")} renderItem={renderItem.category} />
+        <TemplateList title="Стрижки (haircut)" items={haircuts} loading={loading} onDelete={(id) => handleDelete("/admins/templates/haircut_template_delete", id)} onAdd={() => openCreateModal("haircut")} renderItem={renderItem.haircut} />
+        <TemplateList title="Борода и усы (face_hair)" items={faceHairs} loading={loading} onDelete={(id) => handleDelete("/admins/templates/face_hair_template_delete", id)} onAdd={() => openCreateModal("face_hair")} renderItem={renderItem.face_hair} />
+        <TemplateList title="Цвета (color)" items={colors} loading={loading} onDelete={(id) => handleDelete("/admins/templates/color_template_delete", id)} onAdd={() => openCreateModal("color")} renderItem={renderItem.color} />
+        <TemplateList title="Завивки (perms)" items={perms} loading={loading} onDelete={(id) => handleDelete("/admins/templates/perms_template_delete", id)} onAdd={() => openCreateModal("perms")} renderItem={renderItem.perms} />
+        <TemplateList title="Города" items={cities} loading={loading} onDelete={(id) => handleDelete("/admins/templates/city_template_delete", id)} onAdd={() => openCreateModal("city")} renderItem={renderItem.city} />
+        <TemplateList title="Метро" items={metros} loading={loading} onDelete={(id) => handleDelete("/admins/templates/metro_template_delete", id)} onAdd={() => openCreateModal("metro")} renderItem={renderItem.metro} />
       </div>
 
-      {/* Модальное окно создания */}
+      {/* Модальное окно с прямыми полями */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-          <div
-            className="relative bg-[#FFE9EF] rounded-[20px] w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 shadow-xl"
-            style={{
-              boxShadow:
-                "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-            }}
-          >
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center text-black/50 hover:text-black"
-            >
+          <div className="relative bg-[#FFE9EF] rounded-[20px] w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 shadow-xl" style={{ boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+            <button onClick={() => setIsModalOpen(false)} className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center text-black/50 hover:text-black">
               <X className="w-5 h-5" />
             </button>
-
-            <h3 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black text-center mb-4">
-              Создать {modalType.replace("_", " ")}
-            </h3>
+            <h3 className="text-[24px] tracking-[-1.2px] font-['Sofia_Sans'] text-black text-center mb-4">Создать {modalType.replace("_", " ")}</h3>
             <div className="h-px bg-black w-60 mx-auto mt-2 mb-4" />
-
             <div className="flex flex-col gap-4">
-              {renderModalFields()}
+              {modalType === "category" && (
+                <>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Название" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Родительская категория" value={formData.parental_name || ""} onChange={(e) => setFormData({ ...formData, parental_name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Английское название" value={formData.eng_name || ""} onChange={(e) => setFormData({ ...formData, eng_name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                </>
+              )}
+              {modalType === "haircut" && (
+                <>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <select value={formData.gender || "true"} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center">
+                      <option value="false">Мужской</option>
+                      <option value="true">Женский</option>
+                    </select>
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Название" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Описание" value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Рекомендации по типу лица" value={formData.face_type_recommendations || ""} onChange={(e) => setFormData({ ...formData, face_type_recommendations: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Рекомендации по типу волос" value={formData.hair_type_recommendations || ""} onChange={(e) => setFormData({ ...formData, hair_type_recommendations: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Линия челюсти" value={formData.jawline || ""} onChange={(e) => setFormData({ ...formData, jawline: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Высота лба" value={formData.forehead_height || ""} onChange={(e) => setFormData({ ...formData, forehead_height: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Скулы" value={formData.cheekbones || ""} onChange={(e) => setFormData({ ...formData, cheekbones: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Длина шеи" value={formData.neck_length || ""} onChange={(e) => setFormData({ ...formData, neck_length: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="URL изображения" value={formData.img_url || ""} onChange={(e) => setFormData({ ...formData, img_url: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                </>
+              )}
+              {modalType === "face_hair" && (
+                <>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Название" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Описание" value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Рекомендации по форме лица" value={formData.face_shape_recommendations || ""} onChange={(e) => setFormData({ ...formData, face_shape_recommendations: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Рекомендации по чертам лица" value={formData.facial_features_recommendations || ""} onChange={(e) => setFormData({ ...formData, facial_features_recommendations: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Рекомендации по цвету волос" value={formData.hair_color_recommendations || ""} onChange={(e) => setFormData({ ...formData, hair_color_recommendations: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="URL изображения" value={formData.img_url || ""} onChange={(e) => setFormData({ ...formData, img_url: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                </>
+              )}
+              {modalType === "color" && (
+                <>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Название" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="HEX-код" value={formData.hex || ""} onChange={(e) => setFormData({ ...formData, hex: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Температура кожи" value={formData.skin_temperature || ""} onChange={(e) => setFormData({ ...formData, skin_temperature: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Контраст" value={formData.contrast || ""} onChange={(e) => setFormData({ ...formData, contrast: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Цвет глаз" value={formData.eye_color || ""} onChange={(e) => setFormData({ ...formData, eye_color: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Состояние кожи" value={formData.skin_condition || ""} onChange={(e) => setFormData({ ...formData, skin_condition: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                </>
+              )}
+              {modalType === "perms" && (
+                <>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Название" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="URL изображения" value={formData.img_url || ""} onChange={(e) => setFormData({ ...formData, img_url: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Описание" value={formData.description || ""} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                </>
+              )}
+              {modalType === "city" && (
+                <>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Город" value={formData.city || ""} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Location (WKT)" value={formData.location || ""} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                </>
+              )}
+              {modalType === "metro" && (
+                <>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Название" value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Цвет (HEX)" value={formData.hex || ""} onChange={(e) => setFormData({ ...formData, hex: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <input type="text" placeholder="Location (WKT)" value={formData.location || ""} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center placeholder-black/50" />
+                  </div>
+                  <div className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow flex items-center px-3" style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}>
+                    <select value={formData.city_id || (cities.length > 0 ? cities[0].id : "")} onChange={(e) => setFormData({ ...formData, city_id: e.target.value })} className="w-full bg-transparent text-[16px] font-['Sofia_Sans'] text-black outline-none text-center">
+                      {cities.map((city) => (
+                        <option key={city.id} value={city.id}>{city.city}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
               <button
                 onClick={handleCreate}
                 disabled={isSubmitting}
                 className="relative bg-[#FFE9EF] rounded-[10px] h-11 shadow w-full flex items-center justify-center disabled:opacity-50"
-                style={{
-                  border: "0.5px solid rgba(0,0,0,0.00)",
-                  boxShadow:
-                    "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)",
-                }}
+                style={{ border: "0.5px solid rgba(0,0,0,0.00)", boxShadow: "57px 60px 23px 0 rgba(0,0,0,0.00), 36px 38px 21px 0 rgba(0,0,0,0.01), 20px 22px 18px 0 rgba(0,0,0,0.05), 9px 10px 13px 0 rgba(0,0,0,0.09), 2px 2px 7px 0 rgba(0,0,0,0.10)" }}
               >
-                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">
-                  {isSubmitting ? "Создание..." : "Создать"}
-                </span>
+                <span className="text-[16px] tracking-[-0.8px] font-['Sofia_Sans'] text-black">{isSubmitting ? "Создание..." : "Создать"}</span>
               </button>
             </div>
           </div>
