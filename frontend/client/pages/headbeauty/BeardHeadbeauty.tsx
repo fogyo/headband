@@ -360,7 +360,7 @@ export default function AIBeardPage() {
 
         {/* Кнопки Home и Back – всегда видны */}
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/headbeauty")}
           className="absolute top-6 right-4 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
         >
           <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />

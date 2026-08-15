@@ -19,6 +19,10 @@ router = APIRouter(
 class Password(BaseModel):
     password: str
 
+class Account(StatusResponse):
+    user: bool
+    master: bool
+
 class SubRequest(BaseModel):
     level: int
 
@@ -88,6 +92,21 @@ async def verify_admin(chat_id: int,
     if verify:
         return {"status": "success"}
     return {"status": "error"}
+
+@router.get("/check_account", response_model=Account)
+async def get_acc(chat_id: int,
+                session: AsyncSession = Depends(get_db_session)):
+    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+    user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
+    master_flag = True
+    user_flag = True
+    if master == None:
+        master_flag = False
+    if user_id == None:
+        user_flag = False
+    return {"status": "success",
+            "master": master_flag,
+            "user": user_flag}
 
 
 """@router.get("/logs")

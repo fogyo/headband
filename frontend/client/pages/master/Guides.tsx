@@ -202,7 +202,7 @@ export default function GuidesPage() {
     <div className="min-h-screen bg-[#FFE9EF]">
       <div className="max-w-sm mx-auto px-4 pb-10 relative">
         <Link
-          to="/"
+          to="/master"
           className="absolute top-9 right-3 w-10 h-10 bg-[#FFE9EF] rounded-[5px] flex items-center justify-center z-20 shadow-[2px_2px_7px_0_rgba(0,0,0,0.10),9px_10px_13px_0_rgba(0,0,0,0.09)]"
         >
           <div className="absolute inset-0 bg-white rounded-[5px] blur-[20px] opacity-80" />

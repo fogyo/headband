@@ -11,6 +11,7 @@ import "leaflet/dist/leaflet.css";
 
 // Импорты всех страниц (оставьте как есть)
 import Index from "./pages/Index";
+import MasterIndex from "./pages/master/MasterIndex";
 import Schedule from "./pages/master/Schedule";
 import NotFound from "./pages/NotFound";
 import GuidesPage from "./pages/master/Guides";
@@ -238,6 +239,7 @@ const App = () => (
         <TelegramAuthProvider>
           <Routes>           
             <Route path="/" element={<Index />} />
+            <Route path="/master" element={<MasterIndex />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/guides" element={<GuidesPage />} />
             <Route path="/guide/:id" element={<GuideDetailPage />} />
