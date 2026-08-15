@@ -105,8 +105,8 @@ async def get_acc(chat_id: int,
     if user_id == None:
         user_flag = False
     return {"status": "success",
-            "master": False,
-            "user": False}
+            "master": master_flag,
+            "user": user_flag}
 
 
 """@router.get("/logs")
