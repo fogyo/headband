@@ -725,7 +725,7 @@ class WeekTemplateModel(Base):
 
     @classmethod
     async def get_by_master_and_weekday(cls, session: AsyncSession, master_id: uuid.UUID, weekday: int):
-        query = select(cls).where(cls.master_id == master_id, cls.weekday == weekday)
+        query = select(cls).where(and_(cls.master_id == master_id, cls.weekday == weekday))
         result = await session.execute(query)
         return result.scalars().first()
 
