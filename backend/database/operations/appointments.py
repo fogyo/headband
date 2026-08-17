@@ -351,7 +351,6 @@ async def get_all_appointments_by_address(address_id: uuid.UUID, session: AsyncS
         user = await UserModel.get_by_id(user_id=uid, session=session)
         try:
             await bot.send_message(chat_id = user.chat_id, text=f"Мастер поменял адрес записи, проверьте информацию в карточке записи в нашем mini-app")
-            await send_all_delayed(session=session)
         except Exception as e:
             logging.info(f"bot messages with {e}")
             await create_delayed_message(chat_id = user.chat_id, text=f"Мастер поменял адрес записи, проверьте информацию в карточке записи в нашем mini-app", session = session)

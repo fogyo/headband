@@ -201,7 +201,6 @@ async def update_working_day(
                 user = await UserModel.get_by_id(user_id=uid, session=session)
                 try:
                     await bot.send_message(chat_id=user.chat_id, text=f"Мастер изменил адрес Вашей записи на {working_day.day_date}, проверьте информацию в карточке записи в нашем mini-app")
-                    await send_all_delayed(session=session)
                 except Exception as e:
                     logging.info(f"bot messages with {e}")
                     await create_delayed_message(chat_id=user.chat_id, text=f"Мастер изменил адрес Вашей записи на {working_day.day_date}, проверьте информацию в карточке записи в нашем mini-app", session=session)

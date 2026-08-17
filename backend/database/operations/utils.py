@@ -83,7 +83,6 @@ async def _cancel_conflicting_appointments_for_date(
             user = await UserModel.get_by_id(user_id=apt.user_id, session=session)
             try:
                 await bot.send_message(chat_id=user.chat_id, text="Мастер отменил Вашу запись из-за непредвиденных обстоятельств.\nПредлагем записаться на другое свободное время!")
-                await send_all_delayed(session=session)
             except Exception as e:
                 logging.info(f"bot messages with {e}")
                 await create_delayed_message(chat_id=user.chat_id, text="Мастер отменил Вашу запись из-за непредвиденных обстоятельств.\nПредлагем записаться на другое свободное время!", session=session)
@@ -108,7 +107,6 @@ async def _cancel_appointments_in_date_range(
         user = await UserModel.get_by_id(user_id=apt.user_id, session=session)
         try:
             await bot.send_message(chat_id=user.chat_id, text=f"Мастер отменил Вашу запись по причине: {reason}.\nПредлагем записаться на другое свободное время!")    
-            await send_all_delayed(session=session)
         except Exception as e:
             logging.info(f"bot messages with {e}")
             await create_delayed_message(chat_id=user.chat_id, text=f"Мастер отменил Вашу запись по причине: {reason}.\nПредлагем записаться на другое свободное время!", session=session)
