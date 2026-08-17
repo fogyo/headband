@@ -103,15 +103,19 @@ def get_role_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Мастер", callback_data="role_master")]
     ])
 
-def get_subscriptions_keyboard(active: bool, has_unused: bool = False) -> InlineKeyboardMarkup:
+def get_subscriptions_keyboard(active: bool, stopping: bool, has_unused: bool = False) -> InlineKeyboardMarkup:
     keyboard = []
     keyboard.append([InlineKeyboardButton(text="Купить месяц базовой подписки", callback_data="buy_base")])
     keyboard.append([InlineKeyboardButton(text="Купить месяц партнёрской подписки", callback_data="buy_partner")])
     
     if has_unused and active == False:
         keyboard.append([InlineKeyboardButton(text="✅ Активировать подписку", callback_data="activate_sub")])
-    elif active: 
+    elif active and not stopping: 
         keyboard.append([InlineKeyboardButton(text="🔄 Сменить уровень", callback_data="change_level")])
+        keyboard.append([InlineKeyboardButton(text="🚫 Остановить автоматическое продление", callback_data="stop_subscription")])
+    elif active and stopping:
+        keyboard.append([InlineKeyboardButton(text="🔄 Сменить уровень", callback_data="change_level")])
+        keyboard.append([InlineKeyboardButton(text="✅ Возобновить автоматическое продление", callback_data="stop_subscription")])
     keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="payments_menu")])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -567,10 +571,14 @@ async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext)
                 text = "📋 У вас нет активной подписки.\n\n"
 
             text += f"Количество базовых подписок: {sub_bank["base_sub"]}\nКоличество партнерских подписок: {sub_bank["partner_sub"]}\n\n"
-            
+            if sub_bank["change_level"]:
+                text+="Вы указали, что будете сменять уровень подписки\n\n"
+            if sub_bank["stop_sub"]:
+                text+="Вы указали, что подписка автоматически продляться не будет\n\n"
             unused = sub_bank["base_sub"]+sub_bank["partner_sub"] 
+            
             # 5. Получаем клавиатуру
-            keyboard = get_subscriptions_keyboard(active=active, has_unused=(unused>0))
+            keyboard = get_subscriptions_keyboard(active=active, has_unused=(unused>0), stopping=sub_bank["stop_sub"])
 
             await callback.message.edit_text(
                 text + "Выберите действие:",
@@ -632,7 +640,7 @@ async def activate_subscription(callback: types.CallbackQuery, state: FSMContext
             if unused==0:
                 await callback.message.edit_text(
                     "❌ У вас нет неиспользованных подписок для активации.",
-                    reply_markup=get_subscriptions_keyboard(active=False, has_unused=False)  # или get_payments_keyboard()
+                    reply_markup=get_subscriptions_keyboard(active=False, has_unused=False, stopping=sub_bank["stop_sub"])  # или get_payments_keyboard()
                 )
                 await callback.answer()
                 return
@@ -708,6 +716,51 @@ async def activate_confirm(callback: types.CallbackQuery, state: FSMContext):
         reply_markup=get_payments_keyboard()
     )
     await callback.answer()
+
+@dp.callback_query(F.data == "stop_subscription")
+async def stop_subscription(callback: types.CallbackQuery, state: FSMContext):
+    user_data = await state.get_data()
+    role = user_data.get("role")
+    if role != "master":
+        await callback.answer("Только для мастеров", show_alert=True)
+        return
+
+    chat_id = callback.from_user.id
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            master = await miniapp_db_fcn.get_master_by_chat(chat_id, session)
+            if not master:
+                await callback.message.edit_text(
+                    "❌ Вы не зарегистрированы как мастер.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+
+            # Проверяем, активна ли подписка
+            active, _, _ = await miniapp_db_fcn.get_subscription_level(master.id, session)
+            if not active:
+                await callback.message.edit_text(
+                    "❌ У вас нет активной подписки для остановки.",
+                    reply_markup=get_subscriptions_keyboard(active=False, has_unused=False, stopping=False)
+                )
+                await callback.answer()
+                return
+
+            # Останавливаем подписку (реализуй метод в miniapp_db_fcn)
+            success = await miniapp_db_fcn.stop_subscription(master_id=master.id, session=session)
+            if not success:
+                await callback.message.edit_text(
+                    "❌ Не удалось остановить подписку. Попробуйте позже.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+
+            await session.commit()
+
+    # Обновляем меню подписок (переиспользуем существующий хэндлер)
+    await handle_subscriptions(callback, state)  # этот хэндлер сам вызовет callback.answer()
 
 #------------BOT TOKEN COMMANDS------------
 

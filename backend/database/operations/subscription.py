@@ -150,3 +150,6 @@ async def get_unused_subs(master_id: uuid.UUID, session: AsyncSession):
 
 async def change_sub_level(master_id: uuid.UUID, session: AsyncSession):
     return await SubscriptionBankModel.set_change_level(master_id=master_id, session=session)
+
+async def stop_subscription(master_id: uuid.UUID, session: AsyncSession):
+    return await SubscriptionBankModel.set_stop_sub(master_id=master_id, session=session)

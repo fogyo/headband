@@ -2622,6 +2622,13 @@ class SubscriptionBankModel(Base):
         query = update(cls).where(cls.master_id == master_id).values(change_level=not cls.change_level)
         await session.execute(query)
         return "success"
+    
+    @classmethod
+    async def set_stop_sub(cls, session: AsyncSession, master_id: uuid.UUID) -> str:
+        """Устанавливает флаг разрешения смены уровня"""
+        query = update(cls).where(cls.master_id == master_id).values(stop_sub=not cls.stop_sub)
+        await session.execute(query)
+        return "success"
 
     @classmethod
     async def get_balance(cls, session: AsyncSession, master_id: uuid.UUID) -> Optional[dict]:
@@ -2632,7 +2639,8 @@ class SubscriptionBankModel(Base):
         return {
             "base_sub": record.base_sub,
             "partner_sub": record.partner_sub,
-            "change_level": record.change_level
+            "change_level": record.change_level,
+            "stop_sub": record.stop_sub
         }
 
 class SupportModel(Base):
