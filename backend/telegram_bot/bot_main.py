@@ -572,7 +572,7 @@ async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext)
 
             text += f"Количество базовых подписок: {sub_bank["base_sub"]}\nКоличество партнерских подписок: {sub_bank["partner_sub"]}\n\n"
             if sub_bank["change_level"]:
-                text+="Вы указали, что будете сменять уровень подписки\n\n"
+                text+="Вы указали, что будете менять уровень подписки\n\n"
             if sub_bank["stop_sub"]:
                 text+="Вы указали, что подписка автоматически продляться не будет\n\n"
             unused = sub_bank["base_sub"]+sub_bank["partner_sub"] 
@@ -759,7 +759,7 @@ async def stop_subscription(callback: types.CallbackQuery, state: FSMContext):
 
             await session.commit()
     await callback.message.edit_text(
-        "💳 Выберите нужный раздел.",
+        "💳 Выберите нужный раздел:",
         reply_markup=get_payments_keyboard()
     )
     await callback.answer()
