@@ -12,7 +12,7 @@ from backend.database import AppointmentChatModel, MasterModel, SubscriptionMode
 from backend.database.operations.admins import create_delayed_message
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
     _get_week_dates
-from backend.telegram_bot.bot_main import bot, send_all_delayed
+from backend.telegram_bot.bot_main import bot
 
 tz_offset = timezone(timedelta(hours=3))
 

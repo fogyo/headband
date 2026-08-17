@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import AppointmentModel, PriceModel, UserModel
 from backend.database.operations.admins import create_delayed_message
-from backend.telegram_bot.bot_main import bot, send_all_delayed
+from backend.telegram_bot.bot_main import bot
 
 
 tz_offset = timezone(timedelta(hours=3))

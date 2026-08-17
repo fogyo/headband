@@ -10,7 +10,7 @@ from backend.database import AppointmentModel, UserModel, WorkingDayModel, WeekT
 from backend.database.operations.admins import create_delayed_message
 from backend.database.operations.utils import _cancel_conflicting_appointments_for_date, \
     _cancel_appointments_in_date_range
-from backend.telegram_bot.bot_main import bot, send_all_delayed
+from backend.telegram_bot.bot_main import bot
 
 async def create_working_day(
         master_id: uuid.UUID,
