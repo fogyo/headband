@@ -304,7 +304,7 @@ export default function AIHairPage() {
       }
       const data = await res.json();
       if (data.status !== "success") throw new Error(data.status);
-      toast.success("Тип волос обновлён");
+      ///toast.success("Тип волос обновлён");
       setIsHairTypeModalOpen(false);
       await fetchFaceParams();
       setRecommendedHaircuts([]);

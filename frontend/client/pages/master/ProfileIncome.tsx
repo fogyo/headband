@@ -184,7 +184,7 @@ export default function ProfileIncomePage() {
       if (data.status !== "success") throw new Error(data.status);
       setAppointments(prev => prev.map(app => app.id === id ? { ...app, confirmed: true } : app));
       await loadMonthData();
-      toast.success("Подтверждено");
+      ///toast.success("Подтверждено");
     } catch (err: any) {
       toast.error(err.message);
     }

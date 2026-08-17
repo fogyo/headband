@@ -144,7 +144,7 @@ export default function AIStylePage() {
       navigate(`/headbeauty-hair-category/${gender ? "female" : "male"}?session_id=${sessionId}`, {
   state: { gender, img_url: sessionImgUrl, session_id: sessionId, task_id: taskId },
     });
-      toast.success("Сессия создана, анализ запущен");
+      ///toast.success("Сессия создана, анализ запущен");
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка создания сессии");

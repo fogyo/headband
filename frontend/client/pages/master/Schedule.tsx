@@ -428,7 +428,7 @@ export default function SchedulePage() {
         if (!res.ok) throw new Error("Ошибка редактирования");
         const data = await res.json();
         if (data.status !== "success") throw new Error(data.status);
-        toast.success("Сообщение изменено");
+        ///toast.success("Сообщение изменено");
         setEditingMessageId(null);
         setEditingMessageText("");
       } else {
@@ -444,7 +444,7 @@ export default function SchedulePage() {
         if (!res.ok) throw new Error("Ошибка отправки");
         const data = await res.json();
         if (data.status !== "success") throw new Error(data.status);
-        toast.success("Сообщение отправлено");
+        ///toast.success("Сообщение отправлено");
       }
       setNewMessage("");
       await fetchMessages(chatAppointmentId);

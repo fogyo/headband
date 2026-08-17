@@ -94,7 +94,7 @@ export default function ProfileNotificationsPage() {
     );
     try {
       await updateNotification(setting.field, newValue);
-      toast.success("Настройка обновлена");
+      ///toast.success("Настройка обновлена");
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ошибка сохранения");
