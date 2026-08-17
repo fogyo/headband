@@ -786,7 +786,7 @@ async def send_notification(bot: Bot, chat_id: int, text: str):
 
 sem = asyncio.Semaphore(20)
 
-async def send_single_message(chat_id: int, text: str, session, session_type: str id = None) -> bool:
+async def send_single_message(chat_id: int, text: str, session, session_type: str, id = None) -> bool:
     """Отправляет одно сообщение, логирует успех/ошибку и возвращает статус."""
     async with sem:
         try:
