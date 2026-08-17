@@ -758,9 +758,12 @@ async def stop_subscription(callback: types.CallbackQuery, state: FSMContext):
                 return
 
             await session.commit()
-
-    # Обновляем меню подписок (переиспользуем существующий хэндлер)
-    await handle_subscriptions(callback, state)  # этот хэндлер сам вызовет callback.answer()
+    await callback.message.edit_text(
+        "💳 Платежи.",
+        reply_markup=get_payments_keyboard()
+    )
+    await callback.answer()
+    
 
 #------------BOT TOKEN COMMANDS------------
 
