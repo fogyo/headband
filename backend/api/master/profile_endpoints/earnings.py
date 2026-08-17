@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import IDResponse, StatusResponse
-from backend.telegram_bot.bot_main import get_rating_keyboard, handle_rating, bot, send_all_delayed
+from backend.telegram_bot.bot_main import get_rating_keyboard, handle_rating, bot
 
 
 #Requests
@@ -159,6 +159,7 @@ async def create_earning(
     user = await miniapp_db_fcn.get_user(user_id=appointment.user_id, session=session)
     if user.chat_id != chat_id:
         try:
+            from backend.telegram_bot.bot_main import send_all_delayed
             await bot.send_message(chat_id=user.chat_id, text=f"Оцените, как прошла последняя запись {appointment.date} в {appointment.start_time}, где 5-отлично, а 1-ужасно ", reply_markup=get_rating_keyboard(appointment_id=appointment_id))
             await send_all_delayed(session=session)
         except Exception as e:

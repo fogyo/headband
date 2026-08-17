@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
-from backend.telegram_bot.bot_main import bot, send_all_delayed
+from backend.telegram_bot.bot_main import bot
 from backend.database.obj_storage import s3_domain
 
 class Appointment(BaseModel):
@@ -78,6 +78,7 @@ async def cancel_appointment(appointment_id: uuid.UUID, session: AsyncSession = 
     status, notification = await miniapp_db_fcn.get_master_notification(master_id=appointment.master_id, session=session)
     if notification["appointment_cancel_notification"]:
         try:
+            from backend.telegram_bot.bot_main import send_all_delayed
             await bot.send_message(chat_id=master.chat_id_tg,
                                text=f"❌ Отмена записи на {appointment.date} c {appointment.start_time.strftime("%H:%M")} до {appointment.end_time.strftime("%H:%M")}")
             await send_all_delayed(session=session)
@@ -109,6 +110,7 @@ async def complain_about_master(chat_id: int,
     complaint_text = f"Жалоба на мастера\nid: {master.id}\ntg: {master.username_tg}\n\n{request.text}"
     req_id = await miniapp_db_fcn.create_support_request(chat_id=chat_id, text=complaint_text, session=session)
     try:
+        from backend.telegram_bot.bot_main import send_all_delayed
         await bot.send_message(chat_id=980609742, text=f"{complaint_text} \nID пользователя: {chat_id}\nID проблемы: {req_id}")
         await send_all_delayed(session=session)
     except Exception as e:
@@ -125,6 +127,7 @@ async def create_message(chat_id: int,
     master = await miniapp_db_fcn.get_master(master_id=appointment.master_id, session=session)
     message_id = await miniapp_db_fcn.create_message(uid=user, appointment_id=message.appointment_id, text=message.text, session=session)
     try:
+        from backend.telegram_bot.bot_main import send_all_delayed
         await bot.send_message(chat_id=master.chat_id_tg, text=f"❗ Новое сообщение по записи на {appointment.date} c {appointment.start_time.strftime("%H:%M")} до {appointment.end_time.strftime("%H:%M")}\n\n{message.text}\n\nЗайдите в чат встречи, чтобы ответить!")
         await send_all_delayed(session=session)
     except Exception as e:

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.operations.utils import _time_to_timedelta, _int_minutes_to_time, _timedelta_to_time
 from backend.database.responses import StatusResponse
-from backend.telegram_bot.bot_main import bot, send_all_delayed
+from backend.telegram_bot.bot_main import bot
 
 router = APIRouter(
     prefix="/users/booking",
@@ -68,6 +68,7 @@ async def create_appointment(chat_id: int,
     status, notification = await miniapp_db_fcn.get_master_notification(master_id=price.master_id, session=session)
     if notification["appointment_notification"]:
         try: 
+            from backend.telegram_bot.bot_main import send_all_delayed
             await bot.send_message(chat_id=master.chat_id_tg, text=f"✅ Новая запись на {request.day} c {request.start_time.strftime("%H:%M")} до {end_time.strftime("%H:%M")}")
             await send_all_delayed(session=session)
         except Exception as e:

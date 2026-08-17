@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.responses import StatusResponse
 from backend.model.bg_factory import task_manager
-from backend.telegram_bot.bot_main import bot, send_all_delayed
+from backend.telegram_bot.bot_main import bot
 
 router = APIRouter(
     prefix="/admins",
@@ -80,6 +80,7 @@ async def get_help(chat_id: int,
                    session: AsyncSession = Depends(get_db_session)):
     req_id = await miniapp_db_fcn.create_support_request(chat_id=chat_id, text=request.text, session=session)
     try:
+        from backend.telegram_bot.bot_main import send_all_delayed
         await bot.send_message(chat_id=980609742, text=f"Обратная связь: {request.text} \nID пользователя: {chat_id}\nID проблемы: {req_id}")
         await send_all_delayed(session=session)
     except Exception as e:

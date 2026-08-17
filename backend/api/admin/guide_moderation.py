@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.responses import StatusResponse
 from backend.database import get_db_session
 from backend.database import miniapp_db_fcn
-from telegram_bot.bot_main import bot, send_all_delayed
+from telegram_bot.bot_main import bot
 
 router = APIRouter(
     prefix="/admins/guides",
@@ -60,6 +60,7 @@ async def approve_guide(
     guide = await miniapp_db_fcn.get_guide(guide_id=guide_id, session=session)
     master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
     try:
+        from backend.telegram_bot.bot_main import send_all_delayed
         await bot.send_message(chat_id=master.chat_id_tg, text="✅ Ваш гайд был одобрен модерацией headband. Поздравляем!")
         await send_all_delayed(session=session)
     except Exception as e:
@@ -77,6 +78,7 @@ async def deny_guide(
     guide = await miniapp_db_fcn.get_guide(guide_id=request.guide_id, session=session)
     master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
     try: 
+        from backend.telegram_bot.bot_main import send_all_delayed
         await bot.send_message(chat_id=master.chat_id_tg,
                             text=f"❌ К сожалению, Ваш гайд пока не был одобрен модерацией headband.\n\nПричина: {request.comment}")
         await send_all_delayed(session=session)
