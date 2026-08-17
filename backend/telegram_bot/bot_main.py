@@ -759,7 +759,7 @@ async def stop_subscription(callback: types.CallbackQuery, state: FSMContext):
 
             await session.commit()
     await callback.message.edit_text(
-        "💳 Платежи.",
+        "💳 Выберите нужный раздел.",
         reply_markup=get_payments_keyboard()
     )
     await callback.answer()

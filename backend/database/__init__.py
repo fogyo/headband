@@ -2619,14 +2619,14 @@ class SubscriptionBankModel(Base):
     @classmethod
     async def set_change_level(cls, session: AsyncSession, master_id: uuid.UUID) -> str:
         """Устанавливает флаг разрешения смены уровня"""
-        query = update(cls).where(cls.master_id == master_id).values(change_level=not cls.change_level)
+        query = update(cls).where(cls.master_id == master_id).values(change_level=~cls.change_level)
         await session.execute(query)
         return "success"
     
     @classmethod
     async def set_stop_sub(cls, session: AsyncSession, master_id: uuid.UUID) -> str:
         """Устанавливает флаг разрешения смены уровня"""
-        query = update(cls).where(cls.master_id == master_id).values(stop_sub=not cls.stop_sub)
+        query = update(cls).where(cls.master_id == master_id).values(stop_sub=~cls.stop_sub)
         await session.execute(query)
         return "success"
 
