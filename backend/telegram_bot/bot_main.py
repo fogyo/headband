@@ -12,7 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from dotenv import load_dotenv
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -786,28 +786,50 @@ async def send_notification(bot: Bot, chat_id: int, text: str):
 
 sem = asyncio.Semaphore(20)
 
-async def send_single_message(chat_id: int, text: str) -> bool:
+async def send_single_message(chat_id: int, text: str, session, session_type: str id = None) -> bool:
     """Отправляет одно сообщение, логирует успех/ошибку и возвращает статус."""
     async with sem:
         try:
             await bot.send_message(chat_id=chat_id, text=text)
             logging.info(f"Notification was sent to user {chat_id}")
+            if id!=None:
+                if session_type=="sync":
+                    miniapp_db_fcn.change_message_status_sync(message_id=id, session=session)
+                else:
+                    await miniapp_db_fcn.change_message_status(message_id=id, session=session)
             return True
         except Exception as e:
             logging.error(f"Notification wasn't sent to user {chat_id}: {e}")
+            text+="\n\nПросим прощения за возможные неудобства. Сообщение было отправлено позже из-за временных проблем с прокси."
+            if id == None:
+                if session_type=="sync":
+                    miniapp_db_fcn.create_delayed_message_sync(chat_id=chat_id, text=text, session=session)
+                else:
+                    await miniapp_db_fcn.create_delayed_message(chat_id=chat_id, text=text, session=session)
             return False
 
-async def notify_all(messages: List[dict]):
+async def notify_all(messages: List[dict], session, session_type = "sync"):
     """Отправляет все сообщения параллельно, логируя каждую ошибку отдельно."""
     if not messages:
         logging.info("No messages")
         return
 
     tasks = [
-        send_single_message(msg["chat_id"], msg["text"])
+        send_single_message(msg["chat_id"], msg["text"], session=session, id = msg["id"], session_type=session_type)
         for msg in messages
     ]
     results = await asyncio.gather(*tasks)
 
     success_count = sum(results)
     logging.info(f"Отправлено {success_count} из {len(messages)} уведомлений")
+
+
+async def send_all_delayed(session: AsyncSession):
+    messages = await miniapp_db_fcn.get_all_messages(session=session)
+    delayed = []
+    for msg in messages:
+        delayed.append({"chat_id": msg.chat_id,
+                       "text": msg.text,
+                       "id": msg.id})
+    await notify_all(messages=delayed, session=session, session_type = "async")
+    return "success"

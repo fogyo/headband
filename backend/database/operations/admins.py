@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import AdminModel, SupportModel, TokenUsageModel, UsageStatus, TokenTypes, MasterModel, UserModel, SubscriptionModel, \
+from backend.database import AdminModel, DelayedMessagesModel, SupportModel, TokenUsageModel, UsageStatus, TokenTypes, MasterModel, UserModel, SubscriptionModel, \
     HeadbeautySessionModel, PreviewModel, AppointmentModel
 
 
@@ -88,3 +88,21 @@ async def get_solved_tickets(session: AsyncSession):
                   "created": problem.created_at,
                   "text": problem.text})
     return p
+
+async def create_delayed_message(chat_id: int, text: str, session: AsyncSession):
+    return await DelayedMessagesModel.create(session=session, chat_id=chat_id, text=text)
+
+async def change_message_status(message_id: uuid.UUID, session: AsyncSession):
+    return await DelayedMessagesModel.mark_as_sent(session=session, msg_id=message_id)
+
+async def get_all_messages(session: AsyncSession):
+    return await DelayedMessagesModel.get_pending(session=session)
+
+def create_delayed_message_sync(chat_id: int, text: str, session):
+    return DelayedMessagesModel.create_sync(session=session, chat_id=chat_id, text=text)
+
+def change_message_status_sync(message_id: uuid.UUID, session):
+    return DelayedMessagesModel.mark_as_sent_sync(session=session, msg_id=message_id)
+
+def get_all_messages_sync(session):
+    return DelayedMessagesModel.get_pending_sync(session=session)

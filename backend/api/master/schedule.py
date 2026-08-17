@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import date, datetime, time
 from typing import Optional, List
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import miniapp_db_fcn, get_db_session, AddressModel, WorkingDayModel, PriceModel
 from backend.database.responses import StatusResponse
-from backend.telegram_bot.bot_main import bot
+from backend.telegram_bot.bot_main import bot, send_all_delayed
 
 class Message(BaseModel):
     appointment_id: uuid.UUID
@@ -132,7 +133,12 @@ async def create_message(chat_id: int,
     appointment = await miniapp_db_fcn.get_appointment(appointment_id=message.appointment_id, session=session)
     user = await miniapp_db_fcn.get_user(user_id=appointment.user_id, session=session)
     message_id = await miniapp_db_fcn.create_message(uid=master.id, appointment_id=message.appointment_id, text=message.text, session=session)
-    await bot.send_message(chat_id=user.chat_id, text=f"❗ Новое сообщение по записи на {appointment.date} c {appointment.start_time.strftime("%H:%M")} до {appointment.end_time.strftime("%H:%M")}\n\n{message.text}\n\nЗайдите в чат встречи, чтобы ответить!")
+    try:
+        await bot.send_message(chat_id=user.chat_id, text=f"❗ Новое сообщение по записи на {appointment.date} c {appointment.start_time.strftime("%H:%M")} до {appointment.end_time.strftime("%H:%M")}\n\n{message.text}\n\nЗайдите в чат встречи, чтобы ответить!")
+        await send_all_delayed(session=session)
+    except Exception as e:
+        logging.info(f"bot messages with {e}")
+        await miniapp_db_fcn.create_delayed_message(chat_id=user.chat_id, text=f"❗ Новое сообщение по записи на {appointment.date} c {appointment.start_time.strftime("%H:%M")} до {appointment.end_time.strftime("%H:%M")}\n\n{message.text}\n\nЗайдите в чат встречи, чтобы ответить!", session=session)
     return {"status": "success",
             "id": message_id}
 

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import date
 from typing import List
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.responses import StatusResponse
 from backend.database import get_db_session
 from backend.database import miniapp_db_fcn
-from backend.telegram_bot.bot_main import bot
+from backend.telegram_bot.bot_main import bot, send_all_delayed
 
 router = APIRouter(
     prefix="/admins/support",
@@ -45,5 +46,10 @@ async def dev_help(chat_id: int,
                    request: FeedbackResponse,
                    session: AsyncSession = Depends(get_db_session)):
     problem = await miniapp_db_fcn.solve_problem(problem_id=request.problem_id, session=session)
-    await bot.send_message(chat_id=problem.chat_id, text=f"Ответ от разработчика:\n\n{request.text} \n\nС уважением, \nкоманда headband")
+    try:
+        await bot.send_message(chat_id=problem.chat_id, text=f"Ответ от разработчика:\n\n{request.text} \n\nС уважением, \nкоманда headband")
+        await send_all_delayed(session=session)
+    except Exception as e:
+        logging.info(f"bot messages with {e}")
+        await miniapp_db_fcn.create_delayed_message(chat_id=problem.chat_id, text=f"Ответ от разработчика:\n\n{request.text} \n\nС уважением, \nкоманда headband", session=session)
     return {"status": "success"}

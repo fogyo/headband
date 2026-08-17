@@ -82,7 +82,7 @@ def notify_users():
         for chat_id in users:
             messages.append({"chat_id": chat_id,
                              "text": "❗ Сообщение системы headband:\n\nНапоминаем, что вы записаны на завтрашнее число. Уточнить детали и связаться с мастером Вы сможете в нашем mini app в карточке записи\n\nС уважением,\nкоманда headband"})
-        asyncio.run(notify_all(messages=messages))
+        asyncio.run(notify_all(messages=messages, session=session))
         session.commit()
         logging.info(f"NOTIFIED {len(messages)} users")
 
@@ -195,7 +195,7 @@ def check_subs():
                                 messages.append({"chat_id": master.chat_id_tg,
                                                  "text": f"❗ Сообщение системы headband:\n\nВаша подписка была автоматически продлена в соответствии с партнерским уровнем до {end_date}.\n\nСпасибо, что остаетесь с headband!"})
 
-        asyncio.run(notify_all(messages=messages))
+        asyncio.run(notify_all(messages=messages, session=session))
         session.commit()
         logging.info(f"NOTIFIED {len(messages)} users")
 
@@ -209,7 +209,7 @@ def master_confirm_notification():
             if master.notifications.appointment_confirm_notification:
                 messages.append({"chat_id": master.chat_id_tg,
                                  "text": "❗ Сообщение системы headband:\n\nУ вас есть неподтвержденные записи\n\nПодтвердите их! Это позволит пользователям оценить Вашу работу, а также поможет Вам отслеживать свои доходы\n\nЭто можно сделать в MiniApp->Профиль->Доходы"})
-        asyncio.run(notify_all(messages=messages))
+        asyncio.run(notify_all(messages=messages, session=session))
         logging.info(f"NOTIFIED {len(messages)} users")
 
 

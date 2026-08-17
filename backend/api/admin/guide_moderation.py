@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import date
 from typing import List
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.responses import StatusResponse
 from backend.database import get_db_session
 from backend.database import miniapp_db_fcn
-from telegram_bot.bot_main import bot
+from telegram_bot.bot_main import bot, send_all_delayed
 
 router = APIRouter(
     prefix="/admins/guides",
@@ -58,7 +59,13 @@ async def approve_guide(
     status = await miniapp_db_fcn.change_status(session=session, guide_id=guide_id, state=1)
     guide = await miniapp_db_fcn.get_guide(guide_id=guide_id, session=session)
     master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
-    await bot.send_message(chat_id=master.chat_id_tg, text="✅ Ваш гайд был одобрен модерацией headband. Поздравляем!")
+    try:
+        await bot.send_message(chat_id=master.chat_id_tg, text="✅ Ваш гайд был одобрен модерацией headband. Поздравляем!")
+        await send_all_delayed(session=session)
+    except Exception as e:
+        logging.info(f"bot messages with {e}")
+        await miniapp_db_fcn.create_delayed_message(chat_id=master.chat_id_tg, text=f"✅ Ваш гайд был одобрен модерацией headband. Поздравляем!", session=session)
+    
     return {"status": status}
 
 @router.patch("/deny", response_model=StatusResponse)
@@ -69,6 +76,12 @@ async def deny_guide(
     status = await miniapp_db_fcn.change_status(session=session, guide_id=request.guide_id, state=0)
     guide = await miniapp_db_fcn.get_guide(guide_id=request.guide_id, session=session)
     master = await miniapp_db_fcn.get_master(master_id=guide.author, session=session)
-    await bot.send_message(chat_id=master.chat_id_tg,
+    try: 
+        await bot.send_message(chat_id=master.chat_id_tg,
                             text=f"❌ К сожалению, Ваш гайд пока не был одобрен модерацией headband.\n\nПричина: {request.comment}")
+        await send_all_delayed(session=session)
+    except Exception as e:
+        logging.info(f"bot messages with {e}")
+        await miniapp_db_fcn.create_delayed_message(chat_id=master.chat_id_tg,
+                            text=f"❌ К сожалению, Ваш гайд пока не был одобрен модерацией headband.\n\nПричина: {request.comment}", session=session)
     return {"status": status}

@@ -9,9 +9,10 @@ from unicodedata import category
 from backend.api.master.schedule import AppointmentResponse
 from backend.database import AppointmentChatModel, MasterModel, SubscriptionModel, UserModel, WeekTemplateModel, WorkingDayModel, PriceModel, \
     AppointmentModel, MasterAbsenceModel, AddressModel, CategoryModel
+from backend.database.operations.admins import create_delayed_message
 from backend.database.operations.utils import _time_to_timedelta, _timedelta_to_time, _timedelta_to_int_minutes, \
     _get_week_dates
-from backend.telegram_bot.bot_main import bot
+from backend.telegram_bot.bot_main import bot, send_all_delayed
 
 tz_offset = timezone(timedelta(hours=3))
 
@@ -348,7 +349,12 @@ async def get_all_appointments_by_address(address_id: uuid.UUID, session: AsyncS
     users = await AppointmentModel.get_all_users_by_wds(wd_ids=wd_ids, session=session)
     for uid in users:
         user = await UserModel.get_by_id(user_id=uid, session=session)
-        await bot.send_message(chat_id = user.chat_id, text=f"Мастер поменял адрес записи, проверьте информацию в карточке записи в нашем mini-app")
+        try:
+            await bot.send_message(chat_id = user.chat_id, text=f"Мастер поменял адрес записи, проверьте информацию в карточке записи в нашем mini-app")
+            await send_all_delayed(session=session)
+        except Exception as e:
+            logging.info(f"bot messages with {e}")
+            await create_delayed_message(chat_id = user.chat_id, text=f"Мастер поменял адрес записи, проверьте информацию в карточке записи в нашем mini-app", session = session)
     return "success"
 
 async def create_message(uid: uuid.UUID, appointment_id: uuid.UUID, text: str, session:AsyncSession):

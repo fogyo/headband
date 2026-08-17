@@ -3189,3 +3189,86 @@ class AppointmentChatModel(Base):
             await session.delete(obj)
             return "success"
         return "no such chat message"
+
+class MessageStatus(Enum):
+    DELAYED = 0
+    SENT = 1
+
+class DelayedMessagesModel(Base):
+    __tablename__ = "delayed_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    text: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[int] = mapped_column(BigInteger, nullable=False, default=MessageStatus.DELAYED.value)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @classmethod
+    async def create(cls, session: AsyncSession, chat_id: int, text: str) -> uuid.UUID:
+        """Создаёт отложенное сообщение со статусом DELAYED."""
+        obj = cls(chat_id=chat_id, text=text)
+        session.add(obj)
+        await session.flush()
+        return obj.id
+
+    @classmethod
+    def create_sync(cls, session, chat_id: int, text: str) -> uuid.UUID:
+        """Создаёт отложенное сообщение со статусом DELAYED."""
+        obj = cls(chat_id=chat_id, text=text)
+        session.add(obj)
+        session.flush()
+        return obj.id
+
+    @classmethod
+    async def get_by_id(cls, session: AsyncSession, msg_id: uuid.UUID) -> Optional["DelayedMessagesModel"]:
+        query = select(cls).where(cls.id == msg_id)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    @classmethod
+    async def get_pending(cls, session: AsyncSession, limit: int = 100) -> List["DelayedMessagesModel"]:
+        """
+        Возвращает неотправленные сообщения (статус DELAYED) в порядке создания.
+        Можно использовать для фоновой задачи.
+        """
+        query = select(cls).where(cls.status == MessageStatus.DELAYED.value).order_by(cls.created_at.asc()).limit(limit)
+        result = await session.execute(query)
+        return list(result.scalars().all())
+    
+    @classmethod
+    def get_pending_sync(cls, session, limit: int = 100) -> List["DelayedMessagesModel"]:
+        """
+        Возвращает неотправленные сообщения (статус DELAYED) в порядке создания.
+        Можно использовать для фоновой задачи.
+        """
+        query = select(cls).where(cls.status == MessageStatus.DELAYED.value).order_by(cls.created_at.asc()).limit(limit)
+        result = session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_by_chat_id(cls, session: AsyncSession, chat_id: int) -> List["DelayedMessagesModel"]:
+        query = select(cls).where(cls.chat_id == chat_id).order_by(cls.created_at.desc())
+        result = await session.execute(query)
+        return list(result.scalars().all())
+
+    @classmethod
+    async def mark_as_sent(cls, session: AsyncSession, msg_id: uuid.UUID) -> str:
+        """Обновляет статус сообщения на SENT."""
+        query = update(cls).where(cls.id == msg_id).values(status=MessageStatus.SENT.value)
+        await session.execute(query)
+        return "success"
+
+    @classmethod
+    def mark_as_sent_sync(cls, session, msg_id: uuid.UUID) -> str:
+        """Обновляет статус сообщения на SENT."""
+        query = update(cls).where(cls.id == msg_id).values(status=MessageStatus.SENT.value)
+        session.execute(query)
+        return "success"
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, msg_id: uuid.UUID) -> str:
+        obj = await session.get(cls, msg_id)
+        if obj:
+            await session.delete(obj)
+            return "success"
+        return "no such message"

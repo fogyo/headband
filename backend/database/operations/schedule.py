@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.master.profile_endpoints.schedule import WorkingDayUpdateRequest
 from backend.database import AppointmentModel, UserModel, WorkingDayModel, WeekTemplateModel, MasterAbsenceModel, AddressModel
+from backend.database.operations.admins import create_delayed_message
 from backend.database.operations.utils import _cancel_conflicting_appointments_for_date, \
     _cancel_appointments_in_date_range
-from backend.telegram_bot.bot_main import bot
+from backend.telegram_bot.bot_main import bot, send_all_delayed
 
 async def create_working_day(
         master_id: uuid.UUID,
@@ -198,8 +199,12 @@ async def update_working_day(
             users = await AppointmentModel.get_all_users_by_wds(wd_ids=wd_id, session=session)
             for uid in users:
                 user = await UserModel.get_by_id(user_id=uid, session=session)
-                await bot.send_message(chat_id=user.chat_id, text=f"Мастер изменил адрес Вашей записи на {working_day.day_date}, проверьте информацию в карточке записи в нашем mini-app")
-
+                try:
+                    await bot.send_message(chat_id=user.chat_id, text=f"Мастер изменил адрес Вашей записи на {working_day.day_date}, проверьте информацию в карточке записи в нашем mini-app")
+                    await send_all_delayed(session=session)
+                except Exception as e:
+                    logging.info(f"bot messages with {e}")
+                    await create_delayed_message(chat_id=user.chat_id, text=f"Мастер изменил адрес Вашей записи на {working_day.day_date}, проверьте информацию в карточке записи в нашем mini-app", session=session)
         await WorkingDayModel.update(
             session=session,
             wd_id=working_day.id,

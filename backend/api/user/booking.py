@@ -1,4 +1,5 @@
 import datetime
+import logging
 import uuid
 from typing import List, Optional
 
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db_session, miniapp_db_fcn
 from backend.database.operations.utils import _time_to_timedelta, _int_minutes_to_time, _timedelta_to_time
 from backend.database.responses import StatusResponse
-from backend.telegram_bot.bot_main import bot
+from backend.telegram_bot.bot_main import bot, send_all_delayed
 
 router = APIRouter(
     prefix="/users/booking",
@@ -66,5 +67,10 @@ async def create_appointment(chat_id: int,
     status = await miniapp_db_fcn.create_appointment(appointment_dict=create_data, session=session)
     status, notification = await miniapp_db_fcn.get_master_notification(master_id=price.master_id, session=session)
     if notification["appointment_notification"]:
-        await bot.send_message(chat_id=master.chat_id_tg, text=f"✅ Новая запись на {request.day} c {request.start_time.strftime("%H:%M")} до {end_time.strftime("%H:%M")}")
+        try: 
+            await bot.send_message(chat_id=master.chat_id_tg, text=f"✅ Новая запись на {request.day} c {request.start_time.strftime("%H:%M")} до {end_time.strftime("%H:%M")}")
+            await send_all_delayed(session=session)
+        except Exception as e:
+            logging.info(f"bot messages with {e}")
+            await miniapp_db_fcn.create_delayed_message(chat_id=master.chat_id_tg, text=f"✅ Новая запись на {request.day} c {request.start_time.strftime("%H:%M")} до {end_time.strftime("%H:%M")}", session=session)
     return {"status": status}

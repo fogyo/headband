@@ -1,10 +1,12 @@
+import logging
 import uuid
 from datetime import time, timedelta, datetime, date, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import AppointmentModel, PriceModel, UserModel
-from backend.telegram_bot.bot_main import bot
+from backend.database.operations.admins import create_delayed_message
+from backend.telegram_bot.bot_main import bot, send_all_delayed
 
 
 tz_offset = timezone(timedelta(hours=3))
@@ -79,7 +81,12 @@ async def _cancel_conflicting_appointments_for_date(
         # Конфликт: встреча выходит за новые границы
         if app_start < start_int or app_end > end_int:
             user = await UserModel.get_by_id(user_id=apt.user_id, session=session)
-            await bot.send_message(chat_id=user.chat_id, text="Мастер отменил Вашу запись из-за непредвиденных обстоятельств.\nПредлагем записаться на другое свободное время!")
+            try:
+                await bot.send_message(chat_id=user.chat_id, text="Мастер отменил Вашу запись из-за непредвиденных обстоятельств.\nПредлагем записаться на другое свободное время!")
+                await send_all_delayed(session=session)
+            except Exception as e:
+                logging.info(f"bot messages with {e}")
+                await create_delayed_message(chat_id=user.chat_id, text="Мастер отменил Вашу запись из-за непредвиденных обстоятельств.\nПредлагем записаться на другое свободное время!", session=session)
             await AppointmentModel.delete(session=session, appointment_id=apt.id)
             
     return "success"
@@ -99,7 +106,12 @@ async def _cancel_appointments_in_date_range(
 
     for apt in appointments:
         user = await UserModel.get_by_id(user_id=apt.user_id, session=session)
-        await bot.send_message(chat_id=user.chat_id, text=f"Мастер отменил Вашу запись по причине: {reason}.\nПредлагем записаться на другое свободное время!")    
+        try:
+            await bot.send_message(chat_id=user.chat_id, text=f"Мастер отменил Вашу запись по причине: {reason}.\nПредлагем записаться на другое свободное время!")    
+            await send_all_delayed(session=session)
+        except Exception as e:
+            logging.info(f"bot messages with {e}")
+            await create_delayed_message(chat_id=user.chat_id, text=f"Мастер отменил Вашу запись по причине: {reason}.\nПредлагем записаться на другое свободное время!", session=session)
         await AppointmentModel.delete(session=session, appointment_id=apt.id)
         cancelled.append(str(apt.id))
 
