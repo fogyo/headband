@@ -288,12 +288,13 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                             answer_txt += await make_user_answer(master_link=master_link)
                         else:
                             answer_txt += await make_master_answer(master_link=master_link)       
+                        await session.commit()                       
                         await message.answer(
                         answer_txt,
                         reply_markup=get_main_keyboard(role)
                     )
                     elif not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
-                        status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
+                        status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
                         status = await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
                         dev_link.status = 1
                         master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
@@ -302,7 +303,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         await state.update_data(role="master")
                         answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана. Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Платежи->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\n\n"
                         answer_txt+=await make_master_answer(master_link=master_link)
-
+                        await session.commit()
                         await message.answer(
                         answer_txt,
                         reply_markup=get_main_keyboard(role)
@@ -317,7 +318,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         await state.update_data(role="master")
                         answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке от разработчика. Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Платежи->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\n\n"
                         answer_txt+=await make_master_answer(master_link=master_link)
-
+                        await session.commit()
                         await message.answer(
                         answer_txt,
                         reply_markup=get_main_keyboard(role)
@@ -340,21 +341,21 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         logging.info("User added by deeplink")
                         answer_txt=f"🟢 Отлично! Вы добавлены в список постоянных клиентов мастера. Для Вас это означает, что Вы будете при записи видеть этого мастера в первую очередь.\n\n"
                         answer_txt+=await make_user_answer(master_link=master_link)
-
+                        await session.commit()
                         await message.answer(
                             answer_txt,
                             reply_markup=get_main_keyboard(role)
                         )
                     elif invited_role=="master":
                         if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
-                            status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
-                            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+                            status, new_master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
+                            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=new_master_id, session=session)
                         
                             await state.update_data(role="master")
                             logging.info("Master created by deeplink")
                             answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке мастера. Ваша учетная запись была создана.\n\n"
                             answer_txt+=await make_master_answer(master_link=master_link)
-
+                            await session.commit()
                             await message.answer(
                                 answer_txt,
                             reply_markup=get_main_keyboard(role)
@@ -369,6 +370,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 logging.info("Master info added by deeplink")
                                 answer_txt=f"🔴 К сожалению, по условиям нашей акции, можно использовать только чужие реферальные ссылки.\n\n"
                                 answer_txt+=await make_master_answer(master_link=master_link)
+                                await session.commit()
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
@@ -380,7 +382,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 logging.info("Master info added by deeplink")
                                 answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке мастера.\n\n"
                                 answer_txt+=await make_master_answer(master_link=master_link)
-                                
+                                await session.commit()
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
@@ -390,6 +392,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 logging.info("Master has subscription")
                                 answer_txt=f"🔴 К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n\n"
                                 answer_txt+=await make_master_answer(master_link=master_link)
+                                await session.commit()
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
@@ -399,11 +402,12 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 logging.info("Master has activated")
                                 answer_txt=f"🔴 К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n\n"
                                 answer_txt+=await make_master_answer(master_link=master_link)
+                                await session.commit()
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
                             )
-                await session.commit()
+                
 
 #------------BOT UTIL COMMANDS------------
 
