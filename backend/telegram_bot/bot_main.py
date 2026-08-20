@@ -226,7 +226,7 @@ def get_purchase_methods_keyboard(subscription_type: str) -> InlineKeyboardMarku
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"💳 Купить за деньги: {price_rub}", callback_data=money_callback)],
         [InlineKeyboardButton(text=f"🎯 Купить за баллы: {price_points}", callback_data=points_callback)],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="subscriptions_menu")]
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="subs_menu")]
     ])
 
 #------------BOT START------------
