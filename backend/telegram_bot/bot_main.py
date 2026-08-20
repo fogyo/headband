@@ -849,7 +849,7 @@ async def buy_base_points(callback: types.CallbackQuery, state: FSMContext):
                 return
             await miniapp_db_fcn.decrease_points(master_id=master.id, amount=3, session=session)
     await callback.message.edit_text(
-        "🎯 Поздравляем с покупкой месяца базовой подписки за баллы!"
+        "🎯 Поздравляем с покупкой месяца базовой подписки за баллы!",
         reply_markup=get_purchase_methods_keyboard("base")
     )
     await callback.answer()
