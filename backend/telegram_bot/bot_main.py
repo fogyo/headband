@@ -837,7 +837,6 @@ async def buy_base_points(callback: types.CallbackQuery, state: FSMContext):
                 )
                 await callback.answer()
                 return
-            await miniapp_db_fcn.add_to_sub_bank(level=1, master_id=master.id, session=session)
             ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
             points = ref_stats["invited_masters"]
             if points<3:
@@ -848,6 +847,8 @@ async def buy_base_points(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
                 return
             await miniapp_db_fcn.decrease_points(master_id=master.id, amount=3, session=session)
+            await miniapp_db_fcn.add_to_sub_bank(level=1, master_id=master.id, session=session)
+            
     await callback.message.edit_text(
         "🎯 Поздравляем с покупкой месяца базовой подписки за баллы!",
         reply_markup=get_purchase_methods_keyboard("base")
@@ -884,7 +885,6 @@ async def buy_partner_points(callback: types.CallbackQuery, state: FSMContext):
                 )
                 await callback.answer()
                 return
-            await miniapp_db_fcn.add_to_sub_bank(level=2, master_id=master.id, session=session)
             ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
             points = ref_stats["invited_masters"]
             if points<9:
@@ -895,6 +895,8 @@ async def buy_partner_points(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
                 return
             await miniapp_db_fcn.decrease_points(master_id=master.id, amount=9, session=session)
+            await miniapp_db_fcn.add_to_sub_bank(level=2, master_id=master.id, session=session)
+            
     await callback.message.edit_text(
         "🎯 Поздравляем с покупкой месяца партнерской подписки за баллы!",
         reply_markup=get_purchase_methods_keyboard("partner")
@@ -955,7 +957,7 @@ async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMCo
 async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMContext):
     """Обработка выбора пакета обычных токенов (заглушка)"""
     chat_id = callback.from_user.id
-
+    
     # TODO: здесь будет логика оплаты
     await callback.message.edit_text(
         f"🛒 Вы выбрали пакет {amount} токенов.\n"
