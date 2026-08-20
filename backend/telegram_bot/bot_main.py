@@ -916,7 +916,7 @@ async def handle_tokens_menu(callback: types.CallbackQuery, state: FSMContext):
             ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
             token, super_token = await miniapp_db_fcn.get_tokens_amount(chat_id=chat_id, session=session)
             await callback.message.edit_text(
-                f"🪙 Раздел токенов\n\nНа Вашем счету:\nТокенов: {token}\nСупер токенов: {super_token}\nРеферальных баллов: {ref_stats["invited_masters"]}\nВыберите, что хотите приобрести:",
+                f"🪙 Раздел токенов\n\nНа Вашем счету:\nТокенов: {token}\nСупер токенов: {super_token}\nРеферальных баллов: {ref_stats["invited_masters"]}\n\nВыберите, что хотите приобрести:",
                 reply_markup=get_tokens_main_keyboard()
             )
         await session.commit()
