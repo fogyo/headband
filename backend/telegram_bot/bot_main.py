@@ -214,7 +214,7 @@ def get_purchase_methods_keyboard(subscription_type: str) -> InlineKeyboardMarku
         money_callback = "buy_base_money"
         points_callback = "buy_base_points"
         price_rub = "500 руб"
-        price_points = "3 баллов"
+        price_points = "3 балла"
         sub_name = "базовой"
     else:
         money_callback = "buy_partner_money"
