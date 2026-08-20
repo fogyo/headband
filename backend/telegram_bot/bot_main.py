@@ -848,7 +848,7 @@ async def buy_base_points(callback: types.CallbackQuery, state: FSMContext):
                 return
             await miniapp_db_fcn.decrease_points(master_id=master.id, amount=3, session=session)
             await miniapp_db_fcn.add_to_sub_bank(level=1, master_id=master.id, session=session)
-            
+        await session.commit()      
     await callback.message.edit_text(
         "🎯 Поздравляем с покупкой месяца базовой подписки за баллы!",
         reply_markup=get_purchase_methods_keyboard("base")
@@ -896,7 +896,7 @@ async def buy_partner_points(callback: types.CallbackQuery, state: FSMContext):
                 return
             await miniapp_db_fcn.decrease_points(master_id=master.id, amount=9, session=session)
             await miniapp_db_fcn.add_to_sub_bank(level=2, master_id=master.id, session=session)
-            
+        await session.commit()     
     await callback.message.edit_text(
         "🎯 Поздравляем с покупкой месяца партнерской подписки за баллы!",
         reply_markup=get_purchase_methods_keyboard("partner")
@@ -957,13 +957,49 @@ async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMCo
 async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMContext):
     """Обработка выбора пакета обычных токенов (заглушка)"""
     chat_id = callback.from_user.id
-    
-    # TODO: здесь будет логика оплаты
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            master = await miniapp_db_fcn.get_master_by_chat(chat_id, session)
+            ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
+            points = ref_stats["invited_masters"]
+            if points<1:
+                await callback.message.edit_text(
+                    "❌ Баллов на Вашем счету недостаточно.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+            await miniapp_db_fcn.decrease_points(master_id=master.id, amount=1, session=session)
+            await miniapp_db_fcn.increase_tokens(session=session, chat_id=chat_id, amount=25)
+        await session.commit()      
     await callback.message.edit_text(
-        f"🛒 Вы выбрали пакет {amount} токенов.\n"
-        "Оплата будет добавлена позже.\n"
-        "Пока что это заглушка.",
+        f"✅ На Ваш счет добавлено 25 токенов",
         reply_markup=get_token_packages_keyboard("regular")  # остаёмся в этом же меню
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("buy_bonus_super"))
+async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка выбора пакета обычных токенов (заглушка)"""
+    chat_id = callback.from_user.id
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            master = await miniapp_db_fcn.get_master_by_chat(chat_id, session)
+            ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
+            points = ref_stats["invited_masters"]
+            if points<1:
+                await callback.message.edit_text(
+                    "❌ Баллов на Вашем счету недостаточно.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+            await miniapp_db_fcn.decrease_points(master_id=master.id, amount=1, session=session)
+            await miniapp_db_fcn.increase_super_tokens(session=session, chat_id=chat_id, amount=10)
+        await session.commit()      
+    await callback.message.edit_text(
+        f"✅ На Ваш счет добавлено 10 супер токенов",
+        reply_markup=get_token_packages_keyboard("super")  # остаёмся в этом же меню
     )
     await callback.answer()
 
