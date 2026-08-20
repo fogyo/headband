@@ -20,7 +20,7 @@ async def update_master(master_id: uuid.UUID, update_data: dict, session: AsyncS
     )
 
 async def check_master(chat_id: int, session: AsyncSession):
-    return await MasterModel.get_by_chat_id_tg(session=session, chat_id=chat_id) == None
+    return await MasterModel.get_by_chat_id_tg(session=session, chat_id=chat_id) != None
 
 
 

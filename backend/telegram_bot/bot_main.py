@@ -68,6 +68,24 @@ from backend.database import miniapp_db_fcn, AsyncSessionLocal
 MINI_APP_URL_CLIENT = os.getenv("MINI_APP_URL_CLIENT")
 MINI_APP_URL_MASTER = os.getenv("MINI_APP_URL_MASTER")
 
+async def make_user_answer(master_link: str):
+    answer_txt = f"✅ Ваш статус: Клиент.\n\n"
+    answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
+    answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
+    answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
+    answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены.\n\n"
+    answer_txt+=f"🫶 Приглашайте мастеров по своей реферальной ссылке и получайте за это бонусные баллы, которые можно потратить на токены и подписки!\nВаша реферальная ссылка: {master_link}"
+    return answer_txt
+
+async def make_master_answer(master_link: str):
+    answer_txt = f"✅ Ваш статус: Мастер.\n\n"
+    answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
+    answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
+    answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле.\n\n"
+    answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд.\n\n"
+    answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки.\n\n"
+    answer_txt+=f"🫶 Приглашайте мастеров по своей реферальной ссылке и получайте за это бонусные баллы, которые можно потратить на токены и подписки!\nВаша реферальная ссылка: {master_link}"
+    return answer_txt
 
 #------------BOT KEYBOARDS------------
 
@@ -160,6 +178,7 @@ def get_token_packages_keyboard(token_type: str) -> InlineKeyboardMarkup:
             ("100 токенов", "100", "650"),
         ]
         prefix = "regular"
+        bonus = "25 токенов"
     else:  # super
         packages = [
             ("1 супер токен", "1", "25"),
@@ -168,6 +187,7 @@ def get_token_packages_keyboard(token_type: str) -> InlineKeyboardMarkup:
             ("50 супер токенов", "50", "800"),
         ]
         prefix = "super"
+        bonus = "10 супер токенов"
 
     keyboard = []
     for label, amount, price in packages:
@@ -176,6 +196,8 @@ def get_token_packages_keyboard(token_type: str) -> InlineKeyboardMarkup:
             text=f"{label} – {price} руб.",
             callback_data=callback_data
         )])
+    bonus_callback = f"buy_bonus_{prefix}"
+    keyboard.append([InlineKeyboardButton(text=f"{bonus} - 1 бонусный балл",callback_data=bonus_callback)])
     # Кнопка назад (в главное меню токенов)
     keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="tokens_menu")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -183,6 +205,29 @@ def get_token_packages_keyboard(token_type: str) -> InlineKeyboardMarkup:
 class UserState(StatesGroup):
     role = State()
 
+def get_purchase_methods_keyboard(subscription_type: str) -> InlineKeyboardMarkup:
+    """
+    Возвращает клавиатуру с выбором способа оплаты для подписки.
+    subscription_type: 'base' или 'partner'
+    """
+    if subscription_type == "base":
+        money_callback = "buy_base_money"
+        points_callback = "buy_base_points"
+        price_rub = "500 руб"
+        price_points = "3 баллов"
+        sub_name = "базовой"
+    else:
+        money_callback = "buy_partner_money"
+        price_rub = "1500 руб"
+        price_points = "9 баллов"
+        points_callback = "buy_partner_points"
+        sub_name = "партнёрской"
+
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"💳 Купить за деньги: {price_rub}", callback_data=money_callback)],
+        [InlineKeyboardButton(text=f"🎯 Купить за баллы: {price_points}", callback_data=points_callback)],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="subscriptions_menu")]
+    ])
 
 #------------BOT START------------
 
@@ -198,18 +243,21 @@ async def cmd_start_simple(message: types.Message, state: FSMContext):
         )
     else:
         role_text = "Клиент" if role == "client" else "Мастер"
-        answer_txt = f"✅ Ваш статус: {role_text}\n\n"
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                chat_id = message.from_user.id
+                username = message.from_user.username
+                if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                    status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+                else:    
+                    master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                    master_id = master.id
+                master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+                
         if role == "client":
-            answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
-            answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
-            answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
-            answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены"
+            answer_txt = await make_user_answer(master_link=master_link)
         else:
-            answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-            answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-            answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-            answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-            answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
+            answer_txt = await make_master_answer(master_link=master_link)         
         await message.answer(
             answer_txt,
             reply_markup=get_main_keyboard(role)
@@ -229,56 +277,47 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                 dev_link = await miniapp_db_fcn.get_by_id_dev_link(link=uuid.UUID(ref_code), session=session)
                 if dev_link!=None:
                     if dev_link.status == 1:
-                        answer_txt=f"🔴 К сожалению, ссылка была активирована ранее\n\n"
-                        answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
+                        if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                            status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+                        else:    
+                            master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                            master_id = master.id
+                        master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+                        answer_txt=f"🔴 К сожалению, ссылка была активирована ранее.\n\n"
                         if role == "client":
-                            answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
-                            answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
-                            answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
-                            answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены"
+                            answer_txt += await make_user_answer(master_link=master_link)
                         else:
-                            answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                            answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                            answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                            answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                            answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
-                        
+                            answer_txt += await make_master_answer(master_link=master_link)       
                         await message.answer(
                         answer_txt,
                         reply_markup=get_main_keyboard(role)
                     )
-                    elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
+                    elif not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
                         status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
                         status = await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=master_id, session=session)
                         dev_link.status = 1
+                        master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
                         await session.flush()
+                         
                         await state.update_data(role="master")
                         answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке от разработчика. Ваша учетная запись была создана. Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Платежи->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\n\n"
-                        answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                        answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                        answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                        answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                        answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                        answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
-                    
+                        answer_txt+=await make_master_answer(master_link=master_link)
+
                         await message.answer(
                         answer_txt,
                         reply_markup=get_main_keyboard(role)
                     )
-                    elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) != None: 
+                    elif await miniapp_db_fcn.check_master(chat_id=chat_id, session=session): 
                         new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
                         status = await miniapp_db_fcn.add_to_sub_bank(level=dev_link.level, master_id=new_master.id, session=session)
                         dev_link.status = 1
+                        master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=new_master.id, session=session)
+                        
                         await session.flush()
                         await state.update_data(role="master")
                         answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке от разработчика. Вам доступен месяц пробного периода. С количеством Ваших актуальных подписок Вы можете ознакомиться в Платежи->Подписки. Там же происходит и активация подписок, которая позволит клиентам записываться к Вам.\n\n"
-                        answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                        answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                        answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                        answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                        answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                        answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
-                    
+                        answer_txt+=await make_master_answer(master_link=master_link)
+
                         await message.answer(
                         answer_txt,
                         reply_markup=get_main_keyboard(role)
@@ -286,35 +325,36 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                 else:
                     invited_role, master_id = await miniapp_db_fcn.get_referral_owner(link_id=uuid.UUID(ref_code), session=session)
                     if invited_role=="client":
-                        if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
+                        if not await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
                             await miniapp_db_fcn.create_user(chat_id=chat_id, username=username, session=session)
+                        if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session): 
+                            status, temp_master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+                        if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session): 
+                            temp_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                            temp_master_id = temp_master.id
+                        master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=temp_master_id, session=session)
+                        
                         user_id = await miniapp_db_fcn.get_user_id(chat_id=chat_id, session=session)
                         status = await miniapp_db_fcn.make_relationship_user_to_master(master_id=master_id, user_id=user_id, session=session)
                         await state.update_data(role="client")
                         logging.info("User added by deeplink")
-                        answer_txt=f"🟢 Отлично! Вы добавлены в список постоянных клиентов мастера. Для Вас это означает, что Вы будете при записи видеть этого мастера в первую очередь\n\n"
-                        answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                        answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
-                        answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
-                        answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
-                        answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены"
+                        answer_txt=f"🟢 Отлично! Вы добавлены в список постоянных клиентов мастера. Для Вас это означает, что Вы будете при записи видеть этого мастера в первую очередь.\n\n"
+                        answer_txt+=await make_user_answer(master_link=master_link)
 
                         await message.answer(
                             answer_txt,
                             reply_markup=get_main_keyboard(role)
                         )
                     elif invited_role=="master":
-                        if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session) == None:
-                            await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
+                        if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                            status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session, referrer_master_id=master_id)
+                            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+                        
                             await state.update_data(role="master")
                             logging.info("Master created by deeplink")
                             answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке мастера. Ваша учетная запись была создана.\n\n"
-                            answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                            answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                            answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                            answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                            answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                            answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
+                            answer_txt+=await make_master_answer(master_link=master_link)
+
                             await message.answer(
                                 answer_txt,
                             reply_markup=get_main_keyboard(role)
@@ -322,16 +362,13 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                         else:
                             new_master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
                             active, end_date, status = await miniapp_db_fcn.get_subscription_level(master_id=new_master.id, session=session)
+                            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=new_master.id, session=session)
+                        
                             if new_master.id == master_id:
                                 await state.update_data(role="master")
                                 logging.info("Master info added by deeplink")
                                 answer_txt=f"🔴 К сожалению, по условиям нашей акции, можно использовать только чужие реферальные ссылки.\n\n"
-                                answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                                answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                                answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                                answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                                answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                                answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
+                                answer_txt+=await make_master_answer(master_link=master_link)
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
@@ -342,12 +379,8 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 await state.update_data(role="master")
                                 logging.info("Master info added by deeplink")
                                 answer_txt=f"🟢 Отлично! Вы зашли по реферальной ссылке мастера.\n\n"
-                                answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                                answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                                answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                                answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                                answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                                answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
+                                answer_txt+=await make_master_answer(master_link=master_link)
+                                
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
@@ -356,12 +389,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 await state.update_data(role="master")
                                 logging.info("Master has subscription")
                                 answer_txt=f"🔴 К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n\n"
-                                answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                                answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                                answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                                answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                                answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                                answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
+                                answer_txt+=await make_master_answer(master_link=master_link)
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
@@ -370,12 +398,7 @@ async def cmd_start(message: types.Message, command: CommandStart, state: FSMCon
                                 await state.update_data(role="master")
                                 logging.info("Master has activated")
                                 answer_txt=f"🔴 К сожалению, по условиям нашей акции, эта реферальная ссылка подходит только для новых аккаунтов, на которых еще не было подписок и не активировались другие приглашения.\n\n"
-                                answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-                                answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                                answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                                answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                                answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                                answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
+                                answer_txt+=await make_master_answer(master_link=master_link)
                                 await message.answer(
                                     answer_txt,
                                 reply_markup=get_main_keyboard(role)
@@ -393,27 +416,21 @@ async def handle_role_selection(callback: types.CallbackQuery, state: FSMContext
 
             chat_id = callback.from_user.id
             username = callback.from_user.username
-            
-            if new_role == "master":
-                role_text = "Мастер"
-                answer_txt = f"✅ Ваш статус: {role_text}\n\n"
-                answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
-                    
-                if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
-                    await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+            if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
             else:
-                role_text = "Клиент"
-                answer_txt = f"✅ Ваш статус: {role_text}\n\n"
-                answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
-                answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
-                answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
-                answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены"
-                if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
+                master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                master_id = master.id
+            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+                        
+            if new_role == "master":
+                answer_txt =await make_master_answer(master_link=master_link)
+                
+            else:
+                answer_txt =await make_user_answer(master_link=master_link)
+                if not await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
                     await miniapp_db_fcn.create_user(chat_id=chat_id, username=username, session=session)
+            
             await callback.message.edit_text(
                 answer_txt,
                 reply_markup=get_main_keyboard(new_role)
@@ -426,18 +443,21 @@ async def back_to_main(callback: types.CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     role = user_data.get("role", "client")
     role_text = "Клиент" if role == "client" else "Мастер"
-    answer_txt = f"✅ Ваш статус: {role_text}\n\n"
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            chat_id = callback.from_user.id
+            username = callback.from_user.username
+            if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+            else:
+                master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                master_id = master.id
+            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+            
     if role == "client":
-        answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
-        answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
-        answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
-        answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены"
+        answer_txt = await make_user_answer(master_link=master_link)
     else:
-        answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-        answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-        answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-        answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-        answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
+        answer_txt = await make_master_answer(master_link=master_link)
     await callback.message.edit_text(
         answer_txt,
         reply_markup=get_main_keyboard(role)
@@ -472,25 +492,20 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
             await state.update_data(role=new_role)
             chat_id = callback.from_user.id
             username = callback.from_user.username
+            if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+            else:
+                master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                master_id = master.id
+            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+            
             if new_role=="master":
                 role_text = "Мастер"
-                answer_txt = f"✅ Ваш статус: {role_text}\n\n"
-                answer_txt+=f"📱 В нашем mini-app Вы можете ознакомиться с предстоящими записями, просматривать и создавать обучающие материалы, а также предложить клиентам попробовать на себе различные образы при помощи ИИ инструмента headbeauty.\n\n"
-                answer_txt+=f"✏️ Записаться к Вам смогут пользователи, которых Вы пригласили по ссылке, которая находится в Mini-App->Профиль->Персональная информация (для записи пользователей необходима базовая подписка). Если же у Вас есть партнерская подписка, Вы будете отображаться у всех пользователей по ближайшему метро к Вашему адресу.\n\n"
-                answer_txt+=f"👤 Headband позволяет Вам гибко настроить свое виртуальное рабочее пространство, поэтому обязательно ознакомьтесь со всеми вкладками в разделе Аккаунт в профиле\n\n"
-                answer_txt+=f"🎓 Наша обучающая платформа предоставляет доступ к проверенным модерацией и высококвалифицированными профессионалами гайдам. Если у Вас есть желание поделиться своим опытом с другими мастерами, Вы можете создать собственный гайд в Mini-App->Профиль->Гайды->Добавить гайд\n\n"
-                answer_txt+=f"📋 Ознакомиться с количеством подписок, приобрести и активировать подписку Вы можете в Платежи->Подписки"
-                
-                if await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
-                    await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+                answer_txt = await make_master_answer(master_link=master_link)
             else:
                 role_text = "Клиент"
-                answer_txt = f"✅ Ваш статус: {role_text}\n\n"
-                answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
-                answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
-                answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
-                answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены"
-                if await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
+                answer_txt = await make_user_answer(master_link=master_link)
+                if not await miniapp_db_fcn.check_user(chat_id=chat_id, session=session):
                     await miniapp_db_fcn.create_user(chat_id=chat_id, username=username, session=session)
             await callback.message.edit_text(
                 answer_txt,
@@ -508,17 +523,21 @@ async def handle_rating(callback: types.CallbackQuery, state: FSMContext):
         async with session.begin():
             appointment = await miniapp_db_fcn.get_appointment(appointment_id=appointment_id, session=session)
             await miniapp_db_fcn.create_rating_record(rating=rating, master_id=appointment.master_id, user_id=appointment.user_id, session=session)
+            chat_id = callback.from_user.id
+            username = callback.from_user.username
+            if not await miniapp_db_fcn.check_master(chat_id=chat_id, session=session):
+                status, master_id = await miniapp_db_fcn.create_master_tg(chat_id=chat_id, username=username, session=session)
+            else:
+                master = await miniapp_db_fcn.get_master_by_chat(chat_id=chat_id, session=session)
+                master_id = master.id
+            master_link, user_link = await miniapp_db_fcn.get_master_referral_links(master_id=master_id, session=session)
+            
             await session.commit()
     user_data = await state.get_data()
     role = user_data.get("role", "client")
     role_text = "Клиент" if role == "client" else "Мастер"
     answer_txt = "🔝 Спасибо за вашу оценку!\n\n"
-    answer_txt+=f"✅ Ваш статус: {role_text}\n\n"
-    answer_txt+=f"📱 В нашем mini-app Вы можете записаться к мастерам разных профилей, а также оценить и попробовать на себе наш ИИ инструмент headbeauty.\n\n"
-    answer_txt+=f"✏️ Записаться можно либо к мастерам, которые добавили Вас по своей личной headband ссылке, либо к мастерам, которые купили партнерскую подписку.\n\n"
-    answer_txt+=f"⭐ Headbeauty AI позволит Вам посмотреть, как на Вас будет выглядеть определенная прическа, укладка или цвет волос. Предпросмотр осуществляется за токены. "
-    answer_txt+=f"Приобрести, а также посмотреть количество токенов на Вашем аккаунте Вы можете в боте Платежи->Токены"
-    
+    answer_txt+=await make_user_answer(master_link=master_link)
     await callback.message.edit_text(
         answer_txt,
         reply_markup=get_main_keyboard(role)
@@ -563,6 +582,8 @@ async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext)
 
             sub_bank = await miniapp_db_fcn.get_unused_subs(master_id=master.id, session=session)
 
+            ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
+
             if active:
                 level_text = "базовая" if status ==  1 else "партнёрская" if status == 2 else status
                 end_date_str = end_date.strftime('%d.%m.%Y') if end_date else "неизвестно"
@@ -576,7 +597,8 @@ async def handle_subscriptions(callback: types.CallbackQuery, state: FSMContext)
             if sub_bank["stop_sub"]:
                 text+="Вы указали, что подписка автоматически продляться не будет\n\n"
             unused = sub_bank["base_sub"]+sub_bank["partner_sub"] 
-            
+            if ref_stats !=None:
+                text+=f"Реферальных баллов на Вашем счету: {ref_stats["invited_masters"]}\n\n"
             # 5. Получаем клавиатуру
             keyboard = get_subscriptions_keyboard(active=active, has_unused=(unused>0), stopping=sub_bank["stop_sub"])
 
@@ -765,6 +787,120 @@ async def stop_subscription(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     
 
+@dp.callback_query(F.data == "buy_base")
+async def buy_base_subscription(callback: types.CallbackQuery, state: FSMContext):
+    """Показывает выбор способа оплаты для базовой подписки"""
+    await callback.message.edit_text(
+        "📦 Выберите способ оплаты базовой подписки:",
+        reply_markup=get_purchase_methods_keyboard("base")
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "buy_partner")
+async def buy_partner_subscription(callback: types.CallbackQuery, state: FSMContext):
+    """Показывает выбор способа оплаты для партнёрской подписки"""
+    await callback.message.edit_text(
+        "📦 Выберите способ оплаты партнёрской подписки:",
+        reply_markup=get_purchase_methods_keyboard("partner")
+    )
+    await callback.answer()
+ 
+ #--------
+
+@dp.callback_query(F.data == "buy_base_money")
+async def buy_base_money(callback: types.CallbackQuery, state: FSMContext):
+    """Заглушка покупки базовой подписки за деньги"""
+    await callback.message.edit_text(
+        "💳 Покупка базовой подписки за деньги будет реализована позже.\n"
+        "Пока что это заглушка.",
+        reply_markup=get_purchase_methods_keyboard("base")  # возвращаем к выбору способа
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "buy_base_points")
+async def buy_base_points(callback: types.CallbackQuery, state: FSMContext):
+    """Заглушка покупки базовой подписки за баллы"""
+    user_data = await state.get_data()
+    role = user_data.get("role")
+    if role != "master":
+        await callback.answer("Только для мастеров", show_alert=True)
+        return
+
+    chat_id = callback.from_user.id
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            master = await miniapp_db_fcn.get_master_by_chat(chat_id, session)
+            if not master:
+                await callback.message.edit_text(
+                    "❌ Вы не зарегистрированы как мастер.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+            await miniapp_db_fcn.add_to_sub_bank(level=1, master_id=master.id, session=session)
+            ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
+            points = ref_stats["invited_masters"]
+            if points<3:
+                await callback.message.edit_text(
+                    "❌ Баллов на Вашем счету недостаточно.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+            await miniapp_db_fcn.decrease_points(master_id=master.id, amount=3, session=session)
+    await callback.message.edit_text(
+        "🎯 Поздравляем с покупкой месяца базовой подписки за баллы!"
+        reply_markup=get_purchase_methods_keyboard("base")
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "buy_partner_money")
+async def buy_partner_money(callback: types.CallbackQuery, state: FSMContext):
+    """Заглушка покупки партнёрской подписки за деньги"""
+    await callback.message.edit_text(
+        "💳 Покупка партнёрской подписки за деньги будет реализована позже.\n"
+        "Пока что это заглушка.",
+        reply_markup=get_purchase_methods_keyboard("partner")
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "buy_partner_points")
+async def buy_partner_points(callback: types.CallbackQuery, state: FSMContext):
+    """Заглушка покупки партнёрской подписки за баллы"""
+    user_data = await state.get_data()
+    role = user_data.get("role")
+    if role != "master":
+        await callback.answer("Только для мастеров", show_alert=True)
+        return
+
+    chat_id = callback.from_user.id
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            master = await miniapp_db_fcn.get_master_by_chat(chat_id, session)
+            if not master:
+                await callback.message.edit_text(
+                    "❌ Вы не зарегистрированы как мастер.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+            await miniapp_db_fcn.add_to_sub_bank(level=2, master_id=master.id, session=session)
+            ref_stats = await miniapp_db_fcn.get_referral_stats(master_id=master.id, session=session)
+            points = ref_stats["invited_masters"]
+            if points<9:
+                await callback.message.edit_text(
+                    "❌ Баллов на Вашем счету недостаточно.",
+                    reply_markup=get_payments_keyboard()
+                )
+                await callback.answer()
+                return
+            await miniapp_db_fcn.decrease_points(master_id=master.id, amount=9, session=session)
+    await callback.message.edit_text(
+        "🎯 Поздравляем с покупкой месяца партнерской подписки за баллы!"
+        reply_markup=get_purchase_methods_keyboard("partner")
+    )
+    await callback.answer()
+
 #------------BOT TOKEN COMMANDS------------
 
 @dp.callback_query(F.data == "tokens_menu")
@@ -806,6 +942,20 @@ async def handle_buy_super_tokens(callback: types.CallbackQuery, state: FSMConte
 async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMContext):
     """Обработка выбора пакета обычных токенов (заглушка)"""
     amount = callback.data.split("_")[2]  # например, buy_regular_100 -> "100"
+    # TODO: здесь будет логика оплаты
+    await callback.message.edit_text(
+        f"🛒 Вы выбрали пакет {amount} токенов.\n"
+        "Оплата будет добавлена позже.\n"
+        "Пока что это заглушка.",
+        reply_markup=get_token_packages_keyboard("regular")  # остаёмся в этом же меню
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("buy_bonus_regular"))
+async def handle_buy_regular_package(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка выбора пакета обычных токенов (заглушка)"""
+    chat_id = callback.from_user.id
+
     # TODO: здесь будет логика оплаты
     await callback.message.edit_text(
         f"🛒 Вы выбрали пакет {amount} токенов.\n"

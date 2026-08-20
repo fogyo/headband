@@ -368,15 +368,14 @@ export default function ProfilePersonalInfoPage() {
           <h3 className="text-[20px] tracking-[-1px] font-['Sofia_Sans'] text-black mb-2">Для мастеров</h3>
           <div className="mb-4 text-sm font-['Sofia_Sans'] text-black">
             <p className="font-extrabold">Приводите мастеров и получайте бонусы!</p>
-            <p>За каждых 3 друзей, оформивших подписку, — месяц использования headband бесплатно</p>
+            <p>За каждого мастера, оформившего подписку, Вы получаете баллы (1 - за оформление базовой и 3 - за оформление партнерской). Вы можете потратить эти баллы на месяц бесплатной подписки или бесплатные токены</p>
           </div>
 
           <div className="flex flex-col items-center mb-6">
             <div className="w-60 h-60 relative">
-              <img src={masterBarImages[masterState]} alt="master bar" className="w-full h-full object-contain" />
               <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
                 <span className="text-5xl font-['Sofia_Sans'] text-black leading-none">{mastersCount}</span>
-                <span className="text-[10px] font-['Sofia_Sans'] text-black/50 text-center mt-1">мастеров оформили headband pro</span>
+                <span className="text-[10px] font-['Sofia_Sans'] text-black/50 text-center mt-1">бонусных баллов</span>
               </div>
             </div>
           </div>

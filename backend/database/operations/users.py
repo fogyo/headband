@@ -8,7 +8,7 @@ from backend.database.operations import headbeauty
 
 async def check_user(chat_id: int,
                      session: AsyncSession):
-    return await UserModel.get_by_chat_id(session=session, chat_id=chat_id) == None
+    return await UserModel.get_by_chat_id(session=session, chat_id=chat_id) != None
 
 
 async def create_user(

@@ -52,3 +52,6 @@ async def get_referral_owner(
         return "master", master.id
     else:
         return "client", master.id
+
+async def decrease_points(master_id: uuid.UUID, amount: int, session: AsyncSession):
+    return await MasterReferralModel.decrement_points(session=session, master_id=master_id, points=amount)

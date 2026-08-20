@@ -55,11 +55,15 @@ async def create_subscription(
             if 1<=level<=2:
                 if referrer_id:
                     master = await MasterModel.get_by_id(session=session, master_id=master_id)
+                    points = 1
+                    if level == 2:
+                        points = 3
                     if master and not master.referral_counted:
                         # Засчитываем реферал
-                        await MasterReferralModel.increment_masters(
+                        await MasterReferralModel.increment_points(
                             session=session,
-                            master_id=referrer_id
+                            master_id=referrer_id,
+                            points=points
                         )
 
                         # Отмечаем, что реферал засчитан
@@ -153,3 +157,4 @@ async def change_sub_level(master_id: uuid.UUID, session: AsyncSession):
 
 async def stop_subscription(master_id: uuid.UUID, session: AsyncSession):
     return await SubscriptionBankModel.set_stop_sub(master_id=master_id, session=session)
+

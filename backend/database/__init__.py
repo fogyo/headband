@@ -1617,7 +1617,7 @@ class MasterReferralModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     master_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("masters.id", ondelete="CASCADE"),
                                                  unique=True)
-    invited_masters_count: Mapped[int] = mapped_column(BigInteger, default=0)
+    invited_masters_count_points: Mapped[int] = mapped_column(BigInteger, default=0)
 
     # Relationships
     master: Mapped["MasterModel"] = relationship("MasterModel", back_populates="referral_stats", uselist=False)
@@ -1638,10 +1638,19 @@ class MasterReferralModel(Base):
         return result.scalars().first()
 
     @classmethod
-    async def increment_masters(cls, session: AsyncSession, master_id: uuid.UUID) -> str:
+    async def increment_points(cls, session: AsyncSession, master_id: uuid.UUID, points: int) -> str:
         """Увеличить счетчик приглашенных мастеров"""
         query = update(cls).where(cls.master_id == master_id).values(
-            invited_masters_count=cls.invited_masters_count + 1
+            invited_masters_count=cls.invited_masters_count_points + points
+        )
+        await session.execute(query)
+        return "success"
+    
+    @classmethod
+    async def decrement_points(cls, session: AsyncSession, master_id: uuid.UUID, points: int) -> str:
+        """Уменьшить счетчик приглашенных мастеров"""
+        query = update(cls).where(cls.master_id == master_id).values(
+            invited_masters_count=cls.invited_masters_count_points - points
         )
         await session.execute(query)
         return "success"
@@ -1654,7 +1663,7 @@ class MasterReferralModel(Base):
         if not referral:
             return None
         return {
-            "invited_masters": referral.invited_masters_count
+            "invited_masters": referral.invited_masters_count_points
         }
 
 class CardModel(Base):
