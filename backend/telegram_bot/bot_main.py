@@ -257,7 +257,8 @@ async def cmd_start_simple(message: types.Message, state: FSMContext):
         if role == "client":
             answer_txt = await make_user_answer(master_link=master_link)
         else:
-            answer_txt = await make_master_answer(master_link=master_link)         
+            answer_txt = await make_master_answer(master_link=master_link)   
+        await session.commit()      
         await message.answer(
             answer_txt,
             reply_markup=get_main_keyboard(role)
@@ -515,8 +516,9 @@ async def switch_role(callback: types.CallbackQuery, state: FSMContext):
                 answer_txt,
                 reply_markup=get_main_keyboard(new_role)
             )
-            await callback.answer()
             await session.commit()
+            await callback.answer()
+            
 
 @dp.callback_query(F.data.startswith("rating_"))
 async def handle_rating(callback: types.CallbackQuery, state: FSMContext):

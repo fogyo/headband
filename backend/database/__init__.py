@@ -154,6 +154,7 @@ class AdminModel(Base):
         """Обновляет данные администратора (например, пароль)"""
         query = update(cls).where(cls.id == admin_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -284,6 +285,7 @@ class CategoryModel(Base):
     async def update(cls, session: AsyncSession, category_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == category_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -562,6 +564,7 @@ class MasterModel(Base):
     async def update(cls, session: AsyncSession, master_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == master_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -569,6 +572,7 @@ class MasterModel(Base):
         """Отметить, что реферал засчитан"""
         query = update(cls).where(cls.id == master_id).values(referral_counted=True)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -694,6 +698,7 @@ class WorkingDayModel(Base):
     async def update(cls, session: AsyncSession, wd_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == wd_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
 class WeekTemplateModel(Base):
@@ -739,6 +744,7 @@ class WeekTemplateModel(Base):
     async def update(cls, session: AsyncSession, template_id: uuid.UUID, update_data: dict) -> str:
         query = update(cls).where(cls.id == template_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
 class MasterAbsenceModel(Base):
@@ -872,6 +878,7 @@ class AddressModel(Base):
     async def update(cls, session: AsyncSession, address_id: uuid.UUID, update_data: dict) -> str:
         query = update(cls).where(cls.id == address_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
 class PriceModel(Base):
@@ -936,6 +943,7 @@ class PriceModel(Base):
     async def update(cls, session: AsyncSession, price_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == price_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1060,12 +1068,14 @@ class AppointmentModel(Base):
     async def confirm(cls, session: AsyncSession, id: uuid.UUID):
         query = update(cls).where(cls.id ==id).values(status=AppointmentStatus.CONFIRMED.value)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
     async def cancel(cls, session: AsyncSession, id: uuid.UUID):
         query = update(cls).where(cls.id == id).values(status=AppointmentStatus.CANCELLED.value)
         await session.execute(query)
+        await session.flush()
         return "success"
 
 class GuidesModel(Base):
@@ -1160,6 +1170,7 @@ class GuidesModel(Base):
         update_data["guide_status"] = GuideStatus.PENDING.value
         query = update(cls).where(cls.id ==id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1182,6 +1193,7 @@ class GuidesModel(Base):
             update_data["guide_approved"] = date.today()
         query = update(cls).where(cls.id == guide_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1233,6 +1245,7 @@ class GuideTextStepModel(Base):
     async def update(cls, session: AsyncSession, step_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == step_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1278,6 +1291,7 @@ class GuideVideoStepModel(Base):
     async def update(cls, session: AsyncSession, step_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == step_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1366,6 +1380,7 @@ class GuideStatModel(Base):
     async def update(cls, session: AsyncSession, stat_id: uuid.UUID, update_data: dict) -> str:
         query = update(cls).where(cls.id == stat_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1441,6 +1456,7 @@ class EarningsModel(Base):
     async def update(cls, session: AsyncSession, earning_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == earning_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1497,6 +1513,7 @@ class PrepayModel(Base):
     async def update(cls, session: AsyncSession, prepay_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == prepay_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1544,6 +1561,7 @@ class MasterNotificationModel(Base):
         """Обновление настроек уведомлений"""
         query = update(cls).where(cls.master_id == master_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
 class SubscriptionModel(Base):
@@ -1596,12 +1614,14 @@ class SubscriptionModel(Base):
     async def update(cls, session: AsyncSession, subscription_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == subscription_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
     def update_sync(cls, session, subscription_id: uuid.UUID, update_data: dict):
         query = update(cls).where(cls.id == subscription_id).values(**update_data)
         session.execute(query)
+        session.flush()
         return "success"
 
     @classmethod
@@ -1644,6 +1664,7 @@ class MasterReferralModel(Base):
             invited_masters_count=cls.invited_masters_count_points + points
         )
         await session.execute(query)
+        await session.flush()
         return "success"
     
     @classmethod
@@ -1653,6 +1674,7 @@ class MasterReferralModel(Base):
             invited_masters_count=cls.invited_masters_count_points - points
         )
         await session.execute(query)
+        await session.flush()
         return "success"
 
 
@@ -1700,6 +1722,7 @@ class CardModel(Base):
     async def update(cls, session: AsyncSession, card_id: uuid.UUID, update_data: dict) -> str:
         query = update(cls).where(cls.id == card_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1758,6 +1781,7 @@ class WorkFilesModel(Base):
     async def update(cls, session: AsyncSession, file_id: uuid.UUID, update_data: dict) -> str:
         query = update(cls).where(cls.id == file_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
 class RatingModel(Base):
@@ -1921,6 +1945,7 @@ class HeadbeautySessionModel(Base):
         """Обновляет поля сессии (кроме created_at, если оно явно не передано)"""
         query = update(cls).where(cls.id == session_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -1988,6 +2013,7 @@ class HaircutTemplateModel(Base):
         """Обновляет данные шаблона"""
         query = update(cls).where(cls.id == template_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2067,6 +2093,7 @@ class FaceParametersModel(Base):
         """Обновляет параметры лица"""
         query = update(cls).where(cls.id == param_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2133,10 +2160,11 @@ class HaircutRecommendationModel(Base):
         return result.scalars().first()
 
     @classmethod
-    def update(cls, session: AsyncSession, rec_id: uuid.UUID, update_data: dict) -> str:
+    def update(cls, session, rec_id: uuid.UUID, update_data: dict) -> str:
         """Обновляет рекомендации"""
         query = update(cls).where(cls.id == rec_id).values(**update_data)
         session.execute(query)
+        session.flush()
         return "success"
 
     @classmethod
@@ -2200,6 +2228,7 @@ class FaceHairTemplateModel(Base):
         """Обновляет данные шаблона"""
         query = update(cls).where(cls.id == template_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2263,6 +2292,7 @@ class ColorTemplateModel(Base):
         """Обновляет данные шаблона"""
         query = update(cls).where(cls.id == template_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2323,6 +2353,7 @@ class PermsTemplateModel(Base):
         """Обновляет данные шаблона"""
         query = update(cls).where(cls.id == template_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2369,6 +2400,7 @@ class TokenModel(Base):
         """Обновляет произвольные поля (использовать с осторожностью)"""
         query = update(cls).where(cls.id == token_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2378,6 +2410,7 @@ class TokenModel(Base):
             tokens=cls.tokens + amount
         )
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2387,6 +2420,7 @@ class TokenModel(Base):
             tokens=cls.tokens - 1
         )
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2396,6 +2430,7 @@ class TokenModel(Base):
             super_tokens=cls.super_tokens + amount
         )
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2405,6 +2440,7 @@ class TokenModel(Base):
             super_tokens=cls.super_tokens - 1
         )
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2495,6 +2531,7 @@ class PreviewModel(Base):
         """Обновляет URL изображения превью"""
         query = update(cls).where(cls.id == preview_id).values(img_url=new_img_url)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2502,6 +2539,7 @@ class PreviewModel(Base):
         """Обновляет URL изображения превью"""
         query = update(cls).where(cls.id == preview_id).values(saved=True)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2575,6 +2613,7 @@ class SubscriptionBankModel(Base):
         """Обновляет произвольные поля (с осторожностью)"""
         query = update(cls).where(cls.id == record_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2594,6 +2633,7 @@ class SubscriptionBankModel(Base):
             base_sub=cls.base_sub + amount
         )
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2603,6 +2643,7 @@ class SubscriptionBankModel(Base):
             partner_sub=cls.partner_sub + amount
         )
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2613,6 +2654,7 @@ class SubscriptionBankModel(Base):
             change_level = False
         )
         session.execute(query)
+        session.flush()
         return "success"
 
     @classmethod
@@ -2623,6 +2665,7 @@ class SubscriptionBankModel(Base):
             change_level=False
         )
         session.execute(query)
+        session.flush()
         return "success"
 
     @classmethod
@@ -2630,6 +2673,7 @@ class SubscriptionBankModel(Base):
         """Устанавливает флаг разрешения смены уровня"""
         query = update(cls).where(cls.master_id == master_id).values(change_level=~cls.change_level)
         await session.execute(query)
+        await session.flush()
         return "success"
     
     @classmethod
@@ -2637,6 +2681,7 @@ class SubscriptionBankModel(Base):
         """Устанавливает флаг разрешения смены уровня"""
         query = update(cls).where(cls.master_id == master_id).values(stop_sub=~cls.stop_sub)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2709,6 +2754,7 @@ class SupportModel(Base):
         """Обновляет статус заявки"""
         query = update(cls).where(cls.id == request_id).values(status=new_status.value)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -2969,6 +3015,7 @@ class CityTemplateModel(Base):
         """Обновляет данные записи."""
         query = update(cls).where(cls.id == template_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -3027,6 +3074,7 @@ class MetroTemplateModel(Base):
     async def update(cls, session: AsyncSession, metro_id: uuid.UUID, update_data: dict) -> str:
         query = update(cls).where(cls.id == metro_id).values(**update_data)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -3129,6 +3177,7 @@ class UniqueDevReferalLinksModel(Base):
     async def update_status(cls, session: AsyncSession, link_id: uuid.UUID, new_status: LinkStatus) -> str:
         query = update(cls).where(cls.id == link_id).values(status=new_status.value)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -3197,6 +3246,7 @@ class AppointmentChatModel(Base):
     async def update_text(cls, session: AsyncSession, chat_id: uuid.UUID, new_text: str) -> str:
         query = update(cls).where(cls.id == chat_id).values(text=new_text)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -3273,6 +3323,7 @@ class DelayedMessagesModel(Base):
         """Обновляет статус сообщения на SENT."""
         query = update(cls).where(cls.id == msg_id).values(status=MessageStatus.SENT.value)
         await session.execute(query)
+        await session.flush()
         return "success"
 
     @classmethod
@@ -3280,6 +3331,7 @@ class DelayedMessagesModel(Base):
         """Обновляет статус сообщения на SENT."""
         query = update(cls).where(cls.id == msg_id).values(status=MessageStatus.SENT.value)
         session.execute(query)
+        session.flush()
         return "success"
 
     @classmethod
